@@ -9,8 +9,9 @@
     "start": "vite preview",
     "preview": "vite preview",
     "types:check": "tsc --noEmit",
-    "deploy": "wrangler deploy",
-    "preview:cf": "wrangler dev"
+    "deploy": "npm run build && wrangler deploy",
+    "preview:cf": "wrangler dev",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.32",
@@ -25,6 +26,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.54.4",
     "@cloudflare/workers-types": "^5.20260905.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/mdx": "^2.0.14",

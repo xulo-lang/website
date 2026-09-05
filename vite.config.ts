@@ -3,13 +3,14 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { fumadocsMdx } from 'fumadocs-mdx/vite';
-import { nitro } from 'nitro/vite';
+import { cloudflare } from '@cloudflare/vite-plugin';
 
 export default defineConfig({
   server: {
     port: 3000,
   },
   plugins: [
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     fumadocsMdx(),
     tailwindcss(),
     tanstackStart({
@@ -18,10 +19,6 @@ export default defineConfig({
       },
     }),
     react(),
-    // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
-    nitro({
-      preset: 'cloudflare',
-    }),
   ],
   resolve: {
     tsconfigPaths: true,
