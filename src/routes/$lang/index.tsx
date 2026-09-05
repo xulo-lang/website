@@ -91,7 +91,7 @@ function Home() {
                   : 'A simple dashboard layout, described in just a few lines.'}
               </p>
               <CodeBlock>
-                <Pre>{`Screen {
+                <Pre lang="js">{`Screen {
   Header {
     Text("${isZh ? '仪表盘' : 'Dashboard'}")
   }
