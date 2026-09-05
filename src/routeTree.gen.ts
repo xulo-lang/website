@@ -9,18 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LangIndexRouteImport } from './routes/$lang/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as LangDocsSplatRouteImport } from './routes/$lang/docs/$'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
   id: '/llms-full.txt',
   path: '/llms-full.txt',
@@ -48,7 +42,6 @@ const LangDocsSplatRoute = LangDocsSplatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/api/search': typeof ApiSearchRoute
@@ -56,7 +49,6 @@ export interface FileRoutesByFullPath {
   '/$lang/docs/$': typeof LangDocsSplatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/api/search': typeof ApiSearchRoute
@@ -65,7 +57,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/api/search': typeof ApiSearchRoute
@@ -75,23 +66,12 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/llms-full.txt'
-    | '/llms.txt'
-    | '/api/search'
-    | '/$lang/'
-    | '/$lang/docs/$'
+    '/llms-full.txt' | '/llms.txt' | '/api/search' | '/$lang/' | '/$lang/docs/$'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/llms-full.txt'
-    | '/llms.txt'
-    | '/api/search'
-    | '/$lang'
-    | '/$lang/docs/$'
+    '/llms-full.txt' | '/llms.txt' | '/api/search' | '/$lang' | '/$lang/docs/$'
   id:
     | '__root__'
-    | '/'
     | '/llms-full.txt'
     | '/llms.txt'
     | '/api/search'
@@ -100,7 +80,6 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   ApiSearchRoute: typeof ApiSearchRoute
@@ -110,13 +89,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/llms-full.txt': {
       id: '/llms-full.txt'
       path: '/llms-full.txt'
@@ -156,7 +128,6 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   LlmsFullDottxtRoute: LlmsFullDottxtRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   ApiSearchRoute: ApiSearchRoute,
