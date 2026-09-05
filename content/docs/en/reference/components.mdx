@@ -1,0 +1,193 @@
+---
+title: Components
+description: Component naming conventions and composition in XULO.
+---
+
+## Component Naming
+
+In XULO, any **PascalCase** identifier is a component. There are no built-in components — component names are conventions, not reserved words.
+
+```js
+Screen {
+  Header {
+    Text("Dashboard")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "Stats", radius: "lg") {
+        Text("3,214 accounts")
+      }
+    }
+  }
+}
+```
+
+## Recommended Component Names
+
+The following names are **recommended conventions** inspired by [shadcn/ui](https://ui.shadcn.com). You are free to use any PascalCase name that fits your domain.
+
+| Name | Category | Typical use |
+|------|----------|-------------|
+| **Layout** | | |
+| `Screen` | Root | Root container for a page |
+| `VStack`, `HStack`, `ZStack` | Layout | Vertical / horizontal / overlay stack |
+| `Fill` | Layout | Flexible spacer (flex: 1) |
+| `Center` | Layout | Centering container |
+| `Spacer` | Layout | Empty space |
+| `Separator` | Layout | Visual divider line |
+| `ScrollArea` | Layout | Scrollable container |
+| `Resizable` | Layout | Resizable panel split |
+| **Content** | | |
+| `Text` | Content | Text display |
+| `Badge` | Content | Label / status tag |
+| `Avatar` | Content | User image with fallback |
+| `Image` | Content | Image display |
+| **Forms** | | |
+| `Button` | Interactive | Button (use variants: `primary`, `outline`, `ghost`, `destructive`) |
+| `Input` | Interactive | Text input field |
+| `Textarea` | Interactive | Multi-line text input |
+| `Checkbox` | Interactive | Checkbox toggle |
+| `Switch` | Interactive | On/off toggle |
+| `Select` | Interactive | Dropdown select |
+| `Combobox` | Interactive | Searchable dropdown |
+| `Slider` | Interactive | Range slider |
+| `RadioGroup` | Interactive | Radio button group |
+| `Field` | Form | Label + input wrapper |
+| `InputGroup` | Form | Input with addons (prefix/suffix) |
+| **Navigation** | | |
+| `Link` | Interactive | Navigation link |
+| `Tabs` | Navigation | Tabbed interface |
+| `Breadcrumb` | Navigation | Breadcrumb trail |
+| `Pagination` | Navigation | Page navigation |
+| `NavigationMenu` | Navigation | Top-level nav |
+| `Sidebar` | Navigation | Side navigation panel |
+| **Data Display** | | |
+| `Card` | Container | Card container |
+| `CardHeader`, `CardContent`, `CardFooter` | Container | Card sub-parts |
+| `CardTitle`, `CardDescription` | Container | Card text elements |
+| `Table` | Data | Data table |
+| `Accordion` | Data | Collapsible sections |
+| `Collapsible` | Data | Toggle show/hide |
+| **Overlays** | | |
+| `Dialog` | Overlay | Modal dialog |
+| `Sheet` | Overlay | Side panel |
+| `Drawer` | Overlay | Bottom sheet |
+| `AlertDialog` | Overlay | Confirmation dialog |
+| `Popover` | Overlay | Floating popover |
+| `Tooltip` | Overlay | Hover tooltip |
+| `DropdownMenu` | Overlay | Context dropdown |
+| **Feedback** | | |
+| `Alert` | Feedback | Callout / alert box |
+| `Progress` | Feedback | Progress bar |
+| `Skeleton` | Feedback | Loading placeholder |
+| `Spinner` | Feedback | Loading indicator |
+
+## Implicit Parameters
+
+Each component can define a default property for its first positional argument. Writing `Text("Hi")` is identical to writing `Text(content: "Hi")` — the parser maps the shorthand to the named attribute automatically.
+
+| Component | Recommended first param | Shorthand | Explicit |
+|-----------|------------------------|-----------|----------|
+| `Text` | `content` | `Text("Hello")` | `Text(content: "Hello")` |
+| `Button` | `label` | `Button("Submit")` | `Button(label: "Submit")` |
+| `Input` | `placeholder` | `Input("Email")` | `Input(placeholder: "Email")` |
+| `Image` | `src` | `Image("logo.png")` | `Image(src: "logo.png")` |
+| `Link` | `label` | `Link("Home")` | `Link(label: "Home")` |
+| `Field` | `label` | `Field("Name") { Input() }` | `Field(label: "Name") { Input() }` |
+
+```js
+// Shorthand — first positional arg maps implicitly
+Text("Hello World")
+Button("Click Me")
+Input("Enter email")
+Image("avatar.png")
+Link("Go Home")
+Field("Password") { Input() }
+
+// Equivalent explicit form
+Text(content: "Hello World")
+Button(label: "Click Me")
+Input(placeholder: "Enter email")
+Image(src: "avatar.png")
+Link(label: "Home")
+Field(label: "Password") { Input() }
+```
+
+## Fill (Flexible Spacer)
+
+`Fill` is a zero-intrinsic-size container that expands to fill the remaining space in its parent. Multiple `Fill` children share the space equally.
+
+- Semantically equivalent to CSS Flexbox `flex: 1` (`flex-grow: 1`).
+- Inside a `VStack`, fills the **vertical** remaining space.
+- Inside an `HStack`, fills the **horizontal** remaining space.
+- Has no border or background unless explicitly set via `bg`.
+- Can contain child elements, which are laid out inside it.
+
+```js
+// Header + Fill(expand) + Footer
+VStack {
+  Text("Header")
+  Fill {
+    VStack {
+      Text("Content")
+    }
+  }
+  Text("Footer")
+}
+
+// Multiple Fill share space equally
+HStack {
+  Fill { Text("Left") }
+  Fill { Text("Right") }
+}
+```
+
+## Component Composition
+
+```js
+// Block syntax with children
+VStack(spacing: 16) {
+  Text("Hello")
+  Button {
+    Text("Submit")
+  }
+}
+
+// Parentheses only (no children)
+Text("Hello", color: "blue")
+
+// Nested
+Screen {
+  Center {
+    Card(width: 400, radius: "lg") {
+      Text("Welcome")
+    }
+  }
+}
+```
+
+## Conditional Rendering
+
+```js
+if isLoggedIn {
+  Text("Welcome back!")
+} else {
+  Button {
+    Text("Sign in")
+  }
+}
+```
+
+## List Rendering
+
+```js
+for item in items {
+  Text(item)
+}
+```
+
+In a UI Block, `if` and `for` are **UI logic nodes**, not ordinary statements:
+
+- `if` returns `View` or `null`.
+- `for` maps its body into `list<View>`.
+- Only UI elements are allowed inside `{ }` — no variable declarations or assignments.

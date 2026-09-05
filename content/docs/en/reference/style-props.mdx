@@ -1,0 +1,81 @@
+---
+title: Style Props
+description: Quick reference for style and layout attributes in XULO.
+---
+
+XULO uses **short** style attribute names, avoiding verbose CSS-style naming.
+
+## Quick Reference
+
+| Attribute | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `color` | `string` | Text color | `color: "#ff0000"` |
+| `bg` | `string` | Background color | `bg: "#1a1a2e"` |
+| `bgImage` | `string` | Background image URL | `bgImage: "/img/hero.png"` |
+| `border` | `string` | Border color | `border: "#4a90d9"` |
+| `size` | `number` | Font size (px) | `size: 16` |
+| `weight` | `string` | Font weight | `weight: "bold"` |
+| `padding` | `number` | Inner spacing | `padding: 8` |
+| `margin` | `number` | Outer spacing | `margin: 4` |
+| `width` | `number` | Width | `width: 200` |
+| `height` | `number` | Height | `height: 24` |
+| `radius` | `number` | Border radius | `radius: 4` |
+| `opacity` | `number` | Opacity (0.0–1.0) | `opacity: 0.8` |
+| `alignment` | `string` | Cross-axis alignment | `alignment: "center"` |
+| `justify` | `string` | Main-axis distribution | `justify: "space-between"` |
+
+:::note[Backward Compatibility]
+Long names (`backgroundColor`, `fontSize`, `fontWeight`, `borderRadius`, `borderColor`) still work, but new code should use the short names.
+:::
+
+## Layout Size Literals
+
+In layout attributes (`width`, `height`, `maxWidth`, etc.), besides numbers (logical pixels) and quoted percentage strings (`"100%"`), the following **reserved keywords** are available as string literals:
+
+- `"fill"` — Fills the remaining space in the parent's main axis. Equivalent to using the `Fill` component (CSS: `flex: 1` / SwiftUI: `.infinity`).
+- `"auto"` — Sizes to the content (CSS: `auto` / SwiftUI: `.intrinsic`).
+
+```js
+// Correct usage
+VStack(height: "fill") {
+  Text("Hello")
+}
+HStack(width: "fill") {
+  Text("Left")
+  Spacer()
+  Text("Right")
+}
+VStack(width: "fill", height: "auto") {
+  Text("Auto height")
+}
+
+// Incorrect usage
+VStack(height: fill)   // Error: missing quotes
+VStack(width: 100%)    // Error: percentage needs quotes
+```
+
+## `bg` vs `bgImage`
+
+**`bg` (color) and `bgImage` (image) are strictly separated.**
+
+| Field | Accepts | Rejects |
+|-------|---------|---------|
+| `bg` | HEX (`#fff`), RGB (`rgb(255,0,0)`), theme ref (`$theme.surface`) | Image URLs, `url(...)` |
+| `bgImage` | Image URL (`"/img/hero.png"`) | Color values, theme refs |
+
+```js
+// Correct: color and image separated
+VStack(bg: "#1a1a2e", bgImage: "/img/hero.png") {
+  Text("Hello")
+}
+
+// Incorrect: image URL cannot be assigned to bg
+VStack(bg: "/img/hero.png") {   // Compile error
+  Text("Hello")
+}
+
+// Correct: pure color
+VStack(bg: "$theme.surface") {
+  Text("Hello")
+}
+```

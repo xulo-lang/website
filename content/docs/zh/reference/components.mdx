@@ -1,0 +1,193 @@
+---
+title: 组件
+description: XULO 中的组件命名规范和组合方式。
+---
+
+## 组件命名
+
+在 XULO 中，任何 **PascalCase**（大驼峰）标识符都是组件。没有内置组件——组件名称是规范约定，不是保留字。
+
+```js
+Screen {
+  Header {
+    Text("仪表盘")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "统计", radius: "lg") {
+        Text("3,214 个账户")
+      }
+    }
+  }
+}
+```
+
+## 推荐的组件名称
+
+以下是常见 UI 模式的**推荐命名约定**，参考了 [shadcn/ui](https://ui.shadcn.com) 的组件命名。你可以自由使用任何适合你领域的 PascalCase 名称。
+
+| 名称 | 类别 | 典型用途 |
+|------|------|----------|
+| **布局** | | |
+| `Screen` | 根容器 | 页面的根容器 |
+| `VStack`、`HStack`、`ZStack` | 布局 | 垂直 / 水平 / 层叠容器 |
+| `Fill` | 布局 | 弹性填充（flex: 1） |
+| `Center` | 布局 | 居中容器 |
+| `Spacer` | 布局 | 空白间距 |
+| `Separator` | 布局 | 视觉分割线 |
+| `ScrollArea` | 布局 | 可滚动容器 |
+| `Resizable` | 布局 | 可调整大小的面板分割 |
+| **内容** | | |
+| `Text` | 内容 | 文本显示 |
+| `Badge` | 内容 | 标签 / 状态标记 |
+| `Avatar` | 内容 | 用户头像（含兜底） |
+| `Image` | 内容 | 图片显示 |
+| **表单** | | |
+| `Button` | 交互 | 按钮（使用变体：`primary`、`outline`、`ghost`、`destructive`） |
+| `Input` | 交互 | 文本输入框 |
+| `Textarea` | 交互 | 多行文本输入 |
+| `Checkbox` | 交互 | 复选框 |
+| `Switch` | 交互 | 开关切换 |
+| `Select` | 交互 | 下拉选择 |
+| `Combobox` | 交互 | 可搜索下拉框 |
+| `Slider` | 交互 | 范围滑块 |
+| `RadioGroup` | 交互 | 单选按钮组 |
+| `Field` | 表单 | 标签 + 输入框包裹 |
+| `InputGroup` | 表单 | 带前后缀的输入框 |
+| **导航** | | |
+| `Link` | 交互 | 导航链接 |
+| `Tabs` | 导航 | 标签页界面 |
+| `Breadcrumb` | 导航 | 面包屑导航 |
+| `Pagination` | 导航 | 分页导航 |
+| `NavigationMenu` | 导航 | 顶部导航 |
+| `Sidebar` | 导航 | 侧边导航面板 |
+| **数据展示** | | |
+| `Card` | 容器 | 卡片容器 |
+| `CardHeader`、`CardContent`、`CardFooter` | 容器 | 卡片子部分 |
+| `CardTitle`、`CardDescription` | 容器 | 卡片文本元素 |
+| `Table` | 数据 | 数据表格 |
+| `Accordion` | 数据 | 可折叠面板 |
+| `Collapsible` | 数据 | 显示/隐藏切换 |
+| **浮层** | | |
+| `Dialog` | 浮层 | 模态对话框 |
+| `Sheet` | 浮层 | 侧边面板 |
+| `Drawer` | 浮层 | 底部抽屉 |
+| `AlertDialog` | 浮层 | 确认对话框 |
+| `Popover` | 浮层 | 浮出气泡 |
+| `Tooltip` | 浮层 | 悬停提示 |
+| `DropdownMenu` | 浮层 | 下拉菜单 |
+| **反馈** | | |
+| `Alert` | 反馈 | 提示框 / 警告 |
+| `Progress` | 反馈 | 进度条 |
+| `Skeleton` | 反馈 | 加载占位符 |
+| `Spinner` | 反馈 | 加载指示器 |
+
+## 隐式参数
+
+每个组件可以为第一个位置参数定义默认属性。写作 `Text("Hi")` 等同于 `Text(content: "Hi")`——解析器自动将简写映射为命名属性。
+
+| 组件 | 推荐的第一个参数 | 简写 | 显式写法 |
+|------|-----------------|------|----------|
+| `Text` | `content` | `Text("Hello")` | `Text(content: "Hello")` |
+| `Button` | `label` | `Button("提交")` | `Button(label: "提交")` |
+| `Input` | `placeholder` | `Input("邮箱")` | `Input(placeholder: "邮箱")` |
+| `Image` | `src` | `Image("logo.png")` | `Image(src: "logo.png")` |
+| `Link` | `label` | `Link("首页")` | `Link(label: "首页")` |
+| `Field` | `label` | `Field("姓名") { Input() }` | `Field(label: "姓名") { Input() }` |
+
+```js
+// 简写——第一个位置参数隐式映射
+Text("Hello World")
+Button("点击我")
+Input("输入邮箱")
+Image("avatar.png")
+Link("返回首页")
+Field("密码") { Input() }
+
+// 等价的显式写法
+Text(content: "Hello World")
+Button(label: "点击我")
+Input(placeholder: "输入邮箱")
+Image(src: "avatar.png")
+Link(label: "首页")
+Field(label: "密码") { Input() }
+```
+
+## Fill（弹性填充）
+
+`Fill` 是一个零固有尺寸的容器，会**撑满父容器的剩余空间**。多个 `Fill` 子元素平分剩余空间。
+
+- 语义等价于 CSS Flexbox 的 `flex: 1`（`flex-grow: 1`）。
+- 放在 `VStack` 中时，撑满**垂直方向**剩余空间。
+- 放在 `HStack` 中时，撑满**水平方向**剩余空间。
+- 自身无边框、无背景（除非显式设置 `bg`）。
+- 可包含子元素，子元素在其内部正常布局。
+
+```js
+// Header + Fill(弹性) + Footer
+VStack {
+  Text("Header")
+  Fill {
+    VStack {
+      Text("Content")
+    }
+  }
+  Text("Footer")
+}
+
+// 多个 Fill 平分剩余空间
+HStack {
+  Fill { Text("Left") }
+  Fill { Text("Right") }
+}
+```
+
+## 组件组合
+
+```js
+// 带子元素的块语法
+VStack(spacing: 16) {
+  Text("Hello")
+  Button {
+    Text("Submit")
+  }
+}
+
+// 无子元素直接用括号
+Text("Hello", color: "blue")
+
+// 嵌套
+Screen {
+  Center {
+    Card(width: 400, radius: "lg") {
+      Text("Welcome")
+    }
+  }
+}
+```
+
+## 条件渲染
+
+```js
+if isLoggedIn {
+  Text("欢迎回来！")
+} else {
+  Button {
+    Text("登录")
+  }
+}
+```
+
+## 列表渲染
+
+```js
+for item in items {
+  Text(item)
+}
+```
+
+在 UI Block 中，`if` 和 `for` 是**UI 逻辑节点**，不是普通语句：
+
+- `if` 返回 `View` 或 `null`。
+- `for` 将其体映射为 `list<View>`。
+- `{ }` 内部**只能包含 UI 元素**（不能有变量声明或赋值语句）。

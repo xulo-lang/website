@@ -1,0 +1,42 @@
+---
+title: Props（组件参数）
+description: XULO 中的组件参数、可选属性和默认值。
+---
+
+## 必传参数
+
+没有默认值的参数必须提供：
+
+```js
+Button(label: "Submit")  // ✅
+Button()                 // ❌ 错误
+```
+
+## 可选参数（`?`）
+
+标记为 `?` 的参数可以省略（默认为 `null`）：
+
+```js
+Button(label: "Submit")              // ✅ icon = null
+Button(label: "Submit", icon: "save") // ✅
+```
+
+## 默认值（`=`）
+
+带默认值的参数可以省略：
+
+```js
+Button(label: "Submit")                    // ✅ variant = "primary"
+Button(label: "Submit", variant: "outline") // ✅
+```
+
+## 组合使用
+
+```js
+Button(
+  label: "Submit",                     // 必传
+  variant: "outline",                  // 有默认值，可省略
+  icon: "save",                        // 可选，可省略
+  disabled: true                       // 可选，可省略
+)
+```

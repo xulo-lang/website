@@ -1,0 +1,89 @@
+---
+title: 对比
+description: 将 XULO 与其他技术进行比较。
+---
+
+## XULO vs JSX
+
+| 方面 | XULO | JSX |
+|------|------|-----|
+| 语法 | `{ }` 块，无闭合标签 | `<Tag />`，需要闭合标签 |
+| 令牌数 | 减少约 40% | 更冗长 |
+| 可读性 | 简洁，聚焦意图 | 聚焦实现 |
+| AI 友好 | 是 | 一般 |
+
+### 示例
+
+**XULO:**
+```js
+Card {
+  CardHeader {
+    CardTitle("欢迎")
+  }
+  CardBody {
+    Text("你好世界")
+    Button("点击我", variant: "primary")
+  }
+}
+```
+
+**JSX:**
+```jsx
+<Card>
+  <CardHeader>
+    <CardTitle>欢迎</CardTitle>
+  </CardHeader>
+  <CardBody>
+    <Text>你好世界</Text>
+    <Button variant="primary">点击我</Button>
+  </CardBody>
+</Card>
+```
+
+## XULO vs JSON
+
+| 方面 | XULO | JSON |
+|------|------|------|
+| 可读性 | 高，噪音少 | 低，括号多 |
+| 令牌数 | 减少约 60% | 冗长 |
+| 用途 | UI 布局描述 | 数据交换 |
+
+### 示例
+
+**XULO:**
+```js
+Screen(title: "登录") {
+  VStack(spacing: 4) {
+    Field(label: "邮箱") {
+      Input(placeholder: "you@example.com")
+    }
+    Button("登录", variant: "primary")
+  }
+}
+```
+
+**JSON:**
+```json
+{
+  "type": "Screen",
+  "props": { "title": "登录" },
+  "children": [{
+    "type": "VStack",
+    "props": { "spacing": 4 },
+    "children": [
+      {
+        "type": "Field",
+        "props": { "label": "邮箱" },
+        "children": [{
+          "type": "Input",
+          "props": { "placeholder": "you@example.com" }
+        }]
+      },
+      {
+        "type": "Button",
+        "props": { "text": "登录", "variant": "primary" }
+      }
+    ]
+  }]
+}
+```

@@ -1,0 +1,77 @@
+---
+title: 什么是 XULO
+description: 了解 XULO 是什么以及它如何工作。
+---
+
+XULO 是一种跨平台 UI 布局语言，面向人/AI 最优阅读。文档是由组件组成的树形结构，每个组件具有类型化的属性和可选的子元素。
+
+大写名称是组件；小驼峰名称是属性和命名值。没有闭合标签，也没有尖括号——结构来自 `{` 块。
+
+## 元素
+
+元素写作 `Component`、`Component()` 或 `Component { ... }`。子元素属于一个块。
+
+```js
+Screen {
+  Header {
+    Text("仪表盘")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "统计", radius: "lg") {
+        Text("3,214 账户")
+      }
+    }
+  }
+}
+```
+
+## 属性
+
+属性是 `(...)` 内以逗号分隔的 `key: value` 键值对。键使用小驼峰命名。每个属性都是可选的；样式、布局和测量属性可以省略，由渲染器决定。
+
+```js
+Button(
+  variant: "outline",
+  width: "100%",
+  height: 48,
+  weight: "bold",
+  radius: "md"
+)
+```
+
+## 值
+
+- **字符串** — `"..."` 或 `'...'`，包括主题引用如 `"$theme.text.secondary"`。
+- **数字** — 例如 `400`、`1.5`、`16`。
+- **布尔值** — `true` / `false`。
+- **标识符** — 命名值或令牌，例如 `primary` 或 `lg`。
+
+## 文本块
+
+组件的第一个位置参数是其内容：`Text("Hi")`、`CardTitle("Create your account")`。
+
+```js
+Card {
+  CardHeader {
+    CardTitle("创建你的账户")
+  }
+  CardContent {
+    Text("标题下方的说明文字。")
+    Text("更多内容", color: "$theme.text.secondary")
+  }
+}
+```
+
+## 注释
+
+`//` 开始行注释，直到行尾。注释在渲染前会被移除。
+
+```js
+// 描述意图，跳过像素
+Center {
+  Card(width: 400, radius: "lg") {
+    Text("已登录为 Jane")
+  }
+}
+```

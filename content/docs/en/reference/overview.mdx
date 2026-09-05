@@ -1,0 +1,77 @@
+---
+title: Overview
+description: An overview of the XULO language.
+---
+
+XULO is a cross-platform UI layout for optimal human/AI reading. A document is a tree of components, each with typed attributes and optional child elements. Uppercase names are components; lower camelCase names are attributes and named values. There are no closing tags and no angle brackets — structure comes from the opening `{` block.
+
+A file describes one screen as an indented tree. Structure and intent are explicit; style is optional.
+
+## Elements
+
+An element is written `Component`, `Component()`, or `Component { ... }`. Children belong to a block.
+
+```js
+Screen {
+  Header {
+    Text("Dashboard")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "Stats", radius: "lg") {
+        Text("3,214 accounts")
+      }
+    }
+  }
+}
+```
+
+## Attributes
+
+Attributes are comma-separated `key: value` pairs inside `(...)`. Keys are lower camelCase. Every attribute is optional; style, layout, and measurement attributes (`width`, `spacing`, `radius`, `shadow`, ...) may be omitted and the renderer decides.
+
+```js
+Button(
+  variant: "outline",
+  width: "100%",
+  height: 48,
+  weight: "bold",
+  radius: "md"
+)
+```
+
+## Values
+
+- **String** — `"..."` or `'...'`, including theme refs like `"$theme.text.secondary"`.
+- **Number** — e.g. `400`, `1.5`, `16`.
+- **Boolean** — `true` / `false`.
+- **Identifier** — a named value or token, e.g. `primary` or `lg`.
+
+## Text Blocks
+
+The first positional argument of a component is its content: `Text("Hi")`, `CardTitle("Create your account")`.
+
+```js
+Card {
+  CardHeader {
+    CardTitle("Create your account")
+  }
+  CardContent {
+    Text("A caption underneath the title.")
+    Text("More content", color: "$theme.text.secondary")
+  }
+}
+```
+
+## Comments
+
+`//` starts a line comment, up to the end of the line. Comments are stripped before rendering.
+
+```js
+// Describe intent, skip the pixels
+Center {
+  Card(width: 400, radius: "lg") {
+    Text("Signed in as Jane")
+  }
+}
+```

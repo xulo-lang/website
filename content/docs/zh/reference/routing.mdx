@@ -1,0 +1,33 @@
+---
+title: 路由
+description: 在 XULO 中描述路由结构。
+---
+
+## 路由组件
+
+以下名称是描述路由结构的**推荐命名约定**：
+
+| 名称 | 用途 |
+|------|------|
+| `Router` | 路由根容器 |
+| `Route` | 单个路由定义 |
+| `Link` | 导航链接 |
+
+## 定义路由
+
+```js
+Router {
+  Route(path: "/", component: Home)
+  Route(path: "/about", component: About)
+  Route(path: "/profile/:id", component: Profile)
+  Route(path: "*", component: NotFound)
+}
+```
+
+## 导航链接
+
+```js
+Link(to: "/about") {
+  Text("关于")
+}
+```

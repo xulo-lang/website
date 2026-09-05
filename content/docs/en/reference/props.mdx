@@ -1,0 +1,42 @@
+---
+title: Props
+description: Component parameters, optional props, and default values in XULO.
+---
+
+## Required Parameters
+
+Parameters without a default value must be provided:
+
+```js
+Button(label: "Submit")  // OK
+Button()                 // Error
+```
+
+## Optional Parameters (`?`)
+
+Parameters marked with `?` can be omitted (defaults to `null`):
+
+```js
+Button(label: "Submit")              // OK, icon = null
+Button(label: "Submit", icon: "save") // OK
+```
+
+## Default Values (`=`)
+
+Parameters with a default value can be omitted:
+
+```js
+Button(label: "Submit")                    // OK, variant = "primary"
+Button(label: "Submit", variant: "outline") // OK
+```
+
+## Combining All Three
+
+```js
+Button(
+  label: "Submit",                     // Required
+  variant: "outline",                  // Has default, can be omitted
+  icon: "save",                        // Optional, can be omitted
+  disabled: true                       // Optional, can be omitted
+)
+```

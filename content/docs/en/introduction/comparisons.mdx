@@ -1,0 +1,89 @@
+---
+title: Comparisons
+description: Compare XULO with other technologies.
+---
+
+## XULO vs JSX
+
+| Aspect | XULO | JSX |
+|--------|------|-----|
+| Syntax | `{ }` blocks, no closing tags | `<Tag />`, closing tags required |
+| Token Count | ~40% fewer | More verbose |
+| Readability | Clean, intent-focused | Implementation-focused |
+| AI-Friendly | Yes | Moderate |
+
+### Example
+
+**XULO:**
+```js
+Card {
+  CardHeader {
+    CardTitle("Welcome")
+  }
+  CardBody {
+    Text("Hello World")
+    Button("Click me", variant: "primary")
+  }
+}
+```
+
+**JSX:**
+```jsx
+<Card>
+  <CardHeader>
+    <CardTitle>Welcome</CardTitle>
+  </CardHeader>
+  <CardBody>
+    <Text>Hello World</Text>
+    <Button variant="primary">Click me</Button>
+  </CardBody>
+</Card>
+```
+
+## XULO vs JSON
+
+| Aspect | XULO | JSON |
+|--------|------|------|
+| Readability | High, lots of noise | Low, lots of brackets |
+| Token Count | ~60% fewer | Verbose |
+| Purpose | UI layout description | Data interchange |
+
+### Example
+
+**XULO:**
+```js
+Screen(title: "Login") {
+  VStack(spacing: 4) {
+    Field(label: "Email") {
+      Input(placeholder: "you@example.com")
+    }
+    Button("Sign in", variant: "primary")
+  }
+}
+```
+
+**JSON:**
+```json
+{
+  "type": "Screen",
+  "props": { "title": "Login" },
+  "children": [{
+    "type": "VStack",
+    "props": { "spacing": 4 },
+    "children": [
+      {
+        "type": "Field",
+        "props": { "label": "Email" },
+        "children": [{
+          "type": "Input",
+          "props": { "placeholder": "you@example.com" }
+        }]
+      },
+      {
+        "type": "Button",
+        "props": { "text": "Sign in", "variant": "primary" }
+      }
+    ]
+  }]
+}
+```
