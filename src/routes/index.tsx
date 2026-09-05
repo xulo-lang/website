@@ -1,12 +1,9 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, Navigate } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/')({
-  beforeLoad: () => {
-    throw redirect({
-      to: '/$lang',
-      params: {
-        lang: 'en',
-      },
-    });
-  },
+  component: RootIndex,
 });
+
+function RootIndex() {
+  return <Navigate to="/$lang" params={{ lang: 'en' }} replace />;
+}
