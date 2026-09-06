@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
+import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
 
 export const Route = createFileRoute('/$lang/')({
   component: Home,
@@ -114,16 +115,7 @@ function Home() {
                   ? '类型、函数、结构体、模式匹配——简洁而强大。'
                   : 'Types, functions, structs, pattern matching — concise and powerful.'}
               </p>
-              <div className="rounded-lg border bg-fd-card overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-2 border-b bg-fd-muted/50">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                </div>
-                <pre className="p-4 text-sm overflow-x-auto font-mono text-fd-foreground">
-                  <code>{exampleCode}</code>
-                </pre>
-              </div>
+              <DynamicCodeBlock lang="rust" code={exampleCode} />
             </div>
 
             {/* Right: Language Features */}
