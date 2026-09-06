@@ -7,25 +7,6 @@ export const Route = createFileRoute('/$lang/')({
   component: Home,
 });
 
-const features = [
-  {
-    title: 'Declarative UI',
-    description: 'Describe UI structure and intent with a clean component syntax — no closing tags, no angle brackets.',
-  },
-  {
-    title: 'Rust-Inspired Syntax',
-    description: 'struct, enum, trait, match, async/await, and let mut — familiar patterns from systems programming.',
-  },
-  {
-    title: 'Type-Safe',
-    description: 'Static typing with type inference, generics, union types, and trait-based polymorphism.',
-  },
-  {
-    title: 'AI-Friendly',
-    description: 'Structured enough for AI to understand and reason about, simple enough for humans to read.',
-  },
-];
-
 const exampleCode = `struct User {
   name: string
   age: number
@@ -54,6 +35,44 @@ async fn get_user(id: string): User {
 function Home() {
   const { lang } = Route.useParams();
   const isZh = lang === 'zh';
+
+  const features = isZh
+    ? [
+        {
+          title: '声明式 UI',
+          description: '用简洁的组件语法描述 UI 结构和意图——无闭合标签，无尖括号。',
+        },
+        {
+          title: 'Rust 风格语法',
+          description: 'struct、enum、trait、match、async/await、let mut——来自系统编程的熟悉模式。',
+        },
+        {
+          title: '类型安全',
+          description: '静态类型、类型推断、泛型、联合类型、基于 trait 的多态。',
+        },
+        {
+          title: 'AI 友好',
+          description: '足够结构化让 AI 理解，足够简洁让人阅读。',
+        },
+      ]
+    : [
+        {
+          title: 'Declarative UI',
+          description: 'Describe UI structure and intent with a clean component syntax — no closing tags, no angle brackets.',
+        },
+        {
+          title: 'Rust-Inspired Syntax',
+          description: 'struct, enum, trait, match, async/await, and let mut — familiar patterns from systems programming.',
+        },
+        {
+          title: 'Type-Safe',
+          description: 'Static typing with type inference, generics, union types, and trait-based polymorphism.',
+        },
+        {
+          title: 'AI-Friendly',
+          description: 'Structured enough for AI to understand and reason about, simple enough for humans to read.',
+        },
+      ];
 
   return (
     <HomeLayout {...baseOptions(lang)}>
