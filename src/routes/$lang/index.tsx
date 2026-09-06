@@ -9,20 +9,20 @@ export const Route = createFileRoute('/$lang/')({
 
 const features = [
   {
-    title: 'Declarative',
-    description: 'Describe UI structure and intent, not implementation details. Structure is explicit; style is optional.',
+    title: 'Declarative UI',
+    description: 'Describe UI structure and intent with a clean component syntax — no closing tags, no angle brackets.',
   },
   {
-    title: 'Component-Based',
-    description: 'Any PascalCase identifier is a component. Use recommended names or define your own.',
+    title: 'Rust-Inspired Syntax',
+    description: 'struct, enum, trait, match, async/await, and let mut — familiar patterns from systems programming.',
   },
   {
-    title: 'Concise Syntax',
-    description: 'Attributes as key: value pairs, children via { } blocks. Clean and readable.',
+    title: 'Type-Safe',
+    description: 'Static typing with type inference, generics, union types, and trait-based polymorphism.',
   },
   {
     title: 'AI-Friendly',
-    description: 'Structured enough for AI to understand and reason about.',
+    description: 'Structured enough for AI to understand and reason about, simple enough for humans to read.',
   },
 ];
 
@@ -44,8 +44,8 @@ function Home() {
           </p>
           <p className="text-lg text-fd-muted-foreground mb-8 max-w-2xl">
             {isZh
-              ? '跨平台 UI 布局语言，面向人/AI 最优阅读。使用简洁的组件化语法描述界面——无闭合标签，无尖括号。'
-              : 'Xross-platform UI Layout for Optimal human/AI reading. Describe interfaces with a clean, component-based syntax — no closing tags, no angle brackets.'}
+              ? '面向人/AI 最优阅读的编程语言。Rust 风格语法，声明式 UI，类型安全，异步支持。'
+              : 'A programming language for optimal human/AI reading. Rust-style syntax, declarative UI, type safety, and async support.'}
           </p>
           <div className="flex gap-4">
             <Link
@@ -77,46 +77,57 @@ function Home() {
           </div>
         </section>
 
-        {/* Quick Example + Pure Intent */}
+        {/* Code Example + Language Features */}
         <section className="px-4 py-20 max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: Code */}
             <div>
               <h2 className="text-3xl font-bold mb-3">
-                {isZh ? '快速示例' : 'Quick Example'}
+                {isZh ? '代码示例' : 'Code Example'}
               </h2>
               <p className="text-fd-muted-foreground mb-6">
                 {isZh
-                  ? '一个简单的仪表盘布局，几行代码即可描述。'
-                  : 'A simple dashboard layout, described in just a few lines.'}
+                  ? '类型、函数、结构体、模式匹配——简洁而强大。'
+                  : 'Types, functions, structs, pattern matching — concise and powerful.'}
               </p>
               <CodeBlock>
-                <Pre lang="swift">{`Screen {
-  Header {
-    Text("${isZh ? '仪表盘' : 'Dashboard'}")
-  }
-  Body {
-    VStack(spacing: 16) {
-      Card(title: "${isZh ? '统计' : 'Stats'}", radius: "lg") {
-        Text("3,214 ${isZh ? '账户' : 'accounts'}")
-      }
-      Button("${isZh ? '登录' : 'Sign in'}", variant: "primary")
+                <Pre lang="swift">{`struct User {
+  name: string
+  age: number
+  role: Role
+}
+
+enum Role {
+  Admin
+  Member
+}
+
+impl User {
+  fn is_admin(self): boolean {
+    match self.role {
+      Role::Admin => true
+      _ => false
     }
   }
+}
+
+async fn get_user(id: string): User {
+  let resp = await fetch("/api/users/" + id)
+  return await resp.json()
 }`}</Pre>
               </CodeBlock>
             </div>
 
-            {/* Right: Pure Intent */}
+            {/* Right: Language Features */}
             <div className="flex flex-col gap-6">
               <div>
                 <h2 className="text-3xl font-bold mb-3">
-                  {isZh ? '纯粹意图' : 'Pure Intent'}
+                  {isZh ? '语言特性' : 'Language Features'}
                 </h2>
                 <p className="text-fd-muted-foreground">
                   {isZh
-                    ? 'XULO 让你描述 UI 是什么，而非如何渲染。无 DOM，无组件，无状态——只有意图。'
-                    : 'XULO lets you describe what the UI is, not how it renders. No DOM, no components, no state — just intent.'}
+                    ? 'XULO 融合了 Rust、Swift、TypeScript 的最佳实践，打造简洁高效的语法。'
+                    : 'XULO combines the best practices from Rust, Swift, and TypeScript into a clean, efficient syntax.'}
                 </p>
               </div>
 
@@ -127,12 +138,12 @@ function Home() {
                   </div>
                   <div>
                     <h4 className="font-medium text-sm mb-1">
-                      {isZh ? '结构显式' : 'Explicit Structure'}
+                      {isZh ? 'struct + impl' : 'struct + impl'}
                     </h4>
                     <p className="text-xs text-fd-muted-foreground">
                       {isZh
-                        ? '层级关系通过缩进表达，一目了然。'
-                        : 'Hierarchy expressed through indentation, clear at a glance.'}
+                        ? '命名结构体，支持方法实现和 trait 派发。'
+                        : 'Named structs with method implementations and trait dispatch.'}
                     </p>
                   </div>
                 </div>
@@ -143,12 +154,12 @@ function Home() {
                   </div>
                   <div>
                     <h4 className="font-medium text-sm mb-1">
-                      {isZh ? '样式可选' : 'Style Optional'}
+                      {isZh ? 'enum + match' : 'enum + match'}
                     </h4>
                     <p className="text-xs text-fd-muted-foreground">
                       {isZh
-                        ? '只写意图，渲染器决定最终外观。'
-                        : 'Write only intent, the renderer decides the look.'}
+                        ? '带关联数据的枚举，Rust 风格模式匹配。'
+                        : 'Enums with associated data, Rust-style pattern matching.'}
                     </p>
                   </div>
                 </div>
@@ -159,12 +170,28 @@ function Home() {
                   </div>
                   <div>
                     <h4 className="font-medium text-sm mb-1">
-                      {isZh ? '人机可读' : 'Human & AI Readable'}
+                      {isZh ? 'let mut + 类型推断' : 'let mut + Type Inference'}
                     </h4>
                     <p className="text-xs text-fd-muted-foreground">
                       {isZh
-                        ? '足够简洁让人读，足够结构让 AI 理解。'
-                        : 'Simple enough for humans, structured enough for AI.'}
+                        ? '显式可变性，可选类型标注，编译器自动推断。'
+                        : 'Explicit mutability, optional type annotations, compiler infers types.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-fd-muted/50">
+                  <div className="mt-0.5 w-5 h-5 rounded-full bg-fd-primary/10 flex items-center justify-center shrink-0">
+                    <div className="w-2 h-2 rounded-full bg-fd-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">
+                      {isZh ? 'async fn + await' : 'async fn + await'}
+                    </h4>
+                    <p className="text-xs text-fd-muted-foreground">
+                      {isZh
+                        ? '一等异步支持，Promise 语义，try/catch 错误处理。'
+                        : 'First-class async support, Promise semantics, try/catch error handling.'}
                     </p>
                   </div>
                 </div>
@@ -172,10 +199,10 @@ function Home() {
 
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'introduction/what-is-xulo' }}
+                params={{ lang, _splat: 'reference/types' }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-fd-primary text-fd-primary-foreground font-medium text-sm w-fit hover:opacity-90 transition-opacity"
               >
-                {isZh ? '了解更多' : 'Learn More'}
+                {isZh ? '查看类型系统' : 'Explore Types'}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -194,8 +221,8 @@ function Home() {
               <h3 className="font-semibold mb-2">XULO</h3>
               <p className="text-sm text-fd-muted-foreground">
                 {isZh
-                  ? '跨平台 UI 布局语言'
-                  : 'Cross-platform UI Layout'}
+                  ? '面向人/AI 最优阅读的编程语言'
+                  : 'Programming language for optimal human/AI reading'}
               </p>
             </div>
 
@@ -216,8 +243,8 @@ function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/components' }} className="hover:text-fd-foreground">
-                    {isZh ? '组件' : 'Components'}
+                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/types' }} className="hover:text-fd-foreground">
+                    {isZh ? '类型' : 'Types'}
                   </Link>
                 </li>
               </ul>
