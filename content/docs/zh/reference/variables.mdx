@@ -1,0 +1,191 @@
+---
+title: 变量与状态
+description: XULO 中的变量绑定、响应式状态和副作用。
+---
+
+XULO 的绑定分两类：普通变量（`let` / `let mut`）与响应式状态（`@State` / `@Store` / `@Environment` / `@Effect`）。
+
+## 变量绑定
+
+```js
+let count = 0                 // 默认不可变
+let mut x = 10                // 显式可变
+let name: string = "Alice"    // 带类型标注
+let maybe: string? = null     // 可选类型
+```
+
+**规则：**
+
+- `let` = 默认不可变绑定
+- `let mut` = 显式可变绑定
+- 类型在变量名后，用 `:` 分隔（TypeScript 风格）
+- 类型可推断，标注可省略
+- 赋值语句 `x = x + 1` 需要 `let mut`；给 `let` 赋值是语义错误
+
+### 可变性对比
+
+| 语法 | 可变 | 用途 |
+|------|------|------|
+| `let x = 1` | 否 | 不会改变的局部值 |
+| `let mut x = 1` | 是 | 需要重新赋值的值 |
+
+## 局部状态 `@State`
+
+```js
+@State let count: number = 0
+@State let name: string = ""
+@State let isActive: boolean = true
+```
+
+- `@State` 只能在 UI 组件（返回 `View` 的函数）顶层声明
+- 触发 UI 重新渲染
+- 编译为响应式信号：读取 `.get()`，写入 `.set()`
+
+## 全局状态 `@Store`
+
+### 定义 Store
+
+```js
+// stores/app.xulo
+import { createStore } from "@xulo/store"
+
+type AppState = {
+  user: User?
+  theme: Theme
+  notifications: list<string>
+  loading: boolean
+}
+
+fn setUser(state: AppState, user: User?): AppState {
+  ({ ...state, user: user })
+}
+
+fn setTheme(state: AppState, theme: Theme): AppState {
+  ({ ...state, theme: theme })
+}
+
+pub fn useAppStore() = createStore(
+  {
+    user: null,
+    theme: Theme::Light,
+    notifications: [],
+    loading: false
+  },
+  {
+    setUser: setUser,
+    setTheme: setTheme
+  }
+)
+```
+
+### 使用 Store
+
+```js
+import { useAppStore } from "../stores/app"
+
+fn Home(): View {
+  @Store let { user, theme, loading } = useAppStore()
+  @Store let { setTheme } = useAppStore()
+
+  VStack {
+    Text("User: " + user?.name)
+    Button(onClick: fn() { setTheme(Theme::Dark) }) {
+      Text("Dark mode")
+    }
+  }
+}
+```
+
+- `@Store` 解构取值（`{ user }`）和取函数（`{ setUser }`）
+- 依赖追踪与重渲染由外部 store 运行时接管
+
+## 环境注入 `@Environment`
+
+```js
+@Environment let router: Router
+router.push("/about")
+```
+
+- 从外部运行时注入一个值（编译为 `__env("Router")`）
+- 仅在 `View` 组件函数顶层可用
+
+## 副作用 `@Effect`
+
+```js
+@Effect fn() {
+  // 组件挂载时执行
+  fetchUser(id)
+}
+
+@Effect fn() {
+  // 依赖变化时重新执行
+  fetchUser(id)
+}, [id]
+
+@Effect fn() {
+  // 清理函数
+  setupSubscription()
+  return fn() {
+    cleanupSubscription()
+  }
+}
+```
+
+- `@Effect` 在组件挂载时执行
+- 支持依赖数组 `[id]`
+- 支持返回清理函数
+
+## 双向绑定 `$`
+
+```js
+// 双向绑定（用 $ 前缀）
+Input(value: $name)
+Checkbox(checked: $isActive)
+
+// 等价于
+Input(value: name, onInput: fn(e) {
+  name = e.value
+})
+```
+
+- `$` 前缀表示双向绑定
+- 只能用于 `@State` 或 `@Store` 变量
+- 编译为 `{ value, onChange }`
+
+## 使用限制
+
+`@State`、`@Store`、`@Effect`、`@Environment` **只能**在返回类型为 `View` 的函数顶层使用。
+
+### 正确用法（UI 组件中）
+
+```js
+fn UserProfile(): View {
+  @Store let { user, loading } = useAppStore()
+  @State let editing: boolean = false
+  @Effect fn() { fetchUser(id) }
+
+  VStack { ... }
+}
+```
+
+### 错误用法（普通函数 / 异步函数 / 嵌套块）
+
+```js
+fn helperFunction() {
+  @Store let { user } = useAppStore()  // 错误
+  @State let count = 0                 // 错误
+}
+
+fn main(): View {
+  if true {
+    @State let x = 0                     // 错误（嵌套块）
+  }
+}
+```
+
+| 语法 | 允许位置 | 禁止位置 |
+|------|---------|---------|
+| `@State` | 仅 `fn ...(): View` 顶层 | 普通函数、异步函数、嵌套块 |
+| `@Store` | 仅 `fn ...(): View` 顶层 | 普通函数、异步函数、嵌套块 |
+| `@Effect` | 仅 `fn ...(): View` 顶层 | 普通函数、异步函数、嵌套块 |
+| `@Environment` | 仅 `fn ...(): View` 顶层 | 普通函数、异步函数、嵌套块 |

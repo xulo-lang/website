@@ -1,0 +1,62 @@
+---
+title: Async
+description: Async/await, error handling, and async closures in XULO.
+---
+
+## `async` / `await`
+
+```js
+fn fetchUser(id: string): async {
+  let response = await fetch("/api/users/" + id)
+  let data = await response.json()
+  return data
+}
+```
+
+- `: async` return annotation declares an async function (equivalent to JS `async function`)
+- `await` can only appear inside async functions; using `await` on a non-Promise value is an error
+- `throw <expr>` throws an exception
+
+## `try` / `catch`
+
+```js
+fn fetchUser(id: string): async {
+  try {
+    let response = await fetch("/api/users/" + id)
+    return await response.json()
+  } catch (e) {
+    print("Error: " + e.message)
+    return null
+  }
+}
+```
+
+## Async Closures
+
+```js
+fn main(): async {
+  let work = fn(): async { 21 * 2 }
+  print(await work())   // 42
+}
+```
+
+Async closures are written as `fn(): async [type]`, return a Promise when called, and can be `await`ed.
+
+## State Restrictions in Async Functions
+
+Async functions **cannot** use `@State`, `@Store`, `@Effect`, or `@Environment`. Use **direct Store API calls** instead:
+
+```js
+// Correct: call useAppStore() directly
+pub fn fetchUser(id: string): async {
+  let store = useAppStore()
+  store.actions.setLoading(true)
+  let data = await fetch("/api/users/" + id).json()
+  store.actions.setUser(data)
+}
+
+// Incorrect: using @Store in an async function
+pub fn fetchUser(id: string): async {
+  @Store let { setUser } = useAppStore()  // Error
+}
+```

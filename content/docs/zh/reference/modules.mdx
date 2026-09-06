@@ -1,0 +1,76 @@
+---
+title: 模块系统
+description: XULO 中的导入、导出和模块解析。
+---
+
+## 导入 / 导出（`pub`）
+
+```js
+// 导出（pub 声明）
+pub fn add(a: number, b: number): number {
+  a + b
+}
+
+pub let PI = 3.14
+
+pub type User = {
+  name: string
+}
+
+pub enum Status {
+  Active
+  Inactive
+}
+
+// 名称再导出
+pub use { add, PI }
+
+// 导入
+import { add, PI } from "math"
+import type { User } from "types"
+import * as math from "math"
+import "core"
+```
+
+**导入形式：**
+
+| 形式 | 含义 |
+|------|------|
+| `import { a, b as c } from "..."` | 命名导入 |
+| `import type { T } from "..."` | 仅类型导入（运行时擦除） |
+| `import * as ns from "..."` | 命名空间导入 |
+| `import "..."` | 副作用导入 |
+
+**导出形式：** 两种，全部以 `pub` 开头——`pub fn/let/type/enum`（声明级）、`pub use { a, b }`（名称再导出）。
+
+## `pub` 关键字（公开可见性）
+
+`pub` 是声明级修饰符，把声明标记为公开（对其他模块可见）：
+
+```js
+pub fn add(a: number, b: number): number { a + b }
+pub let PI = 3.14
+pub enum Status { Active Inactive }
+pub type User = { name: string }
+```
+
+- `pub fn/let/type/enum` 只影响跨模块可见性，模块内照常使用
+- `pub use { a, b }` 把本模块已声明的名称再导出
+- `pub fn main`、`fn main` 都被识别为程序入口
+
+> 注意：`import type` 写在 `import` 之后（`import type { ... }`），而非花括号内。
+> `export` 与 `default` 关键字均已移除并成为保留字（XULO 没有默认导出）；跨模块导出统一用 `pub` 形态，导入统一按名称。
+
+## 导入解析规则
+
+- 相对路径或本地存在的模块名（如 `./math`、`math`）→ 解析为本地 `.xulo` 文件，参与打包
+- 其余说明符（如 `@xulo/ui`）→ 视为外部包，原样生成 ESM `import`
+- `import type` 只供类型检查；运行时仅当导入名同时是运行时值时保留其值绑定，否则完全擦除
+- **无运行时模块加载器**：每个文件编译为一个返回导出对象的 IIFE，依赖按拓扑序内联进同一个 JS 文件
+- 循环导入（A → B → A）会被拒绝
+
+## 跨模块调用
+
+- 导入的函数保留参数名，支持具名实参调用
+- 导入不存在的导出名报语义错误
+- `trait` 是可导出的类型成员（`pub trait`），用 `import type { Trait } from "./mod"` 引入；`impl` 块不跨模块移植，需在引用该特征的模块内本地声明

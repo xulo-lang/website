@@ -1,0 +1,76 @@
+---
+title: Modules
+description: Import, export, and module resolution in XULO.
+---
+
+## Import / Export (`pub`)
+
+```js
+// Export (pub declaration)
+pub fn add(a: number, b: number): number {
+  a + b
+}
+
+pub let PI = 3.14
+
+pub type User = {
+  name: string
+}
+
+pub enum Status {
+  Active
+  Inactive
+}
+
+// Re-export
+pub use { add, PI }
+
+// Import
+import { add, PI } from "math"
+import type { User } from "types"
+import * as math from "math"
+import "core"
+```
+
+**Import Forms:**
+
+| Form | Meaning |
+|------|---------|
+| `import { a, b as c } from "..."` | Named import |
+| `import type { T } from "..."` | Type-only import (erased at runtime) |
+| `import * as ns from "..."` | Namespace import |
+| `import "..."` | Side-effect import |
+
+**Export Forms:** Two forms, all starting with `pub` — `pub fn/let/type/enum` (declaration-level) and `pub use { a, b }` (re-export).
+
+## The `pub` Keyword (Public Visibility)
+
+`pub` is a declaration-level modifier that marks a declaration as public (visible to other modules):
+
+```js
+pub fn add(a: number, b: number): number { a + b }
+pub let PI = 3.14
+pub enum Status { Active Inactive }
+pub type User = { name: string }
+```
+
+- `pub fn/let/type/enum` only affects cross-module visibility; within the module, usage is unrestricted
+- `pub use { a, b }` re-exports declared names (typically used with `import` for forwarding)
+- `pub fn main` and `fn main` are both recognized as program entry points
+
+> Note: `import type` is written after `import` (`import type { ... }`), not inside the braces (`import { type ... }` is not yet supported).
+> The `export` and `default` keywords have been removed and are reserved (XULO has no default exports); cross-module exports use `pub` forms, and imports are always by name.
+
+## Import Resolution Rules
+
+- Relative paths or locally existing module names (e.g., `./math`, `math`) → resolve to local `.xulo` files, included in the bundle
+- Other specifiers (e.g., `@xulo/ui`) → treated as external packages, generating ESM `import` as-is
+- `import type` is for type checking only; at runtime, the value binding is preserved only when the imported name is also a runtime value (e.g., `enum`), otherwise fully erased
+- **No runtime module loader**: each file compiles to an IIFE that returns an export object; dependencies are inlined in topological order into a single JS file; the entry file runs `main()` on load
+- Circular imports (A → B → A) are rejected
+
+## Cross-Module Calls
+
+- Imported functions preserve parameter names and support named argument calls
+- Importing a non-existent export name causes a semantic error
+- `trait` is an exportable type member (`pub trait`), importable via `import type { Trait } from "./mod"`; `impl` blocks are not portable across modules and must be declared locally in the module that references the trait
