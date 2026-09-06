@@ -6,7 +6,7 @@ description: XULO 中的 async/await、错误处理和异步闭包。
 ## `async` / `await`
 
 ```js
-async fn fetchUser(id: string) {
+async fn fetchUser(id: string): User {
   let response = await fetch("/api/users/" + id)
   let data = await response.json()
   return data
@@ -14,13 +14,14 @@ async fn fetchUser(id: string) {
 ```
 
 - `async` 前缀声明异步函数（等价 JS `async function`）
+- 返回类型语法与普通函数相同：括号后 `: Type`
 - `await` 只能出现在异步函数内；对非 Promise 值使用 `await` 是语义错误
 - `throw <expr>` 抛出异常
 
 ## `try` / `catch`
 
 ```js
-async fn fetchUser(id: string) {
+async fn fetchUser(id: string): User {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()
@@ -35,12 +36,12 @@ async fn fetchUser(id: string) {
 
 ```js
 async fn main() {
-  let work = async fn() { 21 * 2 }
+  let work = async fn(): number { 21 * 2 }
   print(await work())   // 42
 }
 ```
 
-异步闭包写作 `async fn()`，调用返回 Promise，可用 `await`。
+异步闭包写作 `async fn(): Type`，调用返回 Promise，可用 `await`。
 
 ## 异步函数中的状态限制
 
@@ -48,7 +49,7 @@ async fn main() {
 
 ```js
 // 正确：直接调用 useAppStore()
-pub async fn fetchUser(id: string) {
+pub async fn fetchUser(id: string): User {
   let store = useAppStore()
   store.actions.setLoading(true)
   let data = await fetch("/api/users/" + id).json()
@@ -56,7 +57,7 @@ pub async fn fetchUser(id: string) {
 }
 
 // 错误：在异步函数里使用 @Store 装饰器
-pub async fn fetchUser(id: string) {
+pub async fn fetchUser(id: string): User {
   @Store let { setUser } = useAppStore()  // 错误
 }
 ```

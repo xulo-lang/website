@@ -6,7 +6,7 @@ description: Async/await, error handling, and async closures in XULO.
 ## `async` / `await`
 
 ```js
-async fn fetchUser(id: string) {
+async fn fetchUser(id: string): User {
   let response = await fetch("/api/users/" + id)
   let data = await response.json()
   return data
@@ -14,13 +14,14 @@ async fn fetchUser(id: string) {
 ```
 
 - `async` prefix declares an async function (equivalent to JS `async function`)
+- Return type follows the same syntax as regular functions: `: Type` after parentheses
 - `await` can only appear inside async functions; using `await` on a non-Promise value is an error
 - `throw <expr>` throws an exception
 
 ## `try` / `catch`
 
 ```js
-async fn fetchUser(id: string) {
+async fn fetchUser(id: string): User {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()
@@ -35,12 +36,12 @@ async fn fetchUser(id: string) {
 
 ```js
 async fn main() {
-  let work = async fn() { 21 * 2 }
+  let work = async fn(): number { 21 * 2 }
   print(await work())   // 42
 }
 ```
 
-Async closures are written as `async fn()`, return a Promise when called, and can be `await`ed.
+Async closures are written as `async fn(): Type`, return a Promise when called, and can be `await`ed.
 
 ## State Restrictions in Async Functions
 
@@ -48,7 +49,7 @@ Async functions **cannot** use `@State`, `@Store`, `@Effect`, or `@Environment`.
 
 ```js
 // Correct: call useAppStore() directly
-pub async fn fetchUser(id: string) {
+pub async fn fetchUser(id: string): User {
   let store = useAppStore()
   store.actions.setLoading(true)
   let data = await fetch("/api/users/" + id).json()
@@ -56,7 +57,7 @@ pub async fn fetchUser(id: string) {
 }
 
 // Incorrect: using @Store in an async function
-pub async fn fetchUser(id: string) {
+pub async fn fetchUser(id: string): User {
   @Store let { setUser } = useAppStore()  // Error
 }
 ```
