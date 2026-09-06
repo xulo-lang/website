@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
+import { highlight } from 'fumadocs-core/highlight';
 import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 export const Route = createFileRoute('/$lang/')({
@@ -25,6 +26,47 @@ const features = [
     description: 'Structured enough for AI to understand and reason about, simple enough for humans to read.',
   },
 ];
+
+const exampleCode = `struct User {
+  name: string
+  age: number
+  role: Role
+}
+
+enum Role {
+  Admin
+  Member
+}
+
+impl User {
+  fn is_admin(self): boolean {
+    match self.role {
+      Role::Admin => true
+      _ => false
+    }
+  }
+}
+
+async fn get_user(id: string): User {
+  let resp = await fetch("/api/users/" + id)
+  return await resp.json()
+}`;
+
+async function HighlightedCode() {
+  const code = await highlight(exampleCode, {
+    lang: 'rust',
+    themes: {
+      dark: 'github-dark',
+      light: 'github-light',
+    },
+  });
+
+  return (
+    <CodeBlock>
+      <Pre>{code}</Pre>
+    </CodeBlock>
+  );
+}
 
 function Home() {
   const { lang } = Route.useParams();
@@ -90,32 +132,7 @@ function Home() {
                   ? '类型、函数、结构体、模式匹配——简洁而强大。'
                   : 'Types, functions, structs, pattern matching — concise and powerful.'}
               </p>
-              <CodeBlock>
-                <Pre lang="swift">{`struct User {
-  name: string
-  age: number
-  role: Role
-}
-
-enum Role {
-  Admin
-  Member
-}
-
-impl User {
-  fn is_admin(self): boolean {
-    match self.role {
-      Role::Admin => true
-      _ => false
-    }
-  }
-}
-
-async fn get_user(id: string): User {
-  let resp = await fetch("/api/users/" + id)
-  return await resp.json()
-}`}</Pre>
-              </CodeBlock>
+              <HighlightedCode />
             </div>
 
             {/* Right: Language Features */}
