@@ -66,7 +66,7 @@ match result {
 ## 异常：`throw` / `try` / `catch`
 
 ```js
-fn fetchUser(id: string): async {
+async fn fetchUser(id: string) {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()

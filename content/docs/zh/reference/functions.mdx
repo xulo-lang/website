@@ -104,8 +104,8 @@ fn main() {
   print(apply(double, 3))   // 6
   print(add5(10))           // 15
 
-  // 异步闭包：fn(): async
-  let work = fn(): async { 42 }
+  // 异步闭包：async fn()
+  let work = async fn() { 42 }
   let v = await work()      // 42
 }
 ```
@@ -117,4 +117,4 @@ fn main() {
 - 调用函数值时只用位置实参，数量必须精确匹配；具名实参不支持
 - 函数值可从任意表达式中调用：`xs[0](10)`、`getFn()(x)`、`(f)(5)`
 - `fn(...)` 出现在语句位置时按匿名函数表达式解析
-- 异步闭包写作 `fn(): async [类型]`，调用返回 Promise，可用 `await`
+- 异步闭包写作 `async fn()`，调用返回 Promise，可用 `await`

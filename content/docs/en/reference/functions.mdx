@@ -104,8 +104,8 @@ fn main() {
   print(apply(double, 3))   // 6
   print(add5(10))           // 15
 
-  // Async closure: fn(): async
-  let work = fn(): async { 42 }
+  // Async closure: async fn()
+  let work = async fn() { 42 }
   let v = await work()      // 42
 }
 ```
@@ -117,4 +117,4 @@ fn main() {
 - Function values are called with positional arguments only; the count must match exactly; named arguments are not supported
 - Function values can be called from any expression: `xs[0](10)`, `getFn()(x)`, `(f)(5)`
 - `fn(...)` in statement position (e.g., at the end of a block for implicit return) is parsed as an anonymous function expression
-- Async closures are written as `fn(): async [type]`, return a Promise when called, and can be `await`ed
+- Async closures are written as `async fn()`, return a Promise when called, and can be `await`ed
