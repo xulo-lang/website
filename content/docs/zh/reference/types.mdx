@@ -9,15 +9,17 @@ description: XULO 中的基础类型、类型别名、结构体、枚举和特�
 string         // 字符串
 number         // 数字（整数和浮点统一）
 boolean        // 布尔值
-list<T>        // 列表（泛型）
-object         // 对象（结构体）
+list<T>        // 动态列表/数组（内置泛型）
+map<K, V>      // 键值字典（内置泛型，基础哈希表/映射）
+set<T>         // 集合（内置泛型，唯一值集合）
+object         // 匿名对象/结构体字面量
 null           // 空值
 T?             // 可选类型（Swift 风格，等价于 T | null）
 T | U          // 联合类型（TypeScript 风格）
 T & U          // 交叉类型（TypeScript 风格）
 ```
 
-`number` 统一表示整数与浮点。`print(...)` 和 `list<T>` 是内建能力。`View` 是内建**标记类型**：编译器用它识别「返回该类型的函数即 UI 组件」，本身无运行时实现，具体组件由标准库 `@xulo/ui` 提供。
+`number` 统一表示整数与浮点。`print(...)`、`list<T>`、`map<K, V>` 和 `set<T>` 是内建能力。`View` 是内建**标记类型**：编译器用它识别「返回该类型的函数即 UI 组件」，本身无运行时实现，具体组件由标准库 `@xulo/ui` 提供。
 
 ## 类型别名（统一使用 `type`，无 `interface`）
 
@@ -135,17 +137,63 @@ fn total_area(shapes: list<Area>): number {
 | 命名字段 | 是 | 是 |
 | `impl` 方法 | 是 | 否 |
 | 实现特征 | 是 | 否 |
-| 字段可见性控制 | 是（`pub`） | 否 |
+| 字段可见性控制 | 是（`pub`） | 否（天然全开放） |
 | 名义类型 | 是（独立类型） | 结构类型 |
 
 需要方法、特征实现或独立命名类型时使用 `struct`。简单数据结构使用 `type`。
+
+### 可见性与封装
+
+#### 为什么默认私有？
+
+XULO 采用**字段默认私有**设计，原因如下：
+
+1. **最小权限原则与 API 破坏隔离**：默认公有会导致无意中暴露的字段立刻变成对外 API 契约的一部分，后期重构将引发依赖方报错。默认私有强制开发者思考"这个字段真的需要对外暴露吗？"
+2. **无 GC 语言的内存安全**：结构体字段状态直接关系到内部内存完整性，默认公有允许外部代码绕过方法任意篡改，极易破坏内部状态自洽性。
+
+#### 批量公有标记（`export pub struct`）
+
+当结构体纯粹用作数据传输对象（DTO / Record）时，可使用 `export pub struct` 使所有字段自动继承为 `pub`：
+
+```js
+// 普通封装结构体：字段默认私有，仅明确标记的暴露
+export struct User {
+    pub name: string    // 外部可读写
+    pub email: string   // 外部可读写
+    hash_pass: string   // 私有（仅内部可访问）
+}
+
+// 数据传输结构体（DTO/Record）：使用 export pub struct，所有字段批量公有
+export pub struct Point {
+    x: number    // 自动为 pub
+    y: number    // 自动为 pub
+}
+```
+
+#### `type` 匿名对象天然开放
+
+使用 `type` 定义的匿名对象/字面量结构是无方法的纯数据表达，天然支持全字段访问，无需书写 `pub`：
+
+```js
+export type Location = {
+    lat: number    // 天然公有
+    lng: number    // 天然公有
+}
+
+export type UserDTO = {
+    name: string
+    email: string
+}
+```
 
 ### 规则
 
 - 结构体名称首字母大写
 - 字段使用 `name: type` 语法
-- 字段在定义模块内默认可变
-- 使用 `pub` 导出字段跨模块访问
+- 字段默认私有，使用 `pub` 显式标记公有字段
+- 结构体默认私有，使用 `export` 显式导出跨模块访问
+- 使用 `export pub struct` 可批量将所有字段设为公有
+- `type` 定义的类型字段天然公有，无需 `pub`
 - 结构体支持泛型：`struct Pair<T> { first: T, second: T }`
 - `impl` 块不跨模块移植；在使用该结构体的模块内本地实现
 

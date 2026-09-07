@@ -2,6 +2,8 @@
   "pages": [
     "overview",
     "types",
+    "memory-and-concurrency",
+    "std",
     "variables",
     "expressions",
     "functions",

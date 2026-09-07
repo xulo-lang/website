@@ -3,27 +3,29 @@ title: 模块系统
 description: XULO 中的导入、导出和模块解析。
 ---
 
-## 导入 / 导出（`pub`）
+## 导入 / 导出
+
+XULO 使用 `export` 控制模块级导出，使用 `pub` 控制类型内部成员可见性。
 
 ```js
-// 导出（pub 声明）
-pub fn add(a: number, b: number): number {
+// 导出（export 声明）
+export fn add(a: number, b: number): number {
   a + b
 }
 
-pub let PI = 3.14
+export let PI = 3.14
 
-pub type User = {
+export type User = {
   name: string
 }
 
-pub enum Status {
+export enum Status {
   Active
   Inactive
 }
 
 // 名称再导出
-pub use { add, PI }
+export use { add, PI }
 
 // 导入
 import { add, PI } from "math"
@@ -41,25 +43,87 @@ import "core"
 | `import * as ns from "..."` | 命名空间导入 |
 | `import "..."` | 副作用导入 |
 
-**导出形式：** 两种，全部以 `pub` 开头——`pub fn/let/type/enum`（声明级）、`pub use { a, b }`（名称再导出）。
+**导出形式：** 两种，全部以 `export` 开头——`export fn/let/type/enum`（声明级）、`export use { a, b }`（名称再导出）。
 
-## `pub` 关键字（公开可见性）
+## `export` 关键字（模块级导出）
 
-`pub` 是声明级修饰符，把声明标记为公开（对其他模块可见）：
+`export` 是声明级修饰符，把声明标记为公开（对其他模块可见）：
 
 ```js
-pub fn add(a: number, b: number): number { a + b }
-pub let PI = 3.14
-pub enum Status { Active Inactive }
-pub type User = { name: string }
+export fn add(a: number, b: number): number { a + b }
+export let PI = 3.14
+export enum Status { Active Inactive }
+export type User = { name: string }
 ```
 
-- `pub fn/let/type/enum` 只影响跨模块可见性，模块内照常使用
-- `pub use { a, b }` 把本模块已声明的名称再导出
-- `pub fn main`、`fn main` 都被识别为程序入口
+- `export fn/let/type/enum` 只影响跨模块可见性，模块内照常使用
+- `export use { a, b }` 把本模块已声明的名称再导出
+- `export fn main`、`fn main` 都被识别为程序入口
 
 > 注意：`import type` 写在 `import` 之后（`import type { ... }`），而非花括号内。
-> `export` 与 `default` 关键字均已移除并成为保留字（XULO 没有默认导出）；跨模块导出统一用 `pub` 形态，导入统一按名称。
+> `default` 关键字已移除并成为保留字（XULO 没有默认导出）；跨模块导出统一用 `export` 形态，导入统一按名称。
+
+## 可见性与封装性规范
+
+### 模块层级（Module Level）
+
+使用 `export` 关键字控制类型、函数、常量是否对外暴露。未标记 `export` 的项仅在当前 `.xulo` 文件内可见。
+
+```js
+// 导出：其他模块可以 import
+export struct User { ... }
+export fn create_user(): User { ... }
+
+// 私有：仅当前文件可用
+struct InternalCache { ... }
+fn helper(): string { ... }
+```
+
+### 类型内部层级（Member Level）
+
+结构体（`struct`）的字段和方法**默认均为私有（Private）**。使用 `pub` 关键字显式将某个字段或方法标记为公有（Public）：
+
+```js
+export struct User {
+    pub name: string     // 公有字段，外部可读写
+    age: number          // 私有字段，仅限本模块内部访问
+}
+
+impl User {
+    // 构造函数（外部可调用）
+    pub fn new(name: string, age: number): User {
+        User(name: name, age: age)
+    }
+
+    // 公有方法（外部可调用）
+    pub fn get_age(self): number {
+        self.age
+    }
+
+    // 私有方法（仅本文件可用）
+    fn validate_age(age: number): boolean {
+        age >= 0
+    }
+}
+```
+
+### 两个层面的分工
+
+| 层面 | 关键字 | 控制目标 | 示例 |
+| --- | --- | --- | --- |
+| **模块层级** | `export` | 类型/函数/常量是否对外暴露 | `export struct User` |
+| **类型内部** | `pub` | 字段/方法是否允许外部直接访问 | `pub name: string` |
+
+**核心规则**：如果一个 `struct` 前面没有写 `export`，即使它的字段写了 `pub`，外部模块也根本导入不了这个 `struct`。
+
+## 语言对照
+
+| 概念 | 模块暴露 (Module Export) | 字段/成员封装 (Member Visibility) |
+| --- | --- | --- |
+| **XULO** | **`export`** | **`pub`**（默认私有） |
+| **TypeScript** | `export` | `public` / `private`（默认 public） |
+| **Swift** | `public` | `public` / `private` |
+| **Rust** | `pub` (在文件/mod 层) | `pub` (在 struct 字段层) |
 
 ## 导入解析规则
 
@@ -73,4 +137,4 @@ pub type User = { name: string }
 
 - 导入的函数保留参数名，支持具名实参调用
 - 导入不存在的导出名报语义错误
-- `trait` 是可导出的类型成员（`pub trait`），用 `import type { Trait } from "./mod"` 引入；`impl` 块不跨模块移植，需在引用该特征的模块内本地声明
+- `trait` 是可导出的类型成员（`export trait`），用 `import type { Trait } from "./mod"` 引入；`impl` 块不跨模块移植，需在引用该特征的模块内本地声明

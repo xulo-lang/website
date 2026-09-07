@@ -1,29 +1,31 @@
 ---
-title: Modules
-description: Import, export, and module resolution in XULO.
+title: Module System
+description: Imports, exports, and module resolution in XULO.
 ---
 
-## Import / Export (`pub`)
+## Import / Export
+
+XULO uses `export` for module-level exports and `pub` for type member visibility.
 
 ```js
-// Export (pub declaration)
-pub fn add(a: number, b: number): number {
+// Export (export declaration)
+export fn add(a: number, b: number): number {
   a + b
 }
 
-pub let PI = 3.14
+export let PI = 3.14
 
-pub type User = {
+export type User = {
   name: string
 }
 
-pub enum Status {
+export enum Status {
   Active
   Inactive
 }
 
 // Re-export
-pub use { add, PI }
+export use { add, PI }
 
 // Import
 import { add, PI } from "math"
@@ -41,36 +43,98 @@ import "core"
 | `import * as ns from "..."` | Namespace import |
 | `import "..."` | Side-effect import |
 
-**Export Forms:** Two forms, all starting with `pub` — `pub fn/let/type/enum` (declaration-level) and `pub use { a, b }` (re-export).
+**Export Forms:** Two forms, both starting with `export` — `export fn/let/type/enum` (declaration-level), `export use { a, b }` (re-export).
 
-## The `pub` Keyword (Public Visibility)
+## `export` Keyword (Module-Level Export)
 
-`pub` is a declaration-level modifier that marks a declaration as public (visible to other modules):
+`export` is a declaration-level modifier that marks a declaration as public (visible to other modules):
 
 ```js
-pub fn add(a: number, b: number): number { a + b }
-pub let PI = 3.14
-pub enum Status { Active Inactive }
-pub type User = { name: string }
+export fn add(a: number, b: number): number { a + b }
+export let PI = 3.14
+export enum Status { Active Inactive }
+export type User = { name: string }
 ```
 
-- `pub fn/let/type/enum` only affects cross-module visibility; within the module, usage is unrestricted
-- `pub use { a, b }` re-exports declared names (typically used with `import` for forwarding)
-- `pub fn main` and `fn main` are both recognized as program entry points
+- `export fn/let/type/enum` only affects cross-module visibility; within the module, use as normal
+- `export use { a, b }` re-exports names already declared in this module
+- `export fn main` and `fn main` are both recognized as program entry points
 
-> Note: `import type` is written after `import` (`import type { ... }`), not inside the braces (`import { type ... }` is not yet supported).
-> The `export` and `default` keywords have been removed and are reserved (XULO has no default exports); cross-module exports use `pub` forms, and imports are always by name.
+> Note: `import type` is written after `import` (`import type { ... }`), not inside the braces.
+> The `default` keyword has been removed and is reserved (XULO has no default exports); cross-module exports use `export`, imports use named imports.
+
+## Visibility & Encapsulation Specification
+
+### Module Level
+
+Use `export` to control whether types, functions, and constants are exposed externally. Items without `export` are only visible within the current `.xulo` file.
+
+```js
+// Exported: other modules can import
+export struct User { ... }
+export fn create_user(): User { ... }
+
+// Private: only available in current file
+struct InternalCache { ... }
+fn helper(): string { ... }
+```
+
+### Type Member Level
+
+Struct (`struct`) fields and methods are **private by default**. Use `pub` to explicitly mark a field or method as public:
+
+```js
+export struct User {
+    pub name: string     // Public field, externally readable/writable
+    age: number          // Private field, only accessible within this module
+}
+
+impl User {
+    // Constructor (externally callable)
+    pub fn new(name: string, age: number): User {
+        User(name: name, age: age)
+    }
+
+    // Public method (externally callable)
+    pub fn get_age(self): number {
+        self.age
+    }
+
+    // Private method (only available in this file)
+    fn validate_age(age: number): boolean {
+        age >= 0
+    }
+}
+```
+
+### Two-Level Division
+
+| Level | Keyword | Controls | Example |
+| --- | --- | --- | --- |
+| **Module Level** | `export` | Whether type/function/constant is exposed | `export struct User` |
+| **Type Member Level** | `pub` | Whether field/method is externally accessible | `pub name: string` |
+
+**Core Rule**: If a `struct` does not have `export`, even if its fields have `pub`, external modules cannot import this `struct` at all.
+
+## Language Comparison
+
+| Concept | Module Export | Member Visibility |
+| --- | --- | --- |
+| **XULO** | **`export`** | **`pub`** (private by default) |
+| **TypeScript** | `export` | `public` / `private` (public by default) |
+| **Swift** | `public` | `public` / `private` |
+| **Rust** | `pub` (file/mod level) | `pub` (struct field level) |
 
 ## Import Resolution Rules
 
-- Relative paths or locally existing module names (e.g., `./math`, `math`) → resolve to local `.xulo` files, included in the bundle
-- Other specifiers (e.g., `@xulo/ui`) → treated as external packages, generating ESM `import` as-is
-- `import type` is for type checking only; at runtime, the value binding is preserved only when the imported name is also a runtime value (e.g., `enum`), otherwise fully erased
-- **No runtime module loader**: each file compiles to an IIFE that returns an export object; dependencies are inlined in topological order into a single JS file; the entry file runs `main()` on load
+- Relative paths or locally existing module names (e.g., `./math`, `math`) → resolve to local `.xulo` files, included in bundle
+- Other specifiers (e.g., `@xulo/ui`) → treated as external packages, generated as ESM `import`
+- `import type` is for type checking only; at runtime, value bindings are preserved only if the imported name is also a runtime value, otherwise completely erased
+- **No runtime module loader**: each file compiles to an IIFE that returns an export object, dependencies inlined in topological order into a single JS file
 - Circular imports (A → B → A) are rejected
 
 ## Cross-Module Calls
 
-- Imported functions preserve parameter names and support named argument calls
-- Importing a non-existent export name causes a semantic error
-- `trait` is an exportable type member (`pub trait`), importable via `import type { Trait } from "./mod"`; `impl` blocks are not portable across modules and must be declared locally in the module that references the trait
+- Imported functions preserve parameter names, supporting named argument calls
+- Importing non-existent export names reports a semantic error
+- `trait` is an exportable type member (`export trait`), imported via `import type { Trait } from "./mod"`; `impl` blocks are not portable across modules and must be declared locally in the module that uses the trait
