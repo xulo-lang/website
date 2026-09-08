@@ -1,0 +1,124 @@
+---
+title: 正则表达式
+description: XULO 中的正则表达式（RegExp）原语功能。
+---
+
+## 概述
+
+正则表达式（RegExp）在 XULO 中作为**语言级字面量（Literal）+ 内置原语**存在，兼顾书写便捷性与极速正则引擎性能。
+
+## 核心设计亮点
+
+1. **原文字面量语法**：采用 `/pattern/flags` 形式（如 `/^[a-z0-9]+$/i`），编译器直接将其解析为 `RegExp` 原生类型，支持编译期静态语法检查
+2. **无需 `import`**：内置 `RegExp` 类型与 `/.../` 字面量完全通用，开箱即用
+3. **强类型匹配结果**：匹配成功返回结构化的 `RegexMatch`，失败抛出 `RegexError` 或返回 `null`（取决于使用的 API）
+
+## 语法与代码示例
+
+### 字面量声明与基础测试
+
+```js
+// 创建正则字面量（带有 i 忽略大小写标志）
+let pattern = /^hello\s+(\w+)/i
+
+// 快速判断是否匹配（返回 boolean）
+if pattern.test("Hello World") {
+    print("Matched!")
+}
+```
+
+### 字符串匹配与捕获组
+
+```js
+let input = "Contact us at support@xulo.dev or sales@xulo.dev"
+let email_regex = /([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)/g
+
+// 寻找第一个匹配项（返回可选的 RegexMatch?）
+if let match = email_regex.find(input) {
+    print("Full Email: " + match.value)        // "support@xulo.dev"
+    print("Username: " + match.group(1)!)     // "support"
+    print("Domain: " + match.group(2)!)       // "xulo.dev"
+}
+
+// 提取所有匹配项（返回 list<RegexMatch>）
+let matches = email_regex.find_all(input)
+for m in matches {
+    print("Found: " + m.value)
+}
+```
+
+### 替换与分割
+
+```js
+let text = "2026-09-07"
+let date_regex = /(\d{4})-(\d{2})-(\d{2})/
+
+// 正则替换
+let formatted = text.replace(date_regex, "$2/$3/$1") // "09/07/2026"
+
+// 闭包动态替换
+let upper = "apple, banana".replace(/[a-z]+/g, (m) => m.value.to_uppercase())
+```
+
+## 异常与错误捕获
+
+动态构建正则表达式时（通过 `RegExp.compile`），如果语法非法，会抛出内置的 `RegexError` 异常，可以直接融入 `try / catch` 体系：
+
+```js
+try {
+    // 动态构建用户输入的正则表达式
+    let user_pattern = RegExp.compile("[a-z+(invalid")
+} catch err: RegexError {
+    print("正则表达式语法非法: " + err.to_string())
+}
+```
+
+## 标志（Flags）
+
+| 标志 | 说明 |
+|------|------|
+| `i` | 忽略大小写 |
+| `g` | 全局匹配（查找所有匹配项而非第一个） |
+| `m` | 多行模式（`^` 和 `$` 匹配行首行尾） |
+| `u` | Unicode 模式 |
+
+## 核心 API
+
+| 方法 | 返回类型 | 说明 |
+|------|---------|------|
+| `test(input: string)` | `boolean` | 测试是否匹配 |
+| `find(input: string)` | `RegexMatch?` | 查找第一个匹配项 |
+| `find_all(input: string)` | `list<RegexMatch>` | 查找所有匹配项 |
+| `replace(pattern: RegExp, replacer: string \| (m: RegexMatch) -> string)` | `string` | 替换匹配内容 |
+
+## 使用场景
+
+- **数据验证**：验证邮箱、电话、身份证等格式
+- **文本提取**：从字符串中提取特定模式的内容
+- **文本替换**：批量替换符合特定模式的文本
+- **日志分析**：解析日志文件中的关键信息
+
+## 示例
+
+```js
+// 验证邮箱格式
+fn is_valid_email(email: string): boolean {
+    let email_regex = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    return email_regex.test(email)
+}
+
+// 提取 URL 中的域名
+fn extract_domain(url: string): string? {
+    let domain_regex = /https?:\/\/([^/]+)/
+    if let match = domain_regex.find(url) {
+        return match.group(1)
+    }
+    return null
+}
+
+// 格式化日期
+fn format_date(date_str: string): string {
+    let date_regex = /(\d{4})-(\d{2})-(\d{2})/
+    return date_str.replace(date_regex, "$2/$3/$1")
+}
+```

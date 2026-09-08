@@ -1,0 +1,167 @@
+---
+title: 错误处理
+description: XULO 中的 try / catch / finally 错误捕获与处理机制。
+---
+
+## 概述
+
+XULO 统一采用 `try / catch / throw` 管理运行时与可恢复异常。`finally` 块用于放置无论是否发生异常都必须执行的清理代码。
+
+## 基本语法
+
+```js
+try {
+    // 可能抛出异常的代码
+} catch err: SpecificError {
+    // 捕获特定类型异常
+} catch err {
+    // 捕获所有其他异常
+} finally {
+    // 无论是否发生异常都会执行的清理代码
+}
+```
+
+## `finally` 的核心执行保障
+
+无论发生以下哪种情况，`finally` 块内的代码都**保证 100% 会被执行**：
+
+1. `try` 块顺利执行完毕，没有抛出任何异常
+2. `try` 块抛出了异常，并被某个 `catch` 块成功捕获并处理
+3. `try` 块抛出了异常，但**没有被任何 `catch` 捕获**（异常将会在 `finally` 执行完毕后继续向上抛出）
+4. `try` 或 `catch` 块内部提前使用了 `return` 语句（`finally` 会在函数真正退出前优先执行）
+
+## 完整示例
+
+```js
+// 经典场景：资源释放与状态重置
+fn load_user_avatar(path: string) {
+    let file = File.open(path, mode: FileMode.Read)
+    show_loading_spinner()
+
+    try {
+        let content = file.read_all_string()
+        let user = JSON.parse<User>(content)
+        render_avatar(user.avatar_url)
+    } catch err: JSONError {
+        print("JSON 解析失败: " + err.to_string())
+    } catch err: FsError {
+        print("文件读取失败: " + err.to_string())
+    } catch err {
+        print("未知错误: " + err.to_string())
+    } finally {
+        // 保证无论成功还是失败，都会关闭文件并隐藏 loading
+        file.close()
+        hide_loading_spinner()
+    }
+}
+```
+
+## 组合模式
+
+XULO 支持以下三种标准的 `try` 组合结构：
+
+### 1. `try { ... } catch { ... }`
+
+常规异常捕获，不执行清理代码。
+
+```js
+try {
+    let data = JSON.parse<Config>(config_str)
+    apply_config(data)
+} catch err: JSONError {
+    print("配置解析失败: " + err.to_string())
+}
+```
+
+### 2. `try { ... } finally { ... }`
+
+仅做资源清理，不捕获异常，让异常继续外抛。
+
+```js
+fn process_data(data: Data) {
+    let lock = acquire_lock()
+
+    try {
+        let result = heavy_computation(data)
+        return result
+    } finally {
+        // 保证锁被释放，即使 heavy_computation 抛出异常
+        lock.release()
+    }
+}
+```
+
+### 3. `try { ... } catch { ... } finally { ... }`
+
+完整模式：捕获 + 清理。
+
+```js
+fn fetch_and_save(url: string, path: string) {
+    let response = http.fetch(url)
+
+    try {
+        let data = response.body()
+        File.write(path, data)
+    } catch err: NetworkError {
+        print("网络错误: " + err.to_string())
+    } catch err: FsError {
+        print("文件写入失败: " + err.to_string())
+    } finally {
+        response.close()
+    }
+}
+```
+
+## 语法规则
+
+1. `finally` 块必须紧跟在最后一个 `catch` 块之后，或者直接紧跟在 `try` 块之后（无 `catch` 模式）
+2. **控制流保障**：无论 `try` / `catch` 作用域是正常结束、抛出异常还是通过 `return` / `break` 提前退出，`finally` 块中的代码均会在当前作用域销毁前优先执行
+3. **禁止控制流逃逸**：在 `finally` 块内部**禁止**使用 `return`、`break` 或 `throw`（避免覆盖/吞掉 `try` / `catch` 中的原始返回值与异常）
+
+## 异常类型
+
+XULO 内置以下标准异常类型：
+
+| 异常类型 | 说明 |
+|---------|------|
+| `JSONError` | JSON 解析错误，包含 `SyntaxError`、`TypeMismatch`、`UnexpectedEof` 等变体 |
+| `FsError` | 文件系统错误 |
+| `NetworkError` | 网络通信错误 |
+| `Error` | 所有异常的基类 |
+
+## 自定义异常
+
+使用 `enum` 定义自定义异常类型：
+
+```js
+enum ValidationError {
+    FieldRequired(field: string),
+    InvalidFormat(field: string, expected: string),
+    OutOfRange(field: string, min: number, max: number)
+}
+
+fn validate_age(age: number): number {
+    if age < 0 || age > 150 {
+        throw ValidationError.OutOfRange("age", 0, 150)
+    }
+    return age
+}
+
+try {
+    let valid_age = validate_age(-5)
+} catch err: ValidationError {
+    match err {
+        ValidationError.OutOfRange(field, min, max) => {
+            print(field + " 必须在 " + min.to_string() + " 到 " + max.to_string() + " 之间")
+        },
+        _ => print("验证错误")
+    }
+}
+```
+
+## 最佳实践
+
+1. **精确捕获**：尽可能捕获具体的异常类型，而不是使用通用的 `catch err`
+2. **资源清理**：文件句柄、网络连接等资源务必在 `finally` 块中释放
+3. **避免吞掉异常**：不要在 `catch` 块中什么都不做，至少记录日志
+4. **finally 中禁止控制流跳转**：不要在 `finally` 中使用 `return`、`break` 或 `throw`

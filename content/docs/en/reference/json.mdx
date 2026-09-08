@@ -1,0 +1,115 @@
+---
+title: JSON
+description: JSON primitive functionality in XULO.
+---
+
+## Overview
+
+JSON is a language built-in primitive that provides serialization and deserialization capabilities, available without import.
+
+## Methods
+
+### `JSON.stringify(data)`
+
+Serializes data into a JSON string.
+
+```js
+let data = { name: "Alice", age: 30, active: true }
+let json_str = JSON.stringify(data)
+// '{"name":"Alice","age":30,"active":true}'
+
+let list = [1, 2, 3]
+let json_list = JSON.stringify(list)
+// '[1,2,3]'
+```
+
+### `JSON.parse<T>(str)`
+
+Deserializes a JSON string into the specified type.
+
+```js
+let json_str = '{"name":"Alice","age":30}'
+let user = JSON.parse<User>(json_str)
+// user.name = "Alice", user.age = 30
+
+let json_list = '[1, 2, 3]'
+let numbers = JSON.parse<list<number>>(json_list)
+// numbers = [1, 2, 3]
+```
+
+### `JSON.parse_async<T>(str)`
+
+Async version of JSON parsing, throws `JSONError` in the calling coroutine on failure.
+
+```js
+let json_str = '{"name":"Alice","age":30}'
+let user = await JSON.parse_async<User>(json_str)
+```
+
+## Error Handling
+
+JSON parsing throws `JSONError` on failure, with the following variants:
+
+- `JSONError.SyntaxError(msg, line, col)` - JSON syntax error
+- `JSONError.TypeMismatch(expected, actual)` - Type mismatch
+- `JSONError.UnexpectedEof` - Input unexpectedly ended
+
+```js
+let raw_json = "{\"age\": \"invalid_number\"}"
+
+try {
+    let user = JSON.parse<User>(raw_json)
+    print("Welcome, " + user.name)
+} catch err: JSONError {
+    match err {
+        JSONError.TypeMismatch(expected, actual) => {
+            print("Type mismatch: expected " + expected + ", got " + actual)
+        },
+        JSONError.SyntaxError(msg, line, col) => {
+            print("JSON syntax error: " + msg + " (line " + line.to_string() + ", col " + col.to_string() + ")")
+        },
+        _ => print("Other JSON parsing error")
+    }
+} catch err {
+    print("Unknown error: " + err.to_string())
+}
+```
+
+## Use Cases
+
+- **Data Exchange**: Serialize/deserialize data when communicating with external APIs
+- **Persistence**: Save objects as JSON files
+- **Configuration Parsing**: Read JSON format configuration files
+- **Debugging**: Convert objects to readable strings
+
+## Examples
+
+```js
+// Serialize object
+fn save_user(user: User) {
+  let json_str = JSON.stringify(user)
+  File.write("user.json", json_str)
+}
+
+// Deserialize object
+fn load_user(): User {
+  let json_str = File.read("user.json")
+  return JSON.parse<User>(json_str)
+}
+
+// Interact with HTTP API
+fn fetch_data() {
+  let response = http.fetch("https://api.example.com/data")
+  let json_str = response.body()
+  let data = JSON.parse<ApiResponse>(json_str)
+  return data
+}
+```
+
+## Design Notes
+
+1. **Error Mechanism**: XULO uniformly uses `try / catch / throw` for runtime and recoverable exceptions
+2. **Built-in JSONError**: `JSONError` is a built-in standard exception type (inheriting from the language root `Error` / enum type), with variants including `SyntaxError`, `TypeMismatch`, `UnexpectedEof`
+3. **Sync / Async Parsing Signatures**:
+   * `JSON.parse<T>(input: string): T` (throws `JSONError` on failure)
+   * `JSON.parse_async<T>(input: string): T async` (throws `JSONError` in calling coroutine on failure)

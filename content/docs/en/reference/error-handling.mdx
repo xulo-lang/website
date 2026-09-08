@@ -1,0 +1,167 @@
+---
+title: Error Handling
+description: The try / catch / finally error handling mechanism in XULO.
+---
+
+## Overview
+
+XULO uniformly uses `try / catch / throw` for runtime and recoverable exceptions. The `finally` block is used for cleanup code that must execute regardless of whether an exception occurs.
+
+## Basic Syntax
+
+```js
+try {
+    // Code that may throw exceptions
+} catch err: SpecificError {
+    // Catch specific exception type
+} catch err {
+    // Catch all other exceptions
+} finally {
+    // Cleanup code that always executes
+}
+```
+
+## Core Execution Guarantee of `finally`
+
+The code inside the `finally` block is **guaranteed to execute 100%** in any of the following scenarios:
+
+1. The `try` block completes successfully without throwing any exceptions
+2. The `try` block throws an exception that is successfully caught and handled by a `catch` block
+3. The `try` block throws an exception that is **not caught by any `catch`** (the exception continues to propagate upward after `finally` completes)
+4. The `try` or `catch` block uses a `return` statement early (`finally` executes before the function actually exits)
+
+## Complete Example
+
+```js
+// Classic scenario: resource cleanup and state reset
+fn load_user_avatar(path: string) {
+    let file = File.open(path, mode: FileMode.Read)
+    show_loading_spinner()
+
+    try {
+        let content = file.read_all_string()
+        let user = JSON.parse<User>(content)
+        render_avatar(user.avatar_url)
+    } catch err: JSONError {
+        print("JSON parsing failed: " + err.to_string())
+    } catch err: FsError {
+        print("File read failed: " + err.to_string())
+    } catch err {
+        print("Unknown error: " + err.to_string())
+    } finally {
+        // Guarantee file is closed and loading is hidden regardless of success or failure
+        file.close()
+        hide_loading_spinner()
+    }
+}
+```
+
+## Combination Patterns
+
+XULO supports the following three standard `try` combination structures:
+
+### 1. `try { ... } catch { ... }`
+
+Regular exception catching without cleanup code.
+
+```js
+try {
+    let data = JSON.parse<Config>(config_str)
+    apply_config(data)
+} catch err: JSONError {
+    print("Config parsing failed: " + err.to_string())
+}
+```
+
+### 2. `try { ... } finally { ... }`
+
+Resource cleanup only, no exception catching (exceptions continue to propagate).
+
+```js
+fn process_data(data: Data) {
+    let lock = acquire_lock()
+
+    try {
+        let result = heavy_computation(data)
+        return result
+    } finally {
+        // Guarantee lock is released even if heavy_computation throws
+        lock.release()
+    }
+}
+```
+
+### 3. `try { ... } catch { ... } finally { ... }`
+
+Full mode: catching + cleanup.
+
+```js
+fn fetch_and_save(url: string, path: string) {
+    let response = http.fetch(url)
+
+    try {
+        let data = response.body()
+        File.write(path, data)
+    } catch err: NetworkError {
+        print("Network error: " + err.to_string())
+    } catch err: FsError {
+        print("File write failed: " + err.to_string())
+    } finally {
+        response.close()
+    }
+}
+```
+
+## Syntax Rules
+
+1. The `finally` block must immediately follow the last `catch` block, or directly follow the `try` block (no `catch` mode)
+2. **Control Flow Guarantee**: Regardless of whether `try` / `catch` scope ends normally, throws an exception, or exits early via `return` / `break`, the code in the `finally` block executes before the current scope is destroyed
+3. **Prohibited Control Flow Escape**: Using `return`, `break`, or `throw` inside a `finally` block is **prohibited** (to avoid overwriting/swallowing the original return value or exception from `try` / `catch`)
+
+## Exception Types
+
+XULO includes the following built-in exception types:
+
+| Exception Type | Description |
+|----------------|-------------|
+| `JSONError` | JSON parsing errors, with variants including `SyntaxError`, `TypeMismatch`, `UnexpectedEof` |
+| `FsError` | File system errors |
+| `NetworkError` | Network communication errors |
+| `Error` | Base class for all exceptions |
+
+## Custom Exceptions
+
+Define custom exception types using `enum`:
+
+```js
+enum ValidationError {
+    FieldRequired(field: string),
+    InvalidFormat(field: string, expected: string),
+    OutOfRange(field: string, min: number, max: number)
+}
+
+fn validate_age(age: number): number {
+    if age < 0 || age > 150 {
+        throw ValidationError.OutOfRange("age", 0, 150)
+    }
+    return age
+}
+
+try {
+    let valid_age = validate_age(-5)
+} catch err: ValidationError {
+    match err {
+        ValidationError.OutOfRange(field, min, max) => {
+            print(field + " must be between " + min.to_string() + " and " + max.to_string())
+        },
+        _ => print("Validation error")
+    }
+}
+```
+
+## Best Practices
+
+1. **Precise Catching**: Catch specific exception types whenever possible instead of using generic `catch err`
+2. **Resource Cleanup**: Always release file handles, network connections, etc. in `finally` blocks
+3. **Avoid Swallowing Exceptions**: Don't do nothing in `catch` blocks; at least log the error
+4. **Prohibited Control Flow in finally**: Don't use `return`, `break`, or `throw` in `finally`

@@ -1,0 +1,115 @@
+---
+title: JSON
+description: XULO 中的 JSON 原语功能。
+---
+
+## 概述
+
+JSON 是语言内置原语，提供序列化与反序列化功能，无需导入即可使用。
+
+## 方法
+
+### `JSON.stringify(data)`
+
+将数据序列化为 JSON 字符串。
+
+```js
+let data = { name: "Alice", age: 30, active: true }
+let json_str = JSON.stringify(data)
+// '{"name":"Alice","age":30,"active":true}'
+
+let list = [1, 2, 3]
+let json_list = JSON.stringify(list)
+// '[1,2,3]'
+```
+
+### `JSON.parse<T>(str)`
+
+将 JSON 字符串反序列化为指定类型。
+
+```js
+let json_str = '{"name":"Alice","age":30}'
+let user = JSON.parse<User>(json_str)
+// user.name = "Alice", user.age = 30
+
+let json_list = '[1, 2, 3]'
+let numbers = JSON.parse<list<number>>(json_list)
+// numbers = [1, 2, 3]
+```
+
+### `JSON.parse_async<T>(str)`
+
+异步版本的 JSON 解析，失败时在调用协程中抛出 `JSONError`。
+
+```js
+let json_str = '{"name":"Alice","age":30}'
+let user = await JSON.parse_async<User>(json_str)
+```
+
+## 错误处理
+
+JSON 解析失败时会抛出 `JSONError`，包含以下变体：
+
+- `JSONError.SyntaxError(msg, line, col)` - JSON 语法错误
+- `JSONError.TypeMismatch(expected, actual)` - 类型不匹配
+- `JSONError.UnexpectedEof` - 输入意外结束
+
+```js
+let raw_json = "{\"age\": \"invalid_number\"}"
+
+try {
+    let user = JSON.parse<User>(raw_json)
+    print("Welcome, " + user.name)
+} catch err: JSONError {
+    match err {
+        JSONError.TypeMismatch(expected, actual) => {
+            print("类型不匹配: 期望 " + expected + ", 实际为 " + actual)
+        },
+        JSONError.SyntaxError(msg, line, col) => {
+            print("JSON 语法错误: " + msg + " (行 " + line.to_string() + ", 列 " + col.to_string() + ")")
+        },
+        _ => print("其他 JSON 解析错误")
+    }
+} catch err {
+    print("未知错误: " + err.to_string())
+}
+```
+
+## 使用场景
+
+- **数据交换**：与外部 API 通信时序列化/反序列化数据
+- **持久化**：将对象保存为 JSON 文件
+- **配置解析**：读取 JSON 格式的配置文件
+- **调试**：将对象转换为可读字符串
+
+## 示例
+
+```js
+// 序列化对象
+fn save_user(user: User) {
+  let json_str = JSON.stringify(user)
+  File.write("user.json", json_str)
+}
+
+// 反序列化对象
+fn load_user(): User {
+  let json_str = File.read("user.json")
+  return JSON.parse<User>(json_str)
+}
+
+// 与 HTTP API 交互
+fn fetch_data() {
+  let response = http.fetch("https://api.example.com/data")
+  let json_str = response.body()
+  let data = JSON.parse<ApiResponse>(json_str)
+  return data
+}
+```
+
+## 设计说明
+
+1. **错误机制**：XULO 统一采用 `try / catch / throw` 管理运行时与可恢复异常
+2. **内置 JSONError**：`JSONError` 是语言内置的标准异常类型（继承自语言根 `Error` / 枚举类型），包含 `SyntaxError`、`TypeMismatch`、`UnexpectedEof` 等变体
+3. **同步 / 异步解析签名**：
+   * `JSON.parse<T>(input: string): T`（失败抛出 `JSONError`）
+   * `JSON.parse_async<T>(input: string): T async`（异步失败在调用协程中抛出 `JSONError`）

@@ -1,0 +1,124 @@
+---
+title: Regular Expressions
+description: RegExp primitive functionality in XULO.
+---
+
+## Overview
+
+Regular Expressions (RegExp) exist in XULO as a **language-level literal + built-in primitive**, combining书写便捷性 with high-performance regex engine capabilities.
+
+## Core Design Highlights
+
+1. **Literal Syntax**: Uses `/pattern/flags` format (e.g., `/^[a-z0-9]+$/i`), which the compiler parses directly into a `RegExp` native type with compile-time static syntax checking
+2. **No `import` Required**: Built-in `RegExp` type and `/.../` literals are fully interchangeable, ready to use out of the box
+3. **Strongly Typed Match Results**: Successful matches return structured `RegexMatch` objects; failures throw `RegexError` or return `null` (depending on the API used)
+
+## Syntax & Code Examples
+
+### Literal Declaration & Basic Testing
+
+```js
+// Create regex literal (with i case-insensitive flag)
+let pattern = /^hello\s+(\w+)/i
+
+// Quick match test (returns boolean)
+if pattern.test("Hello World") {
+    print("Matched!")
+}
+```
+
+### String Matching & Capture Groups
+
+```js
+let input = "Contact us at support@xulo.dev or sales@xulo.dev"
+let email_regex = /([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)/g
+
+// Find first match (returns optional RegexMatch?)
+if let match = email_regex.find(input) {
+    print("Full Email: " + match.value)        // "support@xulo.dev"
+    print("Username: " + match.group(1)!)     // "support"
+    print("Domain: " + match.group(2)!)       // "xulo.dev"
+}
+
+// Extract all matches (returns list<RegexMatch>)
+let matches = email_regex.find_all(input)
+for m in matches {
+    print("Found: " + m.value)
+}
+```
+
+### Replacement & Splitting
+
+```js
+let text = "2026-09-07"
+let date_regex = /(\d{4})-(\d{2})-(\d{2})/
+
+// Regex replacement
+let formatted = text.replace(date_regex, "$2/$3/$1") // "09/07/2026"
+
+// Closure-based dynamic replacement
+let upper = "apple, banana".replace(/[a-z]+/g, (m) => m.value.to_uppercase())
+```
+
+## Exception & Error Handling
+
+When dynamically constructing regular expressions (via `RegExp.compile`), illegal syntax throws a built-in `RegexError` exception that can be integrated into the `try / catch` system:
+
+```js
+try {
+    // Dynamically construct user-input regex
+    let user_pattern = RegExp.compile("[a-z+(invalid")
+} catch err: RegexError {
+    print("Illegal regex syntax: " + err.to_string())
+}
+```
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `i` | Case-insensitive matching |
+| `g` | Global matching (find all matches instead of just the first) |
+| `m` | Multiline mode (`^` and `$` match line starts and ends) |
+| `u` | Unicode mode |
+
+## Core API
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `test(input: string)` | `boolean` | Test if pattern matches |
+| `find(input: string)` | `RegexMatch?` | Find first match |
+| `find_all(input: string)` | `list<RegexMatch>` | Find all matches |
+| `replace(pattern: RegExp, replacer: string \| (m: RegexMatch) -> string)` | `string` | Replace matched content |
+
+## Use Cases
+
+- **Data Validation**: Validate email, phone, ID card formats
+- **Text Extraction**: Extract specific patterns from strings
+- **Text Replacement**: Batch replace text matching specific patterns
+- **Log Analysis**: Parse key information from log files
+
+## Examples
+
+```js
+// Validate email format
+fn is_valid_email(email: string): boolean {
+    let email_regex = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    return email_regex.test(email)
+}
+
+// Extract domain from URL
+fn extract_domain(url: string): string? {
+    let domain_regex = /https?:\/\/([^/]+)/
+    if let match = domain_regex.find(url) {
+        return match.group(1)
+    }
+    return null
+}
+
+// Format date
+fn format_date(date_str: string): string {
+    let date_regex = /(\d{4})-(\d{2})-(\d{2})/
+    return date_str.replace(date_regex, "$2/$3/$1")
+}
+```
