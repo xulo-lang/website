@@ -96,3 +96,48 @@ fn describe<T: Area>(t: T): number {
 - `impl` 方法必须实现 trait 中声明的所有方法，签名（包括 `self`）必须双向可赋值
 - 泛型参数值在运行时被擦除，因此在 `T: Trait` 约束下无法进行调度调用 — 只有命名类型实例可以被调度
 - `trait` 是可导出的模块成员（`pub trait`），可以通过 `import type` 导入，然后在本地实现
+
+## 闭包与匿名函数（Closures / Lambdas）
+
+XULO 的闭包设计同时满足 **UI 事件响应**（简洁的 `(x) => ...`）与 **高阶函数处理**，语法上明确区分"带类型标注"与"参数推导"的表达式。
+
+### 语法形态规范
+
+#### 单行表达式闭包（类型自动推导）
+
+```js
+let add = (a, b) => a + b
+let numbers = list.map([1, 2, 3], (x) => x * 2)
+```
+
+#### 多行块级闭包（带显式类型与返回类型）
+
+```js
+let handler = (event: MouseEvent): boolean => {
+    if event.is_valid {
+        return true
+    }
+    false
+}
+```
+
+#### 闭包类型描述符（用于函数参数类型标注）
+
+`fn(InputType): OutputType`
+
+```js
+pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
+    // ...
+}
+```
+
+### EBNF 形式化规则
+
+```text
+ClosureExpr      ::= ClosureParams ('->' Type)? '=>' ( Expression | Block ) ;
+ClosureParams    ::= Identifier
+                   | '(' (ClosureParam (',' ClosureParam)* ','?)? ')' ;
+ClosureParam     ::= Identifier (':' Type)? ;
+
+ClosureType      ::= 'fn' '(' (Type (',' Type)*)? ')' ':' Type ;
+```
