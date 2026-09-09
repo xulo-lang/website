@@ -3,6 +3,96 @@ title: Generics & Traits
 description: Generic types, trait bounds, and trait implementations in XULO.
 ---
 
-<Callout type="info" title="Coming Soon">
-  This page is under construction. Check back soon for generics and traits documentation.
-</Callout>
+## Generics & Parameterized Types
+
+XULO adopts the intuitive, modern angle-bracket `<T>` syntax, and requires **unified use of dot `.` for generic method and variant access** (completely prohibiting `::`).
+
+### Syntax Forms
+
+#### Structs & Enums with Generics
+
+```js
+pub struct Container<T> {
+    pub value: T,
+}
+
+pub enum Option<T> {
+    Some(T),
+    None
+}
+```
+
+#### Functions & Methods with Generics
+
+```js
+pub fn map<T, U>(item: T, transform: fn(T): U): U {
+    transform(item)
+}
+```
+
+#### Trait Bounds
+
+Use colon `:` to specify bounds, and `+` to combine multiple bounds.
+
+```js
+pub fn print_item<T: Display + Serialize>(item: T) {
+    // ...
+}
+```
+
+### EBNF Formal Rules
+
+```text
+GenericParams ::= '<' GenericParam (',' GenericParam)* ','? '>' ;
+GenericParam  ::= Identifier (':' TraitBound)? ;
+TraitBound    ::= TypeName ('+' TypeName)* ;
+
+GenericArgs   ::= '<' Type (',' Type)* ','? '>' ;
+```
+
+## Traits
+
+A `trait` declares a set of method signatures as a "capability" contract; `impl Trait for Type` provides implementations for a named type. `self` (reserved word) is the receiver, marking a method as an "instance method".
+
+```js
+trait Area {
+    fn area(self): number
+    fn perimeter(self): number
+}
+
+type Rectangle = { w: number, h: number }
+
+impl Area for Rectangle {
+    fn area(self): number { self.w * self.h }
+    fn perimeter(self): number { 2 * (self.w + self.h) }
+}
+```
+
+### Explicit Dispatch
+
+Calls use **explicit dispatch** `Trait.method(receiver, ...)` — the compiler resolves this to a static call on the `impl` method, with zero runtime overhead:
+
+```js
+fn main() {
+    let r: Rectangle = { w: 3, h: 4 }
+    print(str(Area.area(r)))        // 12
+    print(str(Area.perimeter(r)))   // 14
+}
+```
+
+### Generic Constraints
+
+Type parameters can be constrained with `T: Trait` (inline) or `where T: Trait`. Constrained parameters are refined to the trait's structural shape for member access; multiple traits are joined with `+`:
+
+```js
+fn describe<T: Area>(t: T): number {
+    Area.area(t)
+}
+```
+
+### Rules
+
+- Dispatch receivers must be **static named types**: `Trait.method(recv)` requires the receiver to resolve to a concrete named type with a registered `impl`, otherwise a "does not implement trait" error is reported
+- `impl` methods must implement all methods declared in the trait, with signatures (including `self`) that are bidirectionally assignable
+- Generic parameter values are erased at runtime, so dispatch calls are not possible under `T: Trait` constraints — only named type instances can be dispatched
+- `trait` is an exportable module member (`pub trait`), importable via `import type` and then implemented locally

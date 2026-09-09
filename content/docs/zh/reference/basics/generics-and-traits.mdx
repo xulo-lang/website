@@ -3,6 +3,96 @@ title: 泛型与 Trait
 description: XULO 中的泛型类型、trait 约束与 trait 实现。
 ---
 
-<Callout type="info" title="即将上线">
-  本页面正在建设中，请稍后再来查看泛型与 trait 文档。
-</Callout>
+## 泛型与参数化类型（Generics）
+
+XULO 采用直观、符合现代化主流习惯的尖括号 `<T>` 语法，且要求**统一使用点号 `.` 进行泛型方法与变体访问**（彻底禁止 `::`）。
+
+### 语法形态规范
+
+#### 结构体与枚举泛型
+
+```js
+pub struct Container<T> {
+    pub value: T,
+}
+
+pub enum Option<T> {
+    Some(T),
+    None
+}
+```
+
+#### 函数与方法泛型
+
+```js
+pub fn map<T, U>(item: T, transform: fn(T): U): U {
+    transform(item)
+}
+```
+
+#### Trait 约束（Trait Bounds）
+
+使用冒号 `:` 指定约束，多重约束使用 `+` 连接。
+
+```js
+pub fn print_item<T: Display + Serialize>(item: T) {
+    // ...
+}
+```
+
+### EBNF 形式化规则
+
+```text
+GenericParams ::= '<' GenericParam (',' GenericParam)* ','? '>' ;
+GenericParam  ::= Identifier (':' TraitBound)? ;
+TraitBound    ::= TypeName ('+' TypeName)* ;
+
+GenericArgs   ::= '<' Type (',' Type)* ','? '>' ;
+```
+
+## Traits
+
+`trait` 声明一组方法签名作为"能力"契约；`impl Trait for Type` 为命名类型提供实现。`self`（保留字）是接收者，标记方法为"实例方法"。
+
+```js
+trait Area {
+    fn area(self): number
+    fn perimeter(self): number
+}
+
+type Rectangle = { w: number, h: number }
+
+impl Area for Rectangle {
+    fn area(self): number { self.w * self.h }
+    fn perimeter(self): number { 2 * (self.w + self.h) }
+}
+```
+
+### 显式调度
+
+调用使用**显式调度** `Trait.method(receiver, ...)` — 编译器将其解析为 `impl` 方法的静态调用，零运行时开销：
+
+```js
+fn main() {
+    let r: Rectangle = { w: 3, h: 4 }
+    print(str(Area.area(r)))        // 12
+    print(str(Area.perimeter(r)))   // 14
+}
+```
+
+### 泛型约束
+
+类型参数可以用 `T: Trait`（内联）或 `where T: Trait` 约束。受约束的参数会根据 trait 的结构形状进行细化以访问成员；多个 trait 使用 `&` 连接：
+
+```js
+fn describe<T: Area>(t: T): number {
+    Area.area(t)
+}
+```
+
+### 规则
+
+- 调度接收者必须是**静态命名类型**：`Trait.method(recv)` 要求接收者解析为具有已注册 `impl` 的具体命名类型，否则报告"does not implement trait"错误
+- `impl` 方法必须实现 trait 中声明的所有方法，签名（包括 `self`）必须双向可赋值
+- 泛型参数值在运行时被擦除，因此在 `T: Trait` 约束下无法进行调度调用 — 只有命名类型实例可以被调度
+- `trait` 是可导出的模块成员（`pub trait`），可以通过 `import type` 导入，然后在本地实现
