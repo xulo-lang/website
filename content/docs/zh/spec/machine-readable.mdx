@@ -26,11 +26,11 @@ ISO/IEC 14977 标准 EBNF 语法定义文件。兼容大多数通用 EBNF 解析
 - **适配工具**：[Pest Parser Generator](https://pest.rs/)
 - **获取方式**：[下载 xulo.pest](/grammars/xulo.pest) · [查看 Raw 源码](https://github.com/xulo-lang/xulo/blob/main/crates/xulo-parser/grammar/xulo.pest)
 
-### 3. `tree-sitter-xulo`（增量解析器）
+### 3. `xulo-tree-sitter`（增量解析器）
 
 Tree-sitter 增量语法解析库，用于现代编辑器（VS Code、Neovim、Helix、Zed）的高亮与 AST 导航。
 
-- **官方仓库**：[github.com/xulo-lang/tree-sitter-xulo](https://github.com/xulo-lang/tree-sitter-xulo)
+- **官方仓库**：[github.com/xulo-lang/xulo-tree-sitter](https://github.com/xulo-lang/xulo-tree-sitter)
 - **支持语言/平台**：C, Rust, WASM, Node.js
 
 ---
@@ -60,12 +60,12 @@ pub struct XuloParser;
 ### 在 JavaScript / Node.js 中集成 Tree-sitter
 
 ```bash
-npm install tree-sitter tree-sitter-xulo
+npm install tree-sitter xulo-tree-sitter
 ```
 
 ```javascript
 const Parser = require('tree-sitter');
-const Xulo = require('tree-sitter-xulo');
+const Xulo = require('xulo-tree-sitter');
 
 const parser = new Parser();
 parser.setLanguage(Xulo);
