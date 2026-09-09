@@ -274,7 +274,7 @@ function Home() {
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-12">
             <Link
               to="/$lang/docs/$"
-              params={{ lang, _splat: 'reference/overview' }}
+              params={{ lang, _splat: 'reference/getting-started/overview' }}
               className="flex items-center gap-2 px-7 py-3 rounded-xl bg-fd-primary text-fd-primary-foreground font-bold hover:opacity-90 transition-all shadow-xl shadow-white/10"
             >
               {isZh ? '快速开始' : 'Get Started'}
@@ -373,7 +373,7 @@ function Home() {
 
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'reference/overview' }}
+                params={{ lang, _splat: 'reference/getting-started/overview' }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-fd-foreground text-sm font-medium hover:bg-white/20 transition-all w-fit"
               >
                 {isZh ? '阅读完整规范' : 'Read Full Specification'}
@@ -487,7 +487,7 @@ function Home() {
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'reference/overview' }}
+                params={{ lang, _splat: 'reference/getting-started/overview' }}
                 className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-fd-primary text-fd-primary-foreground font-bold hover:opacity-90 transition-all shadow-2xl"
               >
                 {isZh ? '开始构建' : 'Start Building'}
@@ -495,7 +495,7 @@ function Home() {
               </Link>
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'reference/overview' }}
+                params={{ lang, _splat: 'reference/getting-started/overview' }}
                 className="px-8 py-3.5 rounded-xl bg-white/5 border border-white/10 text-fd-foreground font-medium hover:bg-white/10 transition-all"
               >
                 {isZh ? '阅读语言规范' : 'Read Language Spec'}
@@ -529,12 +529,12 @@ function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/overview' }} className="hover:text-fd-foreground">
+                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/getting-started/overview' }} className="hover:text-fd-foreground">
                     {isZh ? '概述' : 'Overview'}
                   </Link>
                 </li>
                 <li>
-                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/types' }} className="hover:text-fd-foreground">
+                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'reference/basics/types-and-data-structures' }} className="hover:text-fd-foreground">
                     {isZh ? '类型' : 'Types'}
                   </Link>
                 </li>
