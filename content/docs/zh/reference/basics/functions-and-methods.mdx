@@ -110,7 +110,48 @@ fn main() {
 }
 ```
 
-**规则：**
+### 语法形态规范
+
+#### 单行表达式闭包（类型自动推导）
+
+```js
+let add = (a, b) => a + b
+let numbers = list.map([1, 2, 3], (x) => x * 2)
+```
+
+#### 多行块级闭包（带显式类型与返回类型）
+
+```js
+let handler = (event: MouseEvent): boolean => {
+    if event.is_valid {
+        return true
+    }
+    false
+}
+```
+
+#### 闭包类型描述符（用于函数参数类型标注）
+
+`fn(InputType): OutputType`
+
+```js
+pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
+    // ...
+}
+```
+
+### EBNF 形式化规则
+
+```text
+ClosureExpr      ::= ClosureParams ('->' Type)? '=>' ( Expression | Block ) ;
+ClosureParams    ::= Identifier
+                   | '(' (ClosureParam (',' ClosureParam)* ','?)? ')' ;
+ClosureParam     ::= Identifier (':' Type)? ;
+
+ClosureType      ::= 'fn' '(' (Type (',' Type)*)? ')' ':' Type ;
+```
+
+### 规则
 
 - 匿名函数类型为 `fn(参数类型): 返回类型`，可赋值给带该类型的参数/变量
 - 通过捕获自动访问外层局部变量，可变捕获可直接修改外层 `let` 绑定

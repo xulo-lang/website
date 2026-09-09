@@ -110,9 +110,50 @@ fn main() {
 }
 ```
 
-**Rules:**
+### Syntax Forms
 
-- Anonymous function type is `fn(param types): return type` (`Type.FnSig`), assignable to parameters/variables with that type
+#### Single-line Expression Closures (Type Inferred)
+
+```js
+let add = (a, b) => a + b
+let numbers = list.map([1, 2, 3], (x) => x * 2)
+```
+
+#### Multi-line Block Closures (With Explicit Types and Return Type)
+
+```js
+let handler = (event: MouseEvent): boolean => {
+    if event.is_valid {
+        return true
+    }
+    false
+}
+```
+
+#### Closure Type Descriptors (For Function Parameter Type Annotations)
+
+`fn(InputType): OutputType`
+
+```js
+pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
+    // ...
+}
+```
+
+### EBNF Formal Rules
+
+```text
+ClosureExpr      ::= ClosureParams ('->' Type)? '=>' ( Expression | Block ) ;
+ClosureParams    ::= Identifier
+                   | '(' (ClosureParam (',' ClosureParam)* ','?)? ')' ;
+ClosureParam     ::= Identifier (':' Type)? ;
+
+ClosureType      ::= 'fn' '(' (Type (',' Type)*)? ')' ':' Type ;
+```
+
+### Rules
+
+- Anonymous function type is `fn(param types): return type`, assignable to parameters/variables with that type
 - Automatically accesses outer local variables through capture; mutable captures can modify outer `let` bindings directly
 - Function values are called with positional arguments only; the count must match exactly; named arguments are not supported
 - Function values can be called from any expression: `xs[0](10)`, `getFn()(x)`, `(f)(5)`
