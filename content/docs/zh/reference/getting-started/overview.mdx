@@ -1,0 +1,135 @@
+---
+title: 概述
+description: XULO 语言概述。
+---
+
+XULO 是一门通用编程语言，面向人/AI 最优阅读。从终端脚本到跨平台 UI 布局，XULO 用统一的语法覆盖所有场景。
+
+## 两种模式
+
+XULO 程序有两种形式：
+
+**终端** — 纯逻辑，无 UI：
+
+```js
+fn main() {
+  let name = "World"
+  println("Hello, " + name)
+}
+```
+
+**UI** — 返回 `View` 渲染组件树：
+
+```js
+fn main(): View {
+  Screen {
+    Center {
+      Text("Hello, XULO!")
+    }
+  }
+}
+```
+
+入口始终是 `fn main()`。当返回类型为 `View` 时，编译器将组件树渲染为界面。
+
+## 核心语法
+
+### 函数
+
+```js
+fn add(a: number, b: number): number {
+  a + b
+}
+```
+
+用 `fn` 声明函数，参数以 `:` 标注类型。函数体最后一个表达式即为返回值，无需 `return`。
+
+### 变量
+
+```js
+let x = 10
+const PI = 3.14
+```
+
+`let` 声明可变绑定，`const` 声明常量。
+
+### 结构体与枚举
+
+```js
+struct Point {
+  x: number
+  y: number
+}
+
+enum Direction {
+  Up
+  Down
+  Left
+  Right
+}
+```
+
+### 控制流
+
+```js
+if x > 0 {
+  println("positive")
+} else {
+  println("non-positive")
+}
+
+for i in 0..10 {
+  println(str(i))
+}
+
+match direction {
+  Direction.Up => move_up()
+  _ => {}
+}
+```
+
+## UI 组件
+
+编写 UI 时，XULO 使用组件树语法。组件是 PascalCase 标识符，属性是 `(...)` 中的 `key: value` 键值对：
+
+```js
+Screen {
+  Header {
+    Text("仪表盘")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "统计", radius: "lg") {
+        Text("3,214 个账户")
+      }
+      Button("查看全部", variant: "outline")
+    }
+  }
+}
+```
+
+- 大写名称是组件
+- 小驼峰名称是属性和命名值
+- 没有闭合标签，没有尖括号——结构来自 `{` 块
+
+## 值
+
+- **字符串** — `"..."` 或 `'...'`
+- **数字** — `400`、`1.5`、`16`
+- **布尔值** — `true` / `false`
+- **标识符** — 命名值或标记，如 `primary` 或 `lg`
+
+## 注释
+
+`//` 开始行注释，直到行尾。注释在渲染前被剥离。
+
+```js
+// 这是注释
+println("Hello")
+```
+
+## 本节内容
+
+- **[安装](/zh/docs/reference/getting-started/installation/)** — 搭建开发环境
+- **[Hello World](/zh/docs/reference/getting-started/hello-world/)** — 构建你的第一个程序
+- **[工具链与 CLI](/zh/docs/reference/getting-started/toolchain-cli/)** — 编译器、打包器与开发工具

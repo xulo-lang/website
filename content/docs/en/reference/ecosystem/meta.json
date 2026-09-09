@@ -1,0 +1,4 @@
+{
+  "title": "Ecosystem & Tooling",
+  "pages": ["package-management", "testing-and-debugging", "ffi-and-interop", "ai-context-and-schema"]
+}

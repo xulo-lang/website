@@ -1,0 +1,77 @@
+---
+title: Lexical Specification
+description: Tokens, lexer state machine, and whitespace rules in XULO.
+---
+
+## Overview
+
+The XULO lexer transforms a source character stream into a token stream. This section defines all token types, whitespace handling, and comments.
+
+## Character Set
+
+XULO source files **SHALL** be encoded in UTF-8.
+
+## Tokens
+
+### Keywords
+
+The following words are reserved and **MUST NOT** be used as identifiers:
+
+```text
+fn      let     mut     const   struct  enum    trait   impl
+pub     export  use      import  type    if      else    match
+for     while   return   throw   try     catch   finally async
+await   spawn   shared   lock    move    copy    self    null
+true    false
+```
+
+### Identifiers
+
+```text
+Identifier ::= [a-zA-Z_][a-zA-Z0-9_]*
+```
+
+- Component names **MUST** start with an uppercase letter: `Screen`, `Button`
+- Attribute names **MUST** start with a lowercase letter: `variant`, `spacing`
+- `_` is a valid identifier but is also used as a discard pattern in `match`
+
+### Literals
+
+```text
+StringLiteral  ::= '"' [^"\\]* '\\' . [^"\\]* '"' | "'" [^'\\]* '\\' . [^'\\]* "'"
+NumberLiteral  ::= [0-9]+ ('.' [0-9]+)?
+BooleanLiteral ::= 'true' | 'false'
+NullLiteral    ::= 'null'
+```
+
+### Operators and Delimiters
+
+```text
+( ) { } [ ] , : . ? @ = + - * / ! < > & | ; ...
+```
+
+## Whitespace
+
+- Horizontal whitespace (spaces, tabs) **SHALL** be ignored between tokens
+- Newlines are significant for statement termination
+- Indentation is **NOT** significant (brace-delimited blocks)
+
+## Comments
+
+```text
+LineComment   ::= '//' [^\n]*
+```
+
+Comments are stripped before rendering and have no semantic effect.
+
+## String Interpolation
+
+XULO does **not** support string interpolation. Use string concatenation:
+
+```js
+// Incorrect (not supported)
+let msg = `Hello, ${name}`
+
+// Correct
+let msg = "Hello, " + name
+```

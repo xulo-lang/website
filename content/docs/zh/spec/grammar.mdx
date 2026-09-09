@@ -1,0 +1,183 @@
+---
+title: 语法规范
+description: 完整 XULO 语法的 EBNF 范式。
+---
+
+## 符号说明
+
+本语法使用 [ISO/IEC 14977 EBNF](https://www.iso.org/standard/26153.html) 符号：
+
+```text
+=   定义
+;   终止
+|   选择
+[ ] 可选
+{ } 重复（零次或多次）
+( ) 分组
+" " 终端字符串
+' ' 终端字符串
+```
+
+## 程序结构
+
+```text
+Program          = { Declaration | Statement } ;
+Declaration      = FnDeclaration
+                 | StructDeclaration
+                 | EnumDeclaration
+                 | TraitDeclaration
+                 | ImplDeclaration
+                 | TypeAlias
+                 | ExportDeclaration ;
+```
+
+## 声明
+
+### 函数声明
+
+```text
+FnDeclaration    = [ 'export' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
+ParameterList    = Parameter ( ',' Parameter )* ','? ;
+Parameter        = Identifier ':' Type [ '?' ] [ '=' Expression ] ;
+```
+
+### 结构体声明
+
+```text
+StructDeclaration = [ 'export' ] [ 'pub' ] 'struct' Identifier [ GenericParams ] '{' FieldList? '}' ;
+FieldList        = Field ( ',' Field )* ','? ;
+Field            = [ 'pub' ] Identifier ':' Type ;
+GenericParams    = '<' Identifier ( ',' Identifier )* '>' ;
+```
+
+### 枚举声明
+
+```text
+EnumDeclaration  = [ 'export' ] 'enum' Identifier '{' EnumVariantList? '}' ;
+EnumVariantList  = EnumVariant ( ',' EnumVariant )* ','? ;
+EnumVariant      = Identifier [ '(' TypeList ')' ] ;
+TypeList         = Type ( ',' Type )* ;
+```
+
+### Trait 声明
+
+```text
+TraitDeclaration = [ 'export' ] 'trait' Identifier '{' TraitMethod* '}' ;
+TraitMethod      = 'fn' Identifier '(' ParameterList? ')' ':' Type ';' ;
+```
+
+### Impl 声明
+
+```text
+ImplDeclaration  = 'impl' Identifier 'for' Type '{' FnDeclaration* '}' ;
+                 | 'impl' Type '{' FnDeclaration* '}' ;
+```
+
+### 类型别名
+
+```text
+TypeAlias        = [ 'export' ] 'type' Identifier [ GenericParams ] '=' Type ;
+```
+
+## 类型
+
+```text
+Type             = Identifier
+                 | Identifier '<' TypeList '>'
+                 | Type '?'                    (可选)
+                 | Type '|' Type               (联合)
+                 | Type '&' Type               (交叉)
+                 | '{' FieldList '}'           (匿名对象)
+                 | 'fn' '(' TypeList? ')' [ ':' Type ] ;
+```
+
+### 数值类型
+
+XULO 定义了双层数值类型系统：**面向用户层**用于日常编码和 AI 生成，**形式规范层**用于系统级精确控制。
+
+```text
+(* 面向用户层 *)
+NumericType      = PrimitiveNumber | FixedBitNumber ;
+PrimitiveNumber  = 'number' | 'int' | 'float' ;
+
+(* 形式规范层 *)
+FixedBitNumber   = SignedInt | UnsignedInt | FloatType ;
+SignedInt        = 'i8' | 'i16' | 'i32' | 'i64' ;
+UnsignedInt      = 'u8' | 'u16' | 'u32' | 'u64' ;
+FloatType        = 'f32' | 'f64' ;
+```
+
+#### 字面量默认规则
+
+| 字面量形式 | 默认推断类型 |
+|-----------|------------|
+| `42`（整数字面量） | `int` |
+| `3.14`（浮点字面量） | `float` |
+| `0xff`（十六进制） | `int` |
+| `0b1010`（二进制） | `int` |
+| `0o77`（八进制） | `int` |
+
+当变量声明为固定位宽类型时，字面量会被强制转换：
+
+```text
+let w: u32 = 800       (* 从 int 强制转换为 u32 *)
+let opacity: f32 = 0.8 (* 从 float 强制转换为 f32 *)
+```
+
+## 表达式
+
+```text
+Expression       = Assignment ;
+Assignment       = Ternary ( '=' Assignment )? ;
+Ternary          = LogicalOr [ '?' Expression ':' Expression ] ;
+LogicalOr        = LogicalAnd ( 'or' LogicalAnd )* ;
+LogicalAnd       = Comparison ( 'and' Comparison )* ;
+Comparison       = Addition ( ( '<' | '>' | '<=' | '>=' | '==' | '!=' | '..<' ) Addition )* ;
+Addition         = Multiplication ( ( '+' | '-' ) Multiplication )* ;
+Multiplication   = Unary ( ( '*' | '/' ) Unary )* ;
+Unary            = ( '!' | '-' | 'await' ) Unary | Postfix ;
+Postfix          = Primary ( '.' Identifier | '[' Expression ']' | '(' ArgList ')' )* ;
+Primary          = Identifier | NumberLiteral | StringLiteral | BooleanLiteral | NullLiteral
+                 | '(' Expression ')'
+                 | '[' ExpressionList? ']'
+                 | '{' ObjectFieldList? '}'
+                 | 'if' Expression Block [ 'else' Block ]
+                 | 'match' Expression '{' MatchArm* '}'
+                 | 'fn' '(' ParameterList? ')' [ ':' Type ] Block ;
+```
+
+## 语句
+
+```text
+Statement        = VariableDecl
+                 | Assignment ';'
+                 | Expression ';'
+                 | ReturnStatement
+                 | ThrowStatement ;
+VariableDecl     = 'let' [ 'mut' ] Identifier [ ':' Type ] '=' Expression ;
+ReturnStatement  = 'return' Expression? ';' ;
+ThrowStatement   = 'throw' Expression ';' ;
+```
+
+## 块与控制流
+
+```text
+Block            = '{' { Statement } '}' ;
+MatchArm         = Pattern '=>' ( Expression | Block ) ;
+Pattern          = Identifier [ '(' PatternList ')' ]
+                 | NumberLiteral
+                 | StringLiteral
+                 | '_' ;
+PatternList      = Pattern ( ',' Pattern )* ;
+```
+
+## UI 组件语法
+
+```text
+ComponentExpr    = Identifier [ '(' ArgList ')' ] [ Block ] ;
+ArgList          = NamedArg ( ',' NamedArg )* ','? ;
+NamedArg         = Identifier ':' Expression
+                 | Expression ;                    (位置参数)
+```
+
+在 UI Block 内部，只允许组件表达式、`if` 表达式和 `for` 循环。

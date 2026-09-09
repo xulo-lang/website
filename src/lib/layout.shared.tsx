@@ -33,6 +33,10 @@ export function baseOptions(locale: string): BaseLayoutProps {
         text: isZh ? '文档' : 'Docs',
         url: `/${locale}/docs/introduction`,
       },
+      {
+        text: isZh ? '规范' : 'Spec',
+        url: `/${locale}/docs/spec`,
+      },
     ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };

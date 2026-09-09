@@ -1,21 +1,10 @@
 {
   "pages": [
-    "overview",
-    "types",
-    "memory-and-concurrency",
-    "std",
-    "json",
-    "regex",
-    "variables",
-    "expressions",
-    "functions",
-    "control-flow",
-    "error-handling",
-    "modules",
-    "async",
-    "components",
-    "props",
-    "style-props",
-    "routing"
+    "getting-started",
+    "basics",
+    "stdlib",
+    "ui",
+    "architecture",
+    "ecosystem"
   ]
 }

@@ -1,0 +1,135 @@
+---
+title: Overview
+description: An overview of the XULO language.
+---
+
+XULO is a general-purpose programming language designed for optimal human/AI reading. It covers everything from terminal scripts to cross-platform UI layout — with a single, consistent syntax.
+
+## Two Modes
+
+XULO programs come in two forms:
+
+**Terminal** — plain logic, no UI:
+
+```js
+fn main() {
+  let name = "World"
+  println("Hello, " + name)
+}
+```
+
+**UI** — return `View` to render a component tree:
+
+```js
+fn main(): View {
+  Screen {
+    Center {
+      Text("Hello, XULO!")
+    }
+  }
+}
+```
+
+The entry point is always `fn main()`. When the return type is `View`, the compiler renders the component tree into a UI interface.
+
+## Core Syntax
+
+### Functions
+
+```js
+fn add(a: number, b: number): number {
+  a + b
+}
+```
+
+Use `fn` to declare functions. Parameters are typed with `:`. The last expression is the implicit return value.
+
+### Variables
+
+```js
+let x = 10
+const PI = 3.14
+```
+
+`let` for mutable bindings, `const` for constants.
+
+### Structs & Enums
+
+```js
+struct Point {
+  x: number
+  y: number
+}
+
+enum Direction {
+  Up
+  Down
+  Left
+  Right
+}
+```
+
+### Control Flow
+
+```js
+if x > 0 {
+  println("positive")
+} else {
+  println("non-positive")
+}
+
+for i in 0..10 {
+  println(str(i))
+}
+
+match direction {
+  Direction.Up => move_up()
+  _ => {}
+}
+```
+
+## UI Components
+
+When writing UI, XUTO uses a component tree syntax. Components are PascalCase identifiers; attributes are `key: value` pairs in `(...)`:
+
+```js
+Screen {
+  Header {
+    Text("Dashboard")
+  }
+  Body {
+    VStack(spacing: 16) {
+      Card(title: "Stats", radius: "lg") {
+        Text("3,214 accounts")
+      }
+      Button("View All", variant: "outline")
+    }
+  }
+}
+```
+
+- Uppercase names are components
+- lower camelCase names are attributes and named values
+- No closing tags, no angle brackets — structure comes from the `{` block
+
+## Values
+
+- **String** — `"..."` or `'...'`
+- **Number** — `400`, `1.5`, `16`
+- **Boolean** — `true` / `false`
+- **Identifier** — a named value or token, e.g. `primary` or `lg`
+
+## Comments
+
+`//` starts a line comment, up to the end of the line. Comments are stripped before rendering.
+
+```js
+// This is a comment
+println("Hello")
+```
+
+## What's Inside
+
+- **[Installation](/en/docs/reference/getting-started/installation/)** — set up your environment
+- **[Hello World](/en/docs/reference/getting-started/hello-world/)** — build your first program
+- **[Toolchain & CLI](/en/docs/reference/getting-started/toolchain-cli/)** — compiler, bundler, and dev tools

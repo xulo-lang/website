@@ -1,0 +1,242 @@
+---
+title: AST Schema
+description: Abstract syntax tree node definitions and data structures.
+---
+
+## Overview
+
+This document defines the abstract syntax tree (AST) representation for XULO programs. The schema is specified in TypeScript-style notation for clarity, but is language-agnostic.
+
+## Node Base
+
+All AST nodes share a common base:
+
+```typescript
+interface BaseNode {
+  type: string;
+  span: { start: number; end: number };
+}
+```
+
+## Program
+
+```typescript
+interface Program extends BaseNode {
+  type: 'Program';
+  body: Declaration[];
+}
+```
+
+## Declarations
+
+```typescript
+interface FnDeclaration extends BaseNode {
+  type: 'FnDeclaration';
+  isExport: boolean;
+  name: IdentifierNode;
+  params: ParameterNode[];
+  returnType: TypeNode | null;
+  body: BlockNode;
+}
+
+interface StructDeclaration extends BaseNode {
+  type: 'StructDeclaration';
+  isExport: boolean;
+  isPub: boolean;
+  name: IdentifierNode;
+  genericParams: IdentifierNode[];
+  fields: FieldNode[];
+}
+
+interface EnumDeclaration extends BaseNode {
+  type: 'EnumDeclaration';
+  isExport: boolean;
+  name: IdentifierNode;
+  variants: EnumVariantNode[];
+}
+
+interface TraitDeclaration extends BaseNode {
+  type: 'TraitDeclaration';
+  isExport: boolean;
+  name: IdentifierNode;
+  methods: TraitMethodNode[];
+}
+
+interface ImplDeclaration extends BaseNode {
+  type: 'ImplDeclaration';
+  traitName: IdentifierNode | null;
+  targetType: TypeNode;
+  methods: FnDeclaration[];
+}
+
+interface TypeAlias extends BaseNode {
+  type: 'TypeAlias';
+  isExport: boolean;
+  name: IdentifierNode;
+  genericParams: IdentifierNode[];
+  initType: TypeNode;
+}
+```
+
+## Parameters and Fields
+
+```typescript
+interface ParameterNode extends BaseNode {
+  type: 'Parameter';
+  name: IdentifierNode;
+  paramType: TypeNode;
+  isOptional: boolean;
+  default: ExpressionNode | null;
+}
+
+interface FieldNode extends BaseNode {
+  type: 'Field';
+  isPub: boolean;
+  name: IdentifierNode;
+  fieldType: TypeNode;
+}
+
+interface EnumVariantNode extends BaseNode {
+  type: 'EnumVariant';
+  name: IdentifierNode;
+  payload: TypeNode[];
+}
+```
+
+## Types
+
+```typescript
+type TypeNode =
+  | IdentifierType
+  | GenericType
+  | OptionalType
+  | UnionType
+  | IntersectionType
+  | FnType
+  | ObjectType;
+
+interface IdentifierType extends BaseNode {
+  type: 'IdentifierType';
+  name: string;
+}
+
+interface GenericType extends BaseNode {
+  type: 'GenericType';
+  base: TypeNode;
+  args: TypeNode[];
+}
+
+interface OptionalType extends BaseNode {
+  type: 'OptionalType';
+  inner: TypeNode;
+}
+
+interface UnionType extends BaseNode {
+  type: 'UnionType';
+  left: TypeNode;
+  right: TypeNode;
+}
+
+interface IntersectionType extends BaseNode {
+  type: 'IntersectionType';
+  left: TypeNode;
+  right: TypeNode;
+}
+
+interface FnType extends BaseNode {
+  type: 'FnType';
+  params: TypeNode[];
+  returnType: TypeNode | null;
+}
+```
+
+## Expressions
+
+```typescript
+type ExpressionNode =
+  | IdentifierNode
+  | NumberLiteral
+  | StringLiteral
+  | BooleanLiteral
+  | NullLiteral
+  | BinaryExpr
+  | UnaryExpr
+  | CallExpr
+  | MemberExpr
+  | IndexExpr
+  | TernaryExpr
+  | IfExpr
+  | MatchExpr
+  | FnExpr
+  | ListExpr
+  | ObjectExpr
+  | ComponentExpr;
+
+interface BinaryExpr extends BaseNode {
+  type: 'BinaryExpr';
+  op: string;
+  left: ExpressionNode;
+  right: ExpressionNode;
+}
+
+interface CallExpr extends BaseNode {
+  type: 'CallExpr';
+  callee: ExpressionNode;
+  args: ExpressionNode[];
+}
+
+interface ComponentExpr extends BaseNode {
+  type: 'ComponentExpr';
+  name: IdentifierNode;
+  args: NamedArgNode[];
+  body: BlockNode | null;
+}
+
+interface MatchExpr extends BaseNode {
+  type: 'MatchExpr';
+  subject: ExpressionNode;
+  arms: MatchArmNode[];
+}
+```
+
+## Statements
+
+```typescript
+type StatementNode =
+  | VariableDecl
+  | ReturnStatement
+  | ThrowStatement
+  | ExpressionStatement;
+
+interface VariableDecl extends BaseNode {
+  type: 'VariableDecl';
+  isMutable: boolean;
+  name: IdentifierNode;
+  varType: TypeNode | null;
+  init: ExpressionNode;
+}
+```
+
+## Common Nodes
+
+```typescript
+interface IdentifierNode extends BaseNode {
+  type: 'Identifier';
+  value: string;
+}
+
+interface BlockNode extends BaseNode {
+  type: 'Block';
+  body: StatementNode[];
+}
+
+interface NamedArgNode extends BaseNode {
+  type: 'NamedArg';
+  name: IdentifierNode;
+  value: ExpressionNode;
+}
+```
+
+## Serialization Format
+
+AST nodes **SHALL** be serializable to JSON. The `span` field records zero-based character offsets `(start, end)` in the source file.

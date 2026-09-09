@@ -1,0 +1,4 @@
+{
+  "title": "生态与工具链",
+  "pages": ["package-management", "testing-and-debugging", "ffi-and-interop", "ai-context-and-schema"]
+}

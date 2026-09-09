@@ -1,0 +1,14 @@
+{
+  "title": "Language Specification",
+  "pages": [
+    "index",
+    "--- Formal Definition ---",
+    "lexical",
+    "grammar",
+    "ast",
+    "--- Semantics & Types ---",
+    "type-system",
+    "--- Machine Readable ---",
+    "machine-readable"
+  ]
+}

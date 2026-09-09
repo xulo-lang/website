@@ -1,0 +1,77 @@
+---
+title: 词法规范
+description: XULO 中的词元、词法状态机与空白规则。
+---
+
+## 概述
+
+XULO 词法分析器将源字符流转换为词元流。本节定义所有词元类型、空白处理和注释。
+
+## 字符集
+
+XULO 源文件**必须**使用 UTF-8 编码。
+
+## 词元
+
+### 关键词
+
+以下单词为保留词，**不得**用作标识符：
+
+```text
+fn      let     mut     const   struct  enum    trait   impl
+pub     export  use      import  type    if      else    match
+for     while   return   throw   try     catch   finally async
+await   spawn   shared   lock    move    copy    self    null
+true    false
+```
+
+### 标识符
+
+```text
+Identifier ::= [a-zA-Z_][a-zA-Z0-9_]*
+```
+
+- 组件名**必须**以大写字母开头：`Screen`、`Button`
+- 属性名**必须**以小写字母开头：`variant`、`spacing`
+- `_` 是有效标识符，但也用作 `match` 中的丢弃模式
+
+### 字面量
+
+```text
+StringLiteral  ::= '"' [^"\\]* '\\' . [^"\\]* '"' | "'" [^'\\]* '\\' . [^'\\]* "'"
+NumberLiteral  ::= [0-9]+ ('.' [0-9]+)?
+BooleanLiteral ::= 'true' | 'false'
+NullLiteral    ::= 'null'
+```
+
+### 运算符与分隔符
+
+```text
+( ) { } [ ] , : . ? @ = + - * / ! < > & | ; ...
+```
+
+## 空白
+
+- 词元之间的水平空白（空格、制表符）**应**被忽略
+- 换行符对语句终止具有重要意义
+- 缩进**无**意义（使用花括号分隔块）
+
+## 注释
+
+```text
+LineComment   ::= '//' [^\n]*
+```
+
+注释在渲染前被剥离，无语义效果。
+
+## 字符串插值
+
+XULO **不**支持字符串插值。请使用字符串拼接：
+
+```js
+// 不支持
+let msg = `Hello, ${name}`
+
+// 正确
+let msg = "Hello, " + name
+```

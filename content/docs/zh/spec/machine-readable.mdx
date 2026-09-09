@@ -1,0 +1,91 @@
+---
+title: 机器可读规范文件
+description: 用于编译器解析器生成、IDE 插件与静态分析工具的标准语法定义文件。
+---
+
+## 概述
+
+本页面提供 XULO 语言的形式化规范源文件（Machine-Readable Grammar），供编译器作者、Parser 生成器、Linter 静态分析器及 IDE 插件开发者直接引用与编译。
+
+---
+
+## 可用规范文件
+
+### 1. `xulo.ebnf`（ISO/IEC 14977 标准）
+
+ISO/IEC 14977 标准 EBNF 语法定义文件。兼容大多数通用 EBNF 解析器生成器及格式转换工具。
+
+- **规范标准**：[ISO/IEC 14977:1996](https://www.iso.org/standard/26153.html)
+- **编码格式**：UTF-8 Plain Text
+- **获取方式**：[下载 xulo.ebnf](/grammars/xulo.ebnf) · [查看 Raw 源码](https://github.com/xulo-lang/xulo/blob/main/crates/xulo-parser/grammar/xulo.ebnf)
+
+### 2. `xulo.pest`（Rust Pest 语法）
+
+面向 Rust 生态 Pest PEGs（Parsing Expression Grammars）解析器生成器的语法文件。
+
+- **适配工具**：[Pest Parser Generator](https://pest.rs/)
+- **获取方式**：[下载 xulo.pest](/grammars/xulo.pest) · [查看 Raw 源码](https://github.com/xulo-lang/xulo/blob/main/crates/xulo-parser/grammar/xulo.pest)
+
+### 3. `tree-sitter-xulo`（增量解析器）
+
+Tree-sitter 增量语法解析库，用于现代编辑器（VS Code、Neovim、Helix、Zed）的高亮与 AST 导航。
+
+- **官方仓库**：[github.com/xulo-lang/tree-sitter-xulo](https://github.com/xulo-lang/tree-sitter-xulo)
+- **支持语言/平台**：C, Rust, WASM, Node.js
+
+---
+
+## 快速集成指南
+
+### 在 Rust 中使用 Pest 解析器
+
+在 `Cargo.toml` 中引入依赖：
+
+```toml
+[dependencies]
+pest = "2.7"
+pest_derive = "2.7"
+```
+
+在 Rust 代码中引入语法文件：
+
+```rust
+use pest_derive::Parser;
+
+#[derive(Parser)]
+#[grammar = "xulo.pest"] // 指向项目中的 xulo.pest 文件
+pub struct XuloParser;
+```
+
+### 在 JavaScript / Node.js 中集成 Tree-sitter
+
+```bash
+npm install tree-sitter tree-sitter-xulo
+```
+
+```javascript
+const Parser = require('tree-sitter');
+const Xulo = require('tree-sitter-xulo');
+
+const parser = new Parser();
+parser.setLanguage(Xulo);
+
+const tree = parser.parse('fn main() { return 0; }');
+console.log(tree.rootNode.toString());
+```
+
+### 校验 EBNF 语法
+
+```bash
+# 使用 ebnf-validator 工具校验规则
+ebnf-validate ./xulo.ebnf
+```
+
+---
+
+## 权威单一来源（Single Source of Truth）
+
+本页面列出的所有语法定义文件均由 **XULO 编译器主仓库** 在 CI/CD 构建阶段自动生成并同步，确保与最新版编译器引擎保持 100% 语义一致。
+
+- **主编译器仓库**：[`github.com/xulo-lang/xulo`](https://github.com/xulo-lang/xulo)
+- **Grammar 维护目录**：`crates/xulo-parser/grammar/`

@@ -1,0 +1,47 @@
+---
+title: XULO 语言规范
+description: XULO 编程语言的形式化规范。
+---
+
+## 关于本规范
+
+本文档定义了 XULO 编程语言的形式化规范。面向编译器作者、LSP/工具链开发者，以及任何需要精确、无歧义的 XULO 语法和语义定义的人员。
+
+<Callout type="info">
+本规范是一份活文档，跟踪当前实现，并可能随语言演进而变化。
+</Callout>
+
+## 版本历史
+
+| 版本 | 日期 | 状态 |
+|------|------|------|
+| 0.1.0 | 2026-09-07 | 初始草案 |
+
+## 规范概览
+
+XULO 规范分为以下部分：
+
+### 形式化定义
+
+- **[词法规范](/zh/docs/spec/lexical/)** — 词元、词法状态机与空白规则
+- **[语法规范](/zh/docs/spec/grammar/)** — 完整 XULO 语法的 EBNF 范式
+- **[AST 规范](/zh/docs/spec/ast/)** — 抽象语法树节点定义与数据结构
+
+### 语义与类型
+
+- **[类型系统](/zh/docs/spec/type-system/)** — 类型规则、类型推断、强制转换与 trait 解析
+
+### 机器可读
+
+- **[机器可读文件](/zh/docs/spec/machine-readable/)** — 可下载的语法文件（EBNF、Pest、tree-sitter）
+
+## 约定
+
+关键词 **SHALL**、**MUST**、**SHOULD** 和 **MAY** 遵循 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)。
+
+代码示例约定：
+
+- `monospace 中的代码` — 语言词元或标识符
+- *斜体* — 语义元语法变量
+- `[方括号]` — 可选元素
+- `{ 花括号 }` — 重复

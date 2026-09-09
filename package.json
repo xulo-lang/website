@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview",
-    "preview": "vite preview",
+    "preview": "npm run build && vite preview",
     "types:check": "tsc --noEmit",
     "deploy": "npm run build && wrangler deploy",
     "preview:cf": "wrangler dev",
@@ -23,7 +23,8 @@
     "fumadocs-ui": "npm:@fumadocs/base-ui@16.15.6",
     "lucide-react": "^1.39.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "shiki": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.54.4",

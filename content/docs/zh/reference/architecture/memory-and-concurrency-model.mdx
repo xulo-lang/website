@@ -1,0 +1,660 @@
+---
+title: 内存管理与并发模型
+description: XULO 的无 GC 内存管理、所有权借用模型、多线程并发与多进程隔离机制。
+---
+
+## 设计哲学
+
+**规范声明**：本规范中使用的 *SHALL*（必须）、*MUST*（必须）、*SHOULD*（推荐）、*MAY*（可选）遵循 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) 标准。
+
+XULO 采用无垃圾回收（No GC）**与**强所有权（Ownership & Borrowing）的内存管理机制，以实现确定性的资源释放与零开销抽象。
+
+### 为什么选择无 GC？
+
+垃圾回收器（GC）虽然降低了内存管理的认知负担，但带来了不可预测的暂停（Stop-the-World）、内存碎片化与额外的运行时开销。XULO 选择了一条不同的道路：
+
+- **确定性释放**：资源在离开作用域时立即释放，无需等待 GC 周期
+- **零运行时开销**：所有权检查在编译期完成，不产生任何运行时成本
+- **可预测的性能**：适合实时系统、游戏引擎、高频交易等对延迟敏感的场景
+
+### Smart Defaults 原则
+
+为降低开发者的认知负担，本语言遵循 **"隐式安全默认（Smart Defaults）"** 原则：
+
+1. **语义显式，语法无符**：拒绝 `&`、`&mut`、`*` 等标点符号污染，统一采用语义明确的英文关键字
+2. **默认只读借用**：在未声明任何修饰符的情况下，值传递默认推导为**只读借用（Immutable Borrow）**，不发生深拷贝（Copy）与所有权转移（Move）
+
+这意味着大多数函数调用都是零成本的——你不需要记住每个函数是否会产生拷贝，因为默认行为就是安全的借用。
+
+---
+
+## 内存访问与权属修饰符
+
+### 基础权属语义
+
+在单线程及局部作用域内，变量与参数传递遵循以下 4 种基础形态：
+
+| 形态 / 语法 | 规范语义 | 访问权限 | 底层映射 (Rust/C++) | 说明 |
+| --- | --- | --- | --- | --- |
+| **`u: T`** | 只读借用 *(Default)* | 共享只读 (`Read`) | `&T` | **默认形态**。零关键字，不转移所有权，不产生内存拷贝。 |
+| **`u: mut T`** | 独占/可变借用 | 独占可写 (`Read/Write`) | `&mut T` | 声明对原内存对象的独占修改权限。 |
+| **`move expr`** | 所有权转移 | 权属移交 (`Transfer`) | `move` / T | 彻底转交资源所有权，原作用域变量立刻失效（Compile Error）。 |
+| **`copy expr`** | 显式深拷贝 | 独立副本 (`Clone`) | `.clone()` | 在堆/栈上克隆一份全新内存，彻底切断与原变量的权属联系。 |
+
+### 示例：四种形态对比
+
+```js
+struct User {
+    name: string
+    age: number
+}
+
+// 1. 只读借用（默认）
+fn print_user(u: User) {
+    print(u.name)  // 只读访问
+}
+
+// 2. 可变借用
+fn birthday(u: mut User) {
+    u.age += 1  // 独占修改
+}
+
+// 3. 所有权转移
+fn consume(u: User) {
+    // u 的所有权被转移到此函数
+    // 函数结束后 u 被释放
+}
+
+// 4. 显式深拷贝
+fn clone_user(u: User): User {
+    copy u  // 创建独立副本
+}
+
+fn main() {
+    let mut alice = User { name: "Alice", age: 30 }
+    
+    print_user(alice)        // 只读借用，alice 仍然有效
+    birthday(mut alice)      // 可变借用，alice 仍然有效
+    let bob = copy alice     // 深拷贝，alice 和 bob 独立
+    consume(move alice)      // 所有权转移，alice 失效
+    // print_user(alice)     // 编译错误：alice 已被转移
+}
+```
+
+### 别名互斥规则
+
+编译器在编译期检查必须强制满足以下借用规则（违反则抛出编译错误）：
+
+- **规则 1**：在任意给定作用域与时间点，一个对象可以存在**无限多个只读借用（`u: T`）**
+- **规则 2**：在任意给定作用域与时间点，一个对象**有且仅能存在一个可变借用（`u: mut T`）**
+- **规则 3**：可变借用与只读借用**不可同时共存**
+
+### 示例：规则验证
+
+```js
+struct Config {
+    debug: boolean
+    log_level: number
+}
+
+fn example() {
+    let mut config = Config { debug: true, log_level: 3 }
+    
+    // ✅ 正确：多个只读借用可以共存
+    let r1 = config
+    let r2 = config
+    let r3 = config
+    print(r1.debug)
+    print(r2.log_level)
+    print(r3.debug)
+    
+    // ❌ 错误：只读借用与可变借用不能共存
+    let r = config
+    let m = mut config  // 编译错误：config 已被借用为只读
+    m.debug = false
+}
+
+fn example2() {
+    let mut config = Config { debug: true, log_level: 3 }
+    
+    // ✅ 正确：可变借用在只读借用结束后生效
+    {
+        let r = config
+        print(r.debug)
+    }  // r 的借用在此结束
+    let m = mut config  // 现在可以获取可变借用
+    m.debug = false
+}
+
+fn example3() {
+    let mut config = Config { debug: true, log_level: 3 }
+    
+    // ❌ 错误：同一作用域内多个可变借用
+    let m1 = mut config
+    let m2 = mut config  // 编译错误：config 已被可变借用
+    m1.debug = false
+}
+```
+
+### 作用域与生命周期
+
+借用的生命周期严格受限于其作用域。当借用离开作用域时，借用自动释放：
+
+```js
+fn process() {
+    let mut data = list<number> { 1, 2, 3 }
+    
+    // 借用的作用域由花括号限定
+    {
+        let view = data  // 只读借用开始
+        print(view.length)  // 使用借用
+    }  // 借用结束，view 失效
+    
+    // 现在可以获取可变借用
+    mut data.push(4)  // 显式声明可变操作
+}
+```
+
+---
+
+## 多线程并发模型
+
+为防止多线程下的**数据竞态（Data Race）**，编译器通过类型推断对跨线程派发（`spawn`）施加严格的安全边界。
+
+### 线程安全的核心挑战
+
+多线程编程面临三大挑战：
+
+1. **数据竞态**：多个线程同时访问同一内存，至少一个线程在写入
+2. **悬垂引用**：线程 A 持有的指针在线程 B 中被释放
+3. **内存可见性**：线程 A 的修改对线程 B 不可见
+
+XULO 通过所有权系统在编译期解决这些问题，无需运行时检测。
+
+### spawn 派发模式
+
+`spawn` 是内建关键字，支持四种派发模式，覆盖从轻量级协程到重量级进程的全场景：
+
+```js
+// 1. 默认派发：使用当前环境默认的轻量级 Async Task（90% 的场景）
+spawn async {
+    do_work()
+}
+
+// 2. 指定底层派发到 OS 物理线程 (Thread)
+spawn.thread async {
+    compute_heavy_matrix(move data)
+}
+
+// 3. 指定派发到独立子进程 (Process / Actor)
+spawn.process async {
+    run_sandboxed_plugin()
+}
+
+// 4. 指定派发到自定义线程池 / 调度器 (Custom Executor)
+spawn.on(my_custom_pool) async {
+    handle_request()
+}
+```
+
+| 模式 | 语法 | 底层实现 | 适用场景 |
+| --- | --- | --- | --- |
+| **默认** | `spawn async { ... }` | 轻量级 Async Task | I/O 密集、高并发（90% 场景） |
+| **线程** | `spawn.thread async { ... }` | OS 物理线程 | CPU 密集计算、阻塞操作 |
+| **进程** | `spawn.process async { ... }` | 独立子进程 | 沙盒隔离、插件系统、崩溃隔离 |
+| **自定义** | `spawn.on(pool) async { ... }` | 自定义调度器 | 特定线程池、优先级队列 |
+
+### 所有权移交模式
+
+普通变量（未被 `shared` 包装）在跨线程派发时，必须通过 **`move`** 关键字显式转移所有权。
+
+**规范限制**：一旦变量被 `move` 入 `spawn` 任务块，主线程及其他线程将立刻失去该变量的访问权。
+
+```js
+fn spawn_worker() {
+    let config = load_config()
+    let data = process_data(config)
+    
+    // ✅ 正确：使用 move 转移所有权
+    spawn async {
+        let local_config = move config  // config 所有权转移
+        let local_data = move data      // data 所有权转移
+        upload(local_data, local_config)
+    }
+    // config 和 data 在此处已失效
+    
+    // ❌ 错误：尝试访问已转移的所有权
+    // print(config.debug)  // 编译错误：config 已被 move
+}
+```
+
+### 线程安全共享容器
+
+当多个线程需要同时访问并修改同一个内存对象时，必须使用 **`shared`** 关键字包装，并使用 **`lock`** 声明临界区。
+
+- **`shared` 声明**：构造一个具备线程安全原子引用计数与排他锁机制的共享容器（对标 `Arc<Mutex<T>>`）
+- **`lock` 作用域**：`lock` 关键字将声明一个排他临界区。在 `lock` 作用域内部，内部数据被暴露为 `mut` 可写状态；作用域结束时，互斥锁隐式自动释放（RAII 机制）
+
+```js
+struct AppState {
+    total_online: number
+    active_users: list<string>
+}
+
+// 示例：多线程安全共享与修改
+let global_state = shared AppState {
+    total_online: 0,
+    active_users: []
+}
+
+// 线程 1：增加在线用户数
+spawn async {
+    lock global_state {
+        global_state.total_online += 1
+    }
+}
+
+// 线程 2：添加用户
+spawn async {
+    lock global_state {
+        global_state.active_users.push("Alice")
+    }
+}
+```
+
+### shared 的内部机制
+
+`shared` 关键字在底层创建了一个线程安全的引用计数容器：
+
+```js
+// 以下是 shared 的概念性实现（非真实语法）
+struct Shared<T> {
+    data: T,
+    ref_count: AtomicUsize,  // 原子引用计数
+    lock: Mutex<()>          // 排他锁
+}
+
+// 使用 shared 自动管理
+let state = shared AppState { total_online: 0 }
+// ref_count = 1
+
+spawn async {
+    // 跨线程捕获时隐式触发 shared 容器的引用计数递增 (ref_count = 2)
+    lock state {
+        state.total_online += 1
+    }
+    // state 离开 spawn 作用域，ref_count = 1
+}
+// state 离开主作用域，ref_count = 0，内存释放
+```
+
+### 避免死锁
+
+`lock` 作用域设计为尽可能小，以减少锁持有时间：
+
+```js
+// ✅ 推荐：最小化锁作用域
+fn update_state(state: shared AppState) {
+    // 只在必要时持有锁
+    let new_value = {
+        lock state {
+            let current = state.value
+            current + 1
+        }  // 锁在此释放
+    }
+    
+    // 锁外进行其他计算
+    let processed = heavy_computation(new_value)
+    
+    lock state {
+        state.result = processed
+    }
+}
+
+// ❌ 不推荐：过长的锁作用域
+fn bad_example(state: shared AppState) {
+    lock state {
+        state.value += 1
+        let result = heavy_computation()  // 耗时操作在锁内
+        state.result = result  // 不必要的锁持有
+    }
+}
+```
+
+---
+
+## 多进程与沙盒隔离模型
+
+XULO 中的多进程模型遵循 **Shared-Nothing（无共享内存）** 架构，用于实现物理级内存隔离与崩溃隔离（Crash Isolation）。
+
+### 为什么需要多进程？
+
+多线程虽然高效，但存在致命缺陷：
+
+1. **崩溃传染**：一个线程的段错误会导致整个进程崩溃
+2. **内存共享**：线程间共享内存，一个线程的内存破坏可能影响其他线程
+3. **调试困难**：多线程 bug 难以复现和调试
+
+多进程模型通过物理隔离解决这些问题。
+
+### 通道通信
+
+进程与线程/子进程之间通过通道（`channel`）通信。
+
+**数据序列化**：通过 `channel` 发送的所有数据，在发送时**隐式执行 `copy` 与序列化**，接收端解析为全新的内存对象，彻底消除跨进程内存指针依赖。
+
+```js
+// 主进程：使用 channel.channel<T>() 工厂函数创建通道
+let ch = channel.channel<Command, Response>()
+
+// 启动子进程（将通道句柄传递给 WorkerService）
+let worker = spawn.process WorkerService { id: 1, channel: ch }
+
+// 发送命令（自动序列化）
+ch.send(Command.Analyze("hello"))
+
+// 接收结果
+let result = ch.receive()
+print(result)
+```
+
+更常见的模式是直接使用 `spawn.process` 返回的句柄（Handle）自带的 `.send()` 方法：
+
+```js
+// 主进程：直接通过句柄通信，无需显式创建 Channel
+let worker = spawn.process WorkerService { id: 1 }
+
+// 句柄自带 .send() 方法，跨进程自动序列化
+worker.send(Command.Analyze("important data"))
+
+// 同步等待响应
+let result = worker.send_sync(Command.Analyze("data"))
+```
+
+### 进程服务声明
+
+开发者可以通过 **`struct` + `impl`** 定义独立的进程服务实体（Actor 模型）。子进程拥有独立的事件循环与内存空间，其崩溃行为不会导致主进程死亡。
+
+```js
+// 1. 定义标准的接收数据类型与响应结构
+enum Command {
+    Analyze(string),
+    Shutdown,
+    Crash
+}
+
+// 2. WorkerService 是一个普通的结构体或函数逻辑
+struct WorkerService {
+    // 进程内部的独立状态
+    metrics: Metrics
+}
+
+impl WorkerService {
+    // 进程消息循环回调
+    fn on_message(u: mut self, cmd: Command) {
+        match cmd {
+            Command.Analyze(data) => {
+                let result = heavy_analysis(data)
+                reply(result)
+            }
+            Command.Shutdown => {
+                reply(Status.ShuttingDown)
+            }
+            Command.Crash => {
+                panic("Simulated crash")
+            }
+        }
+    }
+
+    fn on_error(err: Error) {
+        print("Worker error: " + err.message)
+        reply(Status.Error)
+    }
+}
+
+// 3. 主进程使用
+fn main() {
+    // 使用 spawn.process 原语在独立进程沙盒中启动 Worker 实体
+    let worker = spawn.process WorkerService { metrics: Metrics.new() }
+
+    // 发送消息（跨进程自动序列化并深拷贝）
+    worker.send(Command.Analyze("important data"))
+
+    // 崩溃隔离：即便 worker 进程发生严重崩溃，主进程依然安全
+    try {
+        let result = worker.send_sync(Command.Crash)
+    } catch (e) {
+        print("Worker crashed, but main process is safe")
+    }
+}
+```
+
+### 进程间通信模式
+
+XULO 支持多种 IPC 模式：
+
+```js
+// 1. 请求-响应模式
+struct Calculator {
+    result: number
+}
+
+impl Calculator {
+    fn on_message(u: mut self, msg: { op: string, a: number, b: number }) {
+        let result = match msg.op {
+            "add" => msg.a + msg.b,
+            "mul" => msg.a * msg.b,
+            _ => 0
+        }
+        reply(result)
+    }
+}
+
+fn main() {
+    let calc = spawn.process Calculator { result: 0 }
+    let sum = calc.send_sync({ op: "add", a: 10, b: 20 })
+    print(str(sum))  // 30
+}
+
+// 2. 发布-订阅模式
+struct EventBroker {
+    subscribers: list<channel.Handler>
+}
+
+impl EventBroker {
+    fn on_message(u: mut self, msg: Subscribe) {
+        u.subscribers.push(msg.channel)
+        reply(Status.Ok)
+    }
+
+    fn on_message(u: mut self, msg: Publish) {
+        for sub in u.subscribers {
+            sub.send(msg.data)
+        }
+        reply(Status.Ok)
+    }
+}
+```
+
+---
+
+## 综合代码范例
+
+以下代码展示了内存修饰符、多线程与多进程在 XULO 中的协同工作方式：
+
+```js
+// 1. 只读借用（零关键字）
+fn inspect(u: User) {
+    print(u.name)  // 只读访问，零成本
+}
+
+// 2. 可变借用（仅 mut）
+fn update_profile(u: mut User, new_name: string) {
+    u.name = new_name  // 独占修改
+}
+
+// 3. 所有权转移函数
+fn transfer_ownership(u: User) {
+    // u 的所有权在此函数内
+    save_to_database(u)
+    // u 在函数结束时被释放
+}
+
+fn main() {
+    // === 单线程内存管理 ===
+    let mut local_user = User { name: "Alice", age: 20 }
+    
+    // 只读借用：零成本，local_user 仍然有效
+    inspect(local_user)
+    
+    // 可变借用：独占修改
+    update_profile(mut local_user, "Bob")
+    
+    // 显式深拷贝：创建独立副本
+    let user_backup = copy local_user
+    
+    // === 多线程并发 ===
+    
+    // 场景 1：所有权转移至异步任务
+    spawn async {
+        save_to_database(move local_user)
+    }
+    // local_user 已被转移，再次访问将触发编译器错误
+    
+    // 场景 2：线程安全共享
+    let app_metrics = shared Metrics { requests: 0 }
+    
+    // 多个线程安全地并发修改
+    spawn async {
+        lock app_metrics {
+            app_metrics.requests += 1
+        }
+    }
+    
+    spawn async {
+        lock app_metrics {
+            app_metrics.requests += 1
+        }
+    }
+    
+    // === 多进程 IPC ===
+    
+    // 启动独立进程服务
+    let worker = spawn.process WorkerService { id: 1 }
+    
+    // 通过句柄发送消息（自动序列化）
+    worker.send(Command.Analyze)
+    
+    // 崩溃隔离：worker 崩溃不影响主进程
+    try {
+        let result = worker.send_sync(Command.HeavyTask)
+    } catch (e) {
+        print("Worker failed, restarting...")
+        let new_worker = spawn.process WorkerService { id: 2 }
+    }
+}
+```
+
+---
+
+## 最佳实践与常见陷阱
+
+### 推荐做法
+
+```js
+// ✅ 优先使用只读借用（默认即为只读借用，零关键字）
+fn process_data(data: User) {
+    // 绝大多数场景只需要读取权限
+    print(data.name)
+}
+
+// ✅ 可变借用时使用 mut 显式声明
+fn update_user(u: mut User, changes: UserUpdate) {
+    u.name = changes.name
+    u.email = changes.email
+}
+
+// ✅ 多线程共享状态使用 shared 与 lock
+let app_cache = shared Cache { data: map<string, Data>{} }
+spawn async {
+    lock app_cache {
+        app_cache.data.set("key", value)
+    }
+}
+
+// ✅ 进程间通信（IPC）直接使用 spawn.process 句柄
+let worker = spawn.process WorkerService { id: 1 }
+worker.send(Message.Task(data))
+```
+
+### 常见陷阱
+
+```js
+// ❌ 陷阱 1：意外的所有权转移
+fn example() {
+    let data = load_data()
+    spawn async {
+        process(move data)  // data 被转移
+    }
+    // print(data)  // 错误：data 已失效
+}
+
+// ✅ 解决方案：使用 shared 或 copy
+fn example_fixed() {
+    let data = shared load_data()
+    spawn async {
+        lock data {
+            process(data)
+        }
+    }
+    print(data)  // 仍然有效
+}
+
+// ❌ 陷阱 2：在锁内执行耗时操作
+fn bad_lock_usage(state: shared AppState) {
+    lock state {
+        let result = expensive_computation()  // 阻塞其他线程
+        state.result = result
+    }
+}
+
+// ✅ 解决方案：最小化锁作用域
+fn good_lock_usage(state: shared AppState) {
+    let result = expensive_computation()  // 锁外计算
+    lock state {
+        state.result = result  // 只在必要时持有锁
+    }
+}
+
+// ❌ 陷阱 3：忽略进程崩溃
+fn example() {
+    let worker = spawn.process WorkerService { id: 1 }
+    worker.send_unchecked(Command.Risky)  // 可能崩溃
+}
+
+// ✅ 解决方案：使用 try/catch
+fn example_fixed() {
+    let worker = spawn.process WorkerService { id: 1 }
+    try {
+        worker.send(Command.Risky)
+    } catch (e) {
+        // 优雅处理崩溃
+        let new_worker = spawn.process WorkerService { id: 2 }
+    }
+}
+```
+
+---
+
+## 与传统语言对比
+
+| 特性 | XULO | Rust | Go | C++ |
+| --- | --- | --- | --- | --- |
+| 内存管理 | 所有权 + 借用 | 所有权 + 借用 | GC | 手动/GC |
+| 语法风格 | 关键字（`mut`, `move`） | 符号（`&`, `&mut`） | 无显式管理 | 手动管理 |
+| 默认行为 | 只读借用 | 可变借用 | 值拷贝 | 值拷贝 |
+| 多线程安全 | 编译期检查 | 编译期检查 | 运行时检测 | 无保障 |
+| 多进程隔离 | 内置 Actor 模型 | 无内置 | goroutine | 无内置 |
+| 学习曲线 | 中等 | 较高 | 较低 | 高 |
+
+XULO 的设计目标是：**在保持高安全性的同时，提供更简洁的语法和更低的认知负担**。

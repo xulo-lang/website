@@ -1,0 +1,14 @@
+{
+  "title": "语言规范",
+  "pages": [
+    "index",
+    "--- 形式化定义 ---",
+    "lexical",
+    "grammar",
+    "ast",
+    "--- 语义与类型 ---",
+    "type-system",
+    "--- 机器可读 ---",
+    "machine-readable"
+  ]
+}

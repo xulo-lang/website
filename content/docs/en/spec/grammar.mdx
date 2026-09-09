@@ -1,0 +1,183 @@
+---
+title: Grammar
+description: EBNF grammar rules for the complete XULO syntax.
+---
+
+## Notation
+
+This grammar uses [ISO/IEC 14977 EBNF](https://www.iso.org/standard/26153.html) notation:
+
+```text
+=   definition
+;   termination
+|   alternation
+[ ] optional
+{ } repetition (zero or more)
+( ) grouping
+" " terminal string
+' ' terminal string
+```
+
+## Program Structure
+
+```text
+Program          = { Declaration | Statement } ;
+Declaration      = FnDeclaration
+                 | StructDeclaration
+                 | EnumDeclaration
+                 | TraitDeclaration
+                 | ImplDeclaration
+                 | TypeAlias
+                 | ExportDeclaration ;
+```
+
+## Declarations
+
+### Function Declaration
+
+```text
+FnDeclaration    = [ 'export' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
+ParameterList    = Parameter ( ',' Parameter )* ','? ;
+Parameter        = Identifier ':' Type [ '?' ] [ '=' Expression ] ;
+```
+
+### Struct Declaration
+
+```text
+StructDeclaration = [ 'export' ] [ 'pub' ] 'struct' Identifier [ GenericParams ] '{' FieldList? '}' ;
+FieldList        = Field ( ',' Field )* ','? ;
+Field            = [ 'pub' ] Identifier ':' Type ;
+GenericParams    = '<' Identifier ( ',' Identifier )* '>' ;
+```
+
+### Enum Declaration
+
+```text
+EnumDeclaration  = [ 'export' ] 'enum' Identifier '{' EnumVariantList? '}' ;
+EnumVariantList  = EnumVariant ( ',' EnumVariant )* ','? ;
+EnumVariant      = Identifier [ '(' TypeList ')' ] ;
+TypeList         = Type ( ',' Type )* ;
+```
+
+### Trait Declaration
+
+```text
+TraitDeclaration = [ 'export' ] 'trait' Identifier '{' TraitMethod* '}' ;
+TraitMethod      = 'fn' Identifier '(' ParameterList? ')' ':' Type ';' ;
+```
+
+### Impl Declaration
+
+```text
+ImplDeclaration  = 'impl' Identifier 'for' Type '{' FnDeclaration* '}' ;
+                 | 'impl' Type '{' FnDeclaration* '}' ;
+```
+
+### Type Alias
+
+```text
+TypeAlias        = [ 'export' ] 'type' Identifier [ GenericParams ] '=' Type ;
+```
+
+## Types
+
+```text
+Type             = Identifier
+                 | Identifier '<' TypeList '>'
+                 | Type '?'                    (Optional)
+                 | Type '|' Type               (Union)
+                 | Type '&' Type               (Intersection)
+                 | '{' FieldList '}'           (Anonymous object)
+                 | 'fn' '(' TypeList? ')' [ ':' Type ] ;
+```
+
+### Numeric Types
+
+XULO defines a two-layer numeric type system: a **user-facing layer** for everyday coding and AI generation, and a **formal layer** for precise control in systems contexts.
+
+```text
+(* User-facing layer *)
+NumericType      = PrimitiveNumber | FixedBitNumber ;
+PrimitiveNumber  = 'number' | 'int' | 'float' ;
+
+(* Formal specification layer *)
+FixedBitNumber   = SignedInt | UnsignedInt | FloatType ;
+SignedInt        = 'i8' | 'i16' | 'i32' | 'i64' ;
+UnsignedInt      = 'u8' | 'u16' | 'u32' | 'u64' ;
+FloatType        = 'f32' | 'f64' ;
+```
+
+#### Literal Default Rules
+
+| Literal form | Default inferred type |
+|-------------|----------------------|
+| `42` (integer literal) | `int` |
+| `3.14` (float literal) | `float` |
+| `0xff` (hex literal) | `int` |
+| `0b1010` (binary literal) | `int` |
+| `0o77` (octal literal) | `int` |
+
+When a variable is declared with a fixed-bit type, the literal is coerced:
+
+```text
+let w: u32 = 800       (* coerced from int to u32 *)
+let opacity: f32 = 0.8 (* coerced from float to f32 *)
+```
+
+## Expressions
+
+```text
+Expression       = Assignment ;
+Assignment       = Ternary ( '=' Assignment )? ;
+Ternary          = LogicalOr [ '?' Expression ':' Expression ] ;
+LogicalOr        = LogicalAnd ( 'or' LogicalAnd )* ;
+LogicalAnd       = Comparison ( 'and' Comparison )* ;
+Comparison       = Addition ( ( '<' | '>' | '<=' | '>=' | '==' | '!=' | '..<' ) Addition )* ;
+Addition         = Multiplication ( ( '+' | '-' ) Multiplication )* ;
+Multiplication   = Unary ( ( '*' | '/' ) Unary )* ;
+Unary            = ( '!' | '-' | 'await' ) Unary | Postfix ;
+Postfix          = Primary ( '.' Identifier | '[' Expression ']' | '(' ArgList ')' )* ;
+Primary          = Identifier | NumberLiteral | StringLiteral | BooleanLiteral | NullLiteral
+                 | '(' Expression ')'
+                 | '[' ExpressionList? ']'
+                 | '{' ObjectFieldList? '}'
+                 | 'if' Expression Block [ 'else' Block ]
+                 | 'match' Expression '{' MatchArm* '}'
+                 | 'fn' '(' ParameterList? ')' [ ':' Type ] Block ;
+```
+
+## Statements
+
+```text
+Statement        = VariableDecl
+                 | Assignment ';'
+                 | Expression ';'
+                 | ReturnStatement
+                 | ThrowStatement ;
+VariableDecl     = 'let' [ 'mut' ] Identifier [ ':' Type ] '=' Expression ;
+ReturnStatement  = 'return' Expression? ';' ;
+ThrowStatement   = 'throw' Expression ';' ;
+```
+
+## Blocks and Control Flow
+
+```text
+Block            = '{' { Statement } '}' ;
+MatchArm         = Pattern '=>' ( Expression | Block ) ;
+Pattern          = Identifier [ '(' PatternList ')' ]
+                 | NumberLiteral
+                 | StringLiteral
+                 | '_' ;
+PatternList      = Pattern ( ',' Pattern )* ;
+```
+
+## UI Component Syntax
+
+```text
+ComponentExpr    = Identifier [ '(' ArgList ')' ] [ Block ] ;
+ArgList          = NamedArg ( ',' NamedArg )* ','? ;
+NamedArg         = Identifier ':' Expression
+                 | Expression ;                    (positional)
+```
+
+Inside a UI Block, only component expressions, `if` expressions, and `for` loops are permitted.

@@ -538,6 +538,11 @@ function Home() {
                     {isZh ? '类型' : 'Types'}
                   </Link>
                 </li>
+                <li>
+                  <Link to="/$lang/docs/$" params={{ lang, _splat: 'spec' }} className="hover:text-fd-foreground">
+                    {isZh ? '语言规范' : 'Specification'}
+                  </Link>
+                </li>
               </ul>
             </div>
 

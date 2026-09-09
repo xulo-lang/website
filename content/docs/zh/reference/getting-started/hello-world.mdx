@@ -1,0 +1,114 @@
+---
+title: Hello World
+description: 构建你的第一个 XULO 程序。
+---
+
+## 终端程序
+
+每个 XULO 文件需要一个 `fn main()` 作为入口。创建一个新文件，写入以下内容：
+
+```js
+fn main() {
+  println("Hello World")
+}
+```
+
+运行后输出：
+
+```
+Hello World
+```
+
+`println` 将内容打印到终端。这就是一个完整的 XULO 程序——没有样板代码，没有导入，只有一个函数。
+
+## 带参数的函数
+
+XULO 函数使用 `fn` 关键字声明，参数带类型标注：
+
+```js
+fn greet(name: string): string {
+  "Hello, " + name
+}
+
+fn main() {
+  println(greet("XULO"))
+}
+```
+
+输出：
+
+```
+Hello, XULO
+```
+
+函数体最后一个表达式（不带分号）就是返回值，无需写 `return`。
+
+## 结构体与方法
+
+用 `struct` 定义数据结构，用 `impl` 添加方法：
+
+```js
+struct Rectangle {
+  w: number
+  h: number
+}
+
+impl Rectangle {
+  fn area(self): number {
+    self.w * self.h
+  }
+
+  fn is_square(self): boolean {
+    self.w == self.h
+  }
+}
+
+fn main() {
+  let r = Rectangle(w: 3, h: 4)
+  println(str(r.area()))       // 12
+  println(str(r.is_square()))  // false
+}
+```
+
+## 条件与循环
+
+```js
+fn main() {
+  // if 表达式
+  let x = 10
+  let label = if x > 5 { "大" } else { "小" }
+  println(label)
+
+  // for 循环
+  for i in 1..5 {
+    println(str(i))
+  }
+}
+```
+
+## UI 程序
+
+如果函数返回类型是 `View`，XULO 会将其渲染为 UI 界面：
+
+```js
+fn main(): View {
+  Screen {
+    Center {
+      VStack(spacing: 16) {
+        Text("Hello, XULO!")
+        Button("点击我", variant: "primary")
+      }
+    }
+  }
+}
+```
+
+`fn main(): View` 告诉编译器这是一个 UI 入口。组件树会被渲染成对应的界面——`Screen` 是根容器，`Center` 居中，`VStack` 垂直排列子元素。
+
+## 下一步
+
+你已经了解了 XULO 程序的基本结构。接下来可以深入了解：
+
+- [类型与数据结构](/zh/docs/reference/basics/types-and-data-structures/) — 基础类型、struct、enum
+- [函数与方法](/zh/docs/reference/basics/functions-and-methods/) — 参数、闭包、泛型
+- [组件](/zh/docs/reference/ui/components-and-templates/) — 完整的 UI 组件列表

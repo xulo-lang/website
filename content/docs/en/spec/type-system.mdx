@@ -1,0 +1,172 @@
+---
+title: Type System
+description: Type rules, type inference, coercions, and trait resolution in XULO.
+---
+
+## Overview
+
+XULO uses a static type system with local type inference. This section defines the type rules, subtyping, and trait resolution semantics.
+
+## Type Kinds
+
+```text
+base         string, boolean
+numeric      number, int, float, i8..i64, u8..u64, f32, f64
+generic      list<T>, map<K, V>, set<T>
+option       T?  (shorthand for T | null)
+union        T | U
+intersection T & U
+struct       named record type
+enum         algebraic data type
+trait        structural capability contract
+fn           function signature
+view         UI component return type (marker only)
+```
+
+## Numeric Type System
+
+XULO uses a **two-layer** numeric type design: a user-facing layer for simplicity and AI generation, and a formal layer for precise systems control.
+
+### User-Facing Layer
+
+| Type | Description | Default for |
+|------|-------------|-------------|
+| `number` | Generic numeric (alias for `int \| float`) | Quick prototyping, AI-generated code |
+| `int` | 64-bit signed integer | Integer literals (`42`) |
+| `float` | 64-bit double-precision float | Float literals (`3.14`) |
+
+### Formal Layer (Fixed-Bit Types)
+
+| Type | Width | Range |
+|------|-------|-------|
+| `i8` | 8-bit signed | -128 to 127 |
+| `i16` | 16-bit signed | -32,768 to 32,767 |
+| `i32` | 32-bit signed | -2^31 to 2^31-1 |
+| `i64` | 64-bit signed | -2^63 to 2^63-1 |
+| `u8` | 8-bit unsigned | 0 to 255 |
+| `u16` | 16-bit unsigned | 0 to 65,535 |
+| `u32` | 32-bit unsigned | 0 to 2^32-1 |
+| `u64` | 64-bit unsigned | 0 to 2^64-1 |
+| `f32` | 32-bit IEEE 754 | ~7 decimal digits precision |
+| `f64` | 64-bit IEEE 754 | ~15 decimal digits precision |
+
+### Type Inference Rules
+
+```js
+let x = 42            // inferred: int
+let pi = 3.14         // inferred: float
+let n: number = x     // number (union of int | float)
+let w: u32 = 800      // u32 (coerced from int)
+let h: f32 = 0.8      // f32 (coerced from float)
+```
+
+- Integer literals default to `int`; float literals default to `float`
+- `number` is a convenience alias for `int | float` — suitable for AI-generated code and rapid prototyping
+- When assigned to a fixed-bit type (`u32`, `f32`, etc.), the literal is coerced if within range
+- Mixed-type arithmetic (`int + float`) produces `float`
+- Fixed-bit arithmetic (`u32 + u32`) produces the same fixed-bit type; overflow is a compile-time error for literals and a runtime trap for dynamic values
+
+### Struct Field Precision
+
+For UI and systems code, fixed-bit types ensure exact memory layout:
+
+```js
+export pub struct ImageDimensions {
+  width: u32,
+  height: u32,
+  opacity: f32,
+}
+
+export pub struct Color {
+  r: u8,
+  g: u8,
+  b: u8,
+  a: u8,
+}
+```
+
+### FFI Compatibility
+
+Fixed-bit types map directly to C/Rust/WASM ABI types:
+
+| XULO | C / Rust | WASM |
+|------|----------|------|
+| `i32` | `int32_t` | `i32` |
+| `u32` | `uint32_t` | `i32` (unsigned) |
+| `i64` | `int64_t` | `i64` |
+| `u64` | `uint64_t` | `i64` (unsigned) |
+| `f32` | `float` | `f32` |
+| `f64` | `double` | `f64` |
+
+## Type Inference
+
+XULO uses **local type inference** — types are inferred within function bodies, not across function signatures.
+
+```js
+let x = 10            // inferred: int
+let s = "hello"       // inferred: string
+let list = [1, 2, 3]  // inferred: list<int>
+let pi = 3.14         // inferred: float
+```
+
+Return types **MUST** be explicitly annotated when the function is exported:
+
+```js
+export fn add(a: int, b: int): int { a + b }
+```
+
+## Subtyping
+
+- `null` is a subtype of every `T?` type
+- A concrete type `T` is a subtype of `T?`
+- Struct types with more `pub` fields are NOT subtypes of structs with fewer fields (nominal typing)
+- `type` aliases use structural typing
+
+## Generic Type Inference
+
+Generic type arguments are inferred at the call site:
+
+```js
+fn first<T>(list: list<T>): T { list[0] }
+
+let n = first([1, 2, 3])    // T = int
+let s = first(["a", "b"])   // T = string
+```
+
+Explicit type arguments (`first<number>(...)`) are **not** supported.
+
+## Trait Bounds
+
+Type parameters can be constrained:
+
+```js
+fn describe<T: Area>(t: T): float {
+  Area.area(t)
+}
+```
+
+Resolution rules:
+
+1. `T: Trait` refines `T` to the trait's structural shape within the function body
+2. Dispatch calls **MUST** use explicit syntax: `Trait.method(receiver)`
+3. Generic parameter values are erased at runtime — dispatch calls are **not** possible under `T: Trait` constraints
+
+## Type Compatibility
+
+Two types `A` and `B` are compatible when:
+
+- `A` and `B` are the same type
+- `A` is a subtype of `B`
+- Both are function types with compatible parameter and return types
+- Both are struct types with compatible field types (structural, for `type` aliases)
+
+## Type Errors
+
+The compiler **SHALL** report the following type errors at compile time:
+
+- Assignment to an immutable binding
+- Calling a non-callable type
+- Missing required fields in struct construction
+- Non-exhaustive `match` expression
+- Type mismatch in function arguments
+- Use of `@State`/`@Store`/`@Effect`/`@Environment` outside a `View` function

@@ -1,0 +1,114 @@
+---
+title: Hello World
+description: Build your first XULO program.
+---
+
+## Terminal Program
+
+Every XULO file needs a `fn main()` entry point. Create a new file with the following:
+
+```js
+fn main() {
+  println("Hello World")
+}
+```
+
+Running it outputs:
+
+```
+Hello World
+```
+
+`println` prints to the terminal. This is a complete XULO program — no boilerplate, no imports, just one function.
+
+## Functions with Parameters
+
+Functions are declared with the `fn` keyword, with typed parameters:
+
+```js
+fn greet(name: string): string {
+  "Hello, " + name
+}
+
+fn main() {
+  println(greet("XULO"))
+}
+```
+
+Output:
+
+```
+Hello, XULO
+```
+
+The last expression in a function body (without a semicolon) is the implicit return value — no `return` needed.
+
+## Structs & Methods
+
+Define data structures with `struct`, add methods with `impl`:
+
+```js
+struct Rectangle {
+  w: number
+  h: number
+}
+
+impl Rectangle {
+  fn area(self): number {
+    self.w * self.h
+  }
+
+  fn is_square(self): boolean {
+    self.w == self.h
+  }
+}
+
+fn main() {
+  let r = Rectangle(w: 3, h: 4)
+  println(str(r.area()))       // 12
+  println(str(r.is_square()))  // false
+}
+```
+
+## Conditionals & Loops
+
+```js
+fn main() {
+  // if expression
+  let x = 10
+  let label = if x > 5 { "large" } else { "small" }
+  println(label)
+
+  // for loop
+  for i in 1..5 {
+    println(str(i))
+  }
+}
+```
+
+## UI Programs
+
+If a function returns `View`, XULO renders it as a UI interface:
+
+```js
+fn main(): View {
+  Screen {
+    Center {
+      VStack(spacing: 16) {
+        Text("Hello, XULO!")
+        Button("Click Me", variant: "primary")
+      }
+    }
+  }
+}
+```
+
+`fn main(): View` tells the compiler this is a UI entry point. The component tree is rendered into a corresponding interface — `Screen` is the root container, `Center` centers content, `VStack` arranges children vertically.
+
+## Next Steps
+
+Now you know the structure of a XULO program. Dive deeper with:
+
+- [Types & Data Structures](/en/docs/reference/basics/types-and-data-structures/) — base types, struct, enum
+- [Functions & Methods](/en/docs/reference/basics/functions-and-methods/) — parameters, closures, generics
+- [Components](/en/docs/reference/ui/components-and-templates/) — full UI component list

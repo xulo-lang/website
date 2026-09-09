@@ -1,0 +1,317 @@
+---
+title: Types
+description: Base types, type aliases, structs, enums, and traits in XULO.
+---
+
+## Base Types
+
+```js
+string         // String
+number         // Number (integers and floats unified)
+boolean        // Boolean
+list<T>        // Dynamic list/array (built-in generic)
+map<K, V>      // Key-value dictionary (built-in generic, basic hash map)
+set<T>         // Set (built-in generic, unique value collection)
+object         // Anonymous object/struct literal
+null           // Null
+T?             // Optional type, equivalent to T | null
+T | U          // Union type
+T & U          // Intersection type
+```
+
+`number` represents both integers and floats. `print(...)`, `list<T>`, `map<K, V>`, and `set<T>` are built-in capabilities. `View` is a built-in **marker type**: the compiler uses it to identify functions that return UI components; it has no runtime implementation — concrete components are provided by the standard library `@xulo/ui`.
+
+## Type Aliases (using `type`, no `interface`)
+
+```js
+// Object type
+type User = {
+  name: string
+  age: number
+  email: string?
+}
+
+// Union type
+type Status = "active" | "inactive" | "pending"
+
+// Function type
+type Handler = fn(request: Request): Response
+
+// Intersection type
+type UserWithRole = User & {
+  role: string
+}
+
+// Generic
+type ApiResponse<T> = {
+  data: T?
+  error: string?
+}
+```
+
+## Structs
+
+`struct` defines a named record type with explicit fields. Each field has a name and a type.
+
+```js
+struct User {
+  name: string
+  age: number
+  email: string?
+}
+```
+
+### Creating Instances
+
+```js
+let user = User(name: "Alice", age: 30, email: "alice@example.com")
+let anon = User(name: "Bob", age: 25, email: null)
+```
+
+Fields with optional types (`T?`) can be omitted, defaulting to `null`.
+
+### Field Access
+
+```js
+print(user.name)       // "Alice"
+print(user.age)        // 30
+user.age = 31          // Mutable struct fields via `let` binding
+```
+
+### Implementing Methods
+
+Use `impl` to attach methods to a struct. `self` is the receiver:
+
+```js
+struct Rectangle {
+  w: number
+  h: number
+}
+
+impl Rectangle {
+  fn area(self): number {
+    self.w * self.h
+  }
+
+  fn perimeter(self): number {
+    2 * (self.w + self.h)
+  }
+
+  fn is_square(self): boolean {
+    self.w == self.h
+  }
+}
+
+fn main() {
+  let r = Rectangle(w: 3, h: 4)
+  print(str(r.area()))        // 12
+  print(str(r.perimeter()))   // 14
+  print(str(r.is_square()))   // false
+}
+```
+
+### Implementing Traits on Structs
+
+Structs can implement traits for polymorphic behavior:
+
+```js
+trait Area {
+  fn area(self): number
+}
+
+impl Area for Rectangle {
+  fn area(self): number {
+    self.w * self.h
+  }
+}
+
+fn total_area(shapes: list<Area>): number {
+  // ...
+}
+```
+
+### Structs vs Type Aliases
+
+| Feature | `struct` | `type` (object) |
+|---------|----------|-----------------|
+| Named fields | Yes | Yes |
+| `impl` methods | Yes | No |
+| Trait implementation | Yes | No |
+| Field visibility control | Yes (`pub`) | No (all fields open by default) |
+| Nominal typing | Yes (distinct type) | Structural |
+
+Use `struct` when you need methods, trait implementations, or a distinct named type. Use `type` for simple data shapes.
+
+### Visibility & Encapsulation
+
+#### Why Private by Default?
+
+XULO adopts **private-by-default fields** for the following reasons:
+
+1. **Principle of Least Privilege & Breakage Protection**: Public-by-default causes accidentally exposed fields to immediately become part of the external API contract, leading to breaking changes during refactoring. Private-by-default forces developers to consider "does this field really need to be exposed?"
+2. **Memory Safety in GC-free Languages**: Struct field states directly relate to internal memory integrity. Public-by-default allows external code to bypass methods and arbitrarily mutate fields, easily breaking internal state consistency.
+
+#### Batch Public Marking (`export pub struct`)
+
+When a struct is purely a data transfer object (DTO / Record), use `export pub struct` to automatically make all fields `pub`:
+
+```js
+// Encapsulated struct: fields private by default, only explicitly marked ones exposed
+export struct User {
+    pub name: string    // Externally readable/writable
+    pub email: string   // Externally readable/writable
+    hash_pass: string   // Private (only accessible internally)
+}
+
+// Data transfer struct (DTO/Record): use export pub struct for batch public fields
+export pub struct Point {
+    x: number    // Automatically pub
+    y: number    // Automatically pub
+}
+```
+
+#### `type` Anonymous Objects Are Open by Default
+
+Types defined with `type` are pure data expressions without methods, naturally supporting full field access without needing `pub`:
+
+```js
+export type Location = {
+    lat number    // Naturally public
+    lng: number   // Naturally public
+}
+
+export type UserDTO = {
+    name: string
+    email: string
+}
+```
+
+### Rules
+
+- Struct names start with uppercase
+- Fields use `name: type` syntax
+- Fields are private by default; use `pub` to explicitly mark public fields
+- Structs are private by default; use `export` to export for cross-module access
+- Use `export pub struct` to batch-mark all fields as public
+- Fields in `type` definitions are naturally public, no `pub` needed
+- Structs support generics: `struct Pair<T> { first: T, second: T }`
+- `impl` blocks are not portable across modules; implement traits locally in the module that uses them
+
+## Enums
+
+Enums define a fixed set of values.
+
+### Simple Enums
+
+```js
+enum Theme {
+  Light
+  Dark
+  System
+}
+```
+
+### Enums with Associated Data
+
+```js
+enum Operation {
+  Success(data: number)
+  Error(message: string)
+}
+
+enum Action {
+  Click
+  Submit(data: object)   // Named associated data
+  Cancel
+}
+
+enum Person {
+  Nobody
+  Named(string, number)  // Multi-parameter payload
+}
+```
+
+Payloads can be positional `Success(T)`, named `Submit(data: object)`, or multi-parameter `Named(string, number)`. Construction uses positional arguments. In match arms, each parameter becomes a binding; use `_` to discard unwanted slots:
+
+```js
+Action.Submit({ message: "hi" })
+match a {
+  Action.Submit(data) => data
+}
+
+let p = Person.Named("Ada", 36)
+match p {
+  Person.Named(name, _) => name   // Discard age
+  Person.Nobody => "anon"
+}
+```
+
+### Using Enums
+
+```js
+let theme = Theme.Dark
+
+match theme {
+  Theme.Light => "Light"
+  Theme.Dark => "Dark"
+  Theme.System => "System"
+}
+
+let op = Operation.Success(42)
+match op {
+  Operation.Success(value) => print("Got: " + value)
+  Operation.Error(msg) => print("Error: " + msg)
+}
+```
+
+### Rules
+
+- Enum names start with uppercase
+- Members start with uppercase
+- Associated data types go in `(type)`
+- Support generics (type parameters are erased at type-check time)
+
+## Traits
+
+`trait` declares a set of method signatures as a "capability" contract; `impl Trait for Type` provides implementations for a named type. `self` (reserved word) is the receiver, marking a method as an "instance method".
+
+```js
+trait Area {
+    fn area(self): number
+    fn perimeter(self): number
+}
+
+type Rectangle = { w: number, h: number }
+
+impl Area for Rectangle {
+    fn area(self): number { self.w * self.h }
+    fn perimeter(self): number { 2 * (self.w + self.h) }
+}
+```
+
+Calls use **explicit dispatch** `Trait.method(receiver, ...)` — the compiler resolves this to a static call on the `impl` method, with zero runtime overhead:
+
+```js
+fn main() {
+    let r: Rectangle = { w: 3, h: 4 }
+    print(str(Area.area(r)))        // 12
+    print(str(Area.perimeter(r)))   // 14
+}
+```
+
+### Generic Constraints
+
+Type parameters can be constrained with `T: Trait` (inline) or `where T: Trait`. Constrained parameters are refined to the trait's structural shape for member access; multiple traits are joined with `&`:
+
+```js
+fn describe<T: Area>(t: T): number {
+    Area.area(t)
+}
+```
+
+### Rules
+
+- Dispatch receivers must be **static named types**: `Trait.method(recv)` requires the receiver to resolve to a concrete named type with a registered `impl`, otherwise a "does not implement trait" error is reported
+- `impl` methods must implement all methods declared in the trait, with signatures (including `self`) that are bidirectionally assignable
+- Generic parameter values are erased at runtime, so dispatch calls are not possible under `T: Trait` constraints — only named type instances can be dispatched
+- `trait` is an exportable module member (`pub trait`), importable via `import type` and then implemented locally

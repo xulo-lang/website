@@ -1,0 +1,47 @@
+---
+title: XULO Language Specification
+description: The formal specification of the XULO programming language.
+---
+
+## About This Specification
+
+This document defines the formal specification of the XULO programming language. It is intended for compiler authors, LSP/tooling developers, and anyone who needs a precise, unambiguous definition of XULO's syntax and semantics.
+
+<Callout type="info">
+This specification is a living document. It tracks the current implementation and may change as the language evolves.
+</Callout>
+
+## Version History
+
+| Version | Date | Status |
+|---------|------|--------|
+| 0.1.0 | 2026-09-07 | Initial draft |
+
+## Specification Overview
+
+The XULO specification is divided into the following sections:
+
+### Formal Definition
+
+- **[Lexical Specification](/en/docs/spec/lexical/)** — Tokens, lexer state machine, and whitespace rules
+- **[Grammar](/en/docs/spec/grammar/)** — EBNF grammar rules for the complete XULO syntax
+- **[AST Schema](/en/docs/spec/ast/)** — Abstract syntax tree node definitions and data structures
+
+### Semantics & Types
+
+- **[Type System](/en/docs/spec/type-system/)** — Type rules, type inference, coercions, and trait resolution
+
+### Machine Readable
+
+- **[Machine-Readable Files](/en/docs/spec/machine-readable/)** — Downloadable grammar files for parsers (EBNF, Pest, tree-sitter)
+
+## Conventions
+
+The keywords **SHALL**, **MUST**, **SHOULD**, and **MAY** follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+Code examples use the following conventions:
+
+- `code in monospace` — language tokens or identifiers
+- *italic* — semantic metasyntactic variables
+- `[brackets]` — optional elements
+- `{ braces }` — repetition
