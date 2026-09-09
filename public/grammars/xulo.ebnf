@@ -1,0 +1,219 @@
+(* ============================================================ *)
+(*  XULO Language — ISO/IEC 14977 EBNF Grammar                   *)
+(*  Version: 0.1.0-alpha                                         *)
+(*  Specification: https://xulo.org/docs/spec/grammar             *)
+(*  Encoding: UTF-8                                               *)
+(* ============================================================ *)
+
+(* -------------------------------------------------------------- *)
+(*  Character Set                                                 *)
+(* -------------------------------------------------------------- *)
+
+(* XULO source files shall be encoded in UTF-8.                   *)
+(* The terminal character set includes all printable UTF-8        *)
+(* characters plus the whitespace characters space (#20) and      *)
+(* tab (#09).                                                     *)
+
+(* -------------------------------------------------------------- *)
+(*  Lexical Rules                                                 *)
+(* -------------------------------------------------------------- *)
+
+(* Keywords — reserved, must not be used as identifiers *)
+Keyword           = 'fn' | 'let' | 'mut' | 'const'
+                 | 'struct' | 'enum' | 'trait' | 'impl'
+                 | 'pub' | 'export' | 'use' | 'import'
+                 | 'type' | 'if' | 'else' | 'match'
+                 | 'for' | 'while' | 'return' | 'throw'
+                 | 'try' | 'catch' | 'finally'
+                 | 'async' | 'await'
+                 | 'spawn' | 'shared' | 'lock'
+                 | 'move' | 'copy' | 'self'
+                 | 'null' | 'true' | 'false'
+                 | 'number' | 'int' | 'float' | 'string' | 'boolean'
+                 | 'i8' | 'i16' | 'i32' | 'i64'
+                 | 'u8' | 'u16' | 'u32' | 'u64'
+                 | 'f32' | 'f64' ;
+
+(* Identifiers *)
+(* Component names must start with uppercase: Screen, Button     *)
+(* Attribute names must start with lowercase: variant, spacing   *)
+Identifier        = Letter { Letter | Digit | '_' } ;
+Letter            = ? US-ASCII letter A-Z a-z ? ;
+Digit             = ? US-ASCII digit 0-9 ? ;
+
+(* Literals *)
+StringLiteral     = '"' { ? any character except " and \ ? | EscapeSeq } '"'
+                 | "'" { ? any character except ' and \ ? | EscapeSeq } "'" ;
+NumberLiteral     = IntegerLiteral [ FractionalPart ] ;
+IntegerLiteral    = DecimalLiteral | HexLiteral | BinaryLiteral | OctalLiteral ;
+DecimalLiteral    = Digit { Digit } ;
+HexLiteral        = '0x' HexDigit { HexDigit } ;
+BinaryLiteral     = '0b' BinDigit { BinDigit } ;
+OctalLiteral      = '0o' OctDigit { OctDigit } ;
+FractionalPart    = '.' Digit { Digit } ;
+HexDigit          = Digit | 'a' | 'b' | 'c' | 'd' | 'e' | 'f'
+                 | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' ;
+BinDigit          = '0' | '1' ;
+OctDigit          = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' ;
+BooleanLiteral    = 'true' | 'false' ;
+NullLiteral       = 'null' ;
+EscapeSeq         = '\' ( '"' | "'" | '\' | 'n' | 't' | 'r' | '0' ) ;
+
+(* Operators and Delimiters *)
+Operator          = '+' | '-' | '*' | '/' | '!' | '<' | '>'
+                 | '=' | '.' | '?' | '@' | '&' | '|' | ';' ;
+Delimiter         = '(' | ')' | '{' | '}' | '[' | ']' | ',' | ':' ;
+
+(* Comments *)
+LineComment       = ? '//' ? { ? any character except newline ? } ;
+
+(* Whitespace *)
+(* Horizontal whitespace (spaces, tabs) is ignored between tokens. *)
+(* Newlines are significant for statement termination.             *)
+(* Indentation is not significant (brace-delimited blocks).       *)
+Whitespace        = ? US-ASCII space #20 or tab #09 ? ;
+
+(* -------------------------------------------------------------- *)
+(*  Program Structure                                             *)
+(* -------------------------------------------------------------- *)
+
+Program           = { Declaration | Statement } ;
+Declaration       = FnDeclaration
+                  | StructDeclaration
+                  | EnumDeclaration
+                  | TraitDeclaration
+                  | ImplDeclaration
+                  | TypeAlias
+                  | ExportDeclaration ;
+
+(* -------------------------------------------------------------- *)
+(*  Declarations                                                  *)
+(* -------------------------------------------------------------- *)
+
+(* Function Declaration *)
+FnDeclaration     = [ 'export' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
+ParameterList     = Parameter ( ',' Parameter )* ','? ;
+Parameter         = Identifier ':' Type [ '?' ] [ '=' Expression ] ;
+
+(* Struct Declaration *)
+StructDeclaration = [ 'export' ] [ 'pub' ] 'struct' Identifier [ GenericParams ] '{' FieldList? '}' ;
+FieldList         = Field ( ',' Field )* ','? ;
+Field             = [ 'pub' ] Identifier ':' Type ;
+GenericParams     = '<' Identifier ( ',' Identifier )* '>' ;
+
+(* Enum Declaration *)
+EnumDeclaration   = [ 'export' ] 'enum' Identifier '{' EnumVariantList? '}' ;
+EnumVariantList   = EnumVariant ( ',' EnumVariant )* ','? ;
+EnumVariant       = Identifier [ '(' TypeList ')' ] ;
+TypeList          = Type ( ',' Type )* ;
+
+(* Trait Declaration *)
+TraitDeclaration  = [ 'export' ] 'trait' Identifier '{' TraitMethod* '}' ;
+TraitMethod       = 'fn' Identifier '(' ParameterList? ')' ':' Type ';' ;
+
+(* Impl Declaration *)
+ImplDeclaration   = 'impl' Identifier 'for' Type '{' FnDeclaration* '}' ;
+                  | 'impl' Type '{' FnDeclaration* '}' ;
+
+(* Type Alias *)
+TypeAlias         = [ 'export' ] 'type' Identifier [ GenericParams ] '=' Type ;
+
+(* Export Declaration *)
+ExportDeclaration = 'export' Identifier ;
+
+(* -------------------------------------------------------------- *)
+(*  Types                                                         *)
+(* -------------------------------------------------------------- *)
+
+Type              = Identifier
+                  | Identifier '<' TypeList '>'
+                  | Type '?'
+                  | Type '|' Type
+                  | Type '&' Type
+                  | '{' FieldList '}'
+                  | 'fn' '(' TypeList? ')' [ ':' Type ] ;
+
+(* Numeric Types — User-facing layer *)
+(* number = int | float (convenience alias)                       *)
+(* int    = 64-bit signed integer (default for integer literals)  *)
+(* float  = 64-bit double-precision float (default for floats)    *)
+
+(* Numeric Types — Formal specification layer *)
+(* Signed integers *)
+(* i8, i16, i32, i64                                              *)
+(* Unsigned integers *)
+(* u8, u16, u32, u64                                              *)
+(* Floats *)
+(* f32, f64                                                       *)
+
+(* -------------------------------------------------------------- *)
+(*  Expressions                                                   *)
+(* -------------------------------------------------------------- *)
+
+Expression        = Assignment ;
+Assignment        = Ternary ( '=' Assignment )? ;
+Ternary           = LogicalOr [ '?' Expression ':' Expression ] ;
+LogicalOr         = LogicalAnd ( 'or' LogicalAnd )* ;
+LogicalAnd        = Comparison ( 'and' Comparison )* ;
+Comparison        = Addition ( ( '<' | '>' | '<=' | '>=' | '==' | '!=' | '..<' ) Addition )* ;
+Addition          = Multiplication ( ( '+' | '-' ) Multiplication )* ;
+Multiplication    = Unary ( ( '*' | '/' ) Unary )* ;
+Unary             = ( '!' | '-' | 'await' ) Unary | Postfix ;
+Postfix           = Primary ( '.' Identifier | '[' Expression ']' | '(' ArgList ')' )* ;
+Primary           = Identifier | NumberLiteral | StringLiteral
+                  | BooleanLiteral | NullLiteral
+                  | '(' Expression ')'
+                  | '[' ExpressionList? ']'
+                  | '{' ObjectFieldList? '}'
+                  | 'if' Expression Block [ 'else' Block ]
+                  | 'match' Expression '{' MatchArm* '}'
+                  | 'fn' '(' ParameterList? ')' [ ':' Type ] Block ;
+ExpressionList    = Expression ( ',' Expression )* ','? ;
+ObjectFieldList   = ObjectField ( ',' ObjectField )* ','? ;
+ObjectField       = Identifier ':' Expression ;
+
+(* -------------------------------------------------------------- *)
+(*  Statements                                                    *)
+(* -------------------------------------------------------------- *)
+
+Statement         = VariableDecl
+                  | Assignment ';'
+                  | Expression ';'
+                  | ReturnStatement
+                  | ThrowStatement ;
+VariableDecl      = 'let' [ 'mut' ] Identifier [ ':' Type ] '=' Expression ;
+ReturnStatement   = 'return' Expression? ';' ;
+ThrowStatement    = 'throw' Expression ';' ;
+
+(* -------------------------------------------------------------- *)
+(*  Blocks and Control Flow                                       *)
+(* -------------------------------------------------------------- *)
+
+Block             = '{' { Statement } '}' ;
+MatchArm          = Pattern '=>' ( Expression | Block ) ;
+Pattern           = Identifier [ '(' PatternList ')' ]
+                  | NumberLiteral
+                  | StringLiteral
+                  | '_' ;
+PatternList       = Pattern ( ',' Pattern )* ;
+
+(* -------------------------------------------------------------- *)
+(*  Import and Use                                                *)
+(* -------------------------------------------------------------- *)
+
+ImportDecl        = 'import' '{' ImportList '}' 'from' StringLiteral ;
+ImportList        = ImportItem ( ',' ImportItem )* ','? ;
+ImportItem        = Identifier [ 'as' Identifier ] ;
+UseDecl           = 'use' Identifier ( '::' Identifier )* ;
+
+(* -------------------------------------------------------------- *)
+(*  UI Component Syntax                                           *)
+(* -------------------------------------------------------------- *)
+
+ComponentExpr     = Identifier [ '(' ArgList ')' ] [ Block ] ;
+ArgList           = NamedArg ( ',' NamedArg )* ','? ;
+NamedArg          = Identifier ':' Expression
+                  | Expression ;
+
+(* Inside a UI Block, only component expressions, if expressions, *)
+(* and for loops are permitted.                                   *)
