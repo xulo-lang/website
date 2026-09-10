@@ -89,7 +89,7 @@ fn Home(): View {
 
   VStack {
     Text("User: " + user?.name)
-    Button(onClick: fn() { setTheme(Theme.Dark) }) {
+    Button(onClick: () => setTheme(Theme.Dark)) {
       Text("Dark mode")
     }
   }
@@ -112,20 +112,20 @@ router.push("/about")
 ## Side Effects `@Effect`
 
 ```js
-@Effect fn() {
+@Effect () => {
   // Runs when component mounts
   fetchUser(id)
 }
 
-@Effect fn() {
+@Effect () => {
   // Re-runs when dependencies change
   fetchUser(id)
 }, [id]
 
-@Effect fn() {
+@Effect () => {
   // Cleanup function
   setupSubscription()
-  return fn() {
+  return () => {
     cleanupSubscription()
   }
 }
@@ -143,7 +143,7 @@ Input(value: $name)
 Checkbox(checked: $isActive)
 
 // Equivalent to
-Input(value: name, onInput: fn(e) {
+Input(value: name, onInput: (e) => {
   name = e.value
 })
 ```
@@ -162,7 +162,7 @@ Input(value: name, onInput: fn(e) {
 fn UserProfile(): View {
   @Store let { user, loading } = useAppStore()
   @State let editing: boolean = false
-  @Effect fn() { fetchUser(id) }
+  @Effect () => { fetchUser(id) }
 
   VStack { ... }
 }

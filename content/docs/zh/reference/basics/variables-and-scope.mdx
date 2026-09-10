@@ -89,7 +89,7 @@ fn Home(): View {
 
   VStack {
     Text("User: " + user?.name)
-    Button(onClick: fn() { setTheme(Theme.Dark) }) {
+    Button(onClick: () => setTheme(Theme.Dark)) {
       Text("Dark mode")
     }
   }
@@ -112,20 +112,20 @@ router.push("/about")
 ## 副作用 `@Effect`
 
 ```js
-@Effect fn() {
+@Effect () => {
   // 组件挂载时执行
   fetchUser(id)
 }
 
-@Effect fn() {
+@Effect () => {
   // 依赖变化时重新执行
   fetchUser(id)
 }, [id]
 
-@Effect fn() {
+@Effect () => {
   // 清理函数
   setupSubscription()
-  return fn() {
+  return () => {
     cleanupSubscription()
   }
 }
@@ -143,7 +143,7 @@ Input(value: $name)
 Checkbox(checked: $isActive)
 
 // 等价于
-Input(value: name, onInput: fn(e) {
+Input(value: name, onInput: (e) => {
   name = e.value
 })
 ```
@@ -162,7 +162,7 @@ Input(value: name, onInput: fn(e) {
 fn UserProfile(): View {
   @Store let { user, loading } = useAppStore()
   @State let editing: boolean = false
-  @Effect fn() { fetchUser(id) }
+  @Effect () => { fetchUser(id) }
 
   VStack { ... }
 }

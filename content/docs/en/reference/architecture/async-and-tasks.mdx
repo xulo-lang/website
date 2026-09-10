@@ -36,12 +36,12 @@ async fn fetchUser(id: string): User {
 
 ```js
 async fn main() {
-  let work = async fn(): number { 21 * 2 }
+  let work = async (): number => 21 * 2
   print(await work())   // 42
 }
 ```
 
-Async closures are written as `async fn(): Type`, return a Promise when called, and can be `await`ed.
+Async closures are written as `async () => expr` or `async (): Type => expr`, return a Task when called, and can be `await`ed.
 
 ## State Restrictions in Async Functions
 

@@ -33,7 +33,9 @@ interface Program extends BaseNode {
 interface FnDeclaration extends BaseNode {
   type: 'FnDeclaration';
   isExport: boolean;
+  isAsync: boolean;
   name: IdentifierNode;
+  genericParams: IdentifierNode[];
   params: ParameterNode[];
   returnType: TypeNode | null;
   body: BlockNode;
@@ -52,6 +54,7 @@ interface EnumDeclaration extends BaseNode {
   type: 'EnumDeclaration';
   isExport: boolean;
   name: IdentifierNode;
+  genericParams: IdentifierNode[];
   variants: EnumVariantNode[];
 }
 
@@ -167,7 +170,8 @@ type ExpressionNode =
   | TernaryExpr
   | IfExpr
   | MatchExpr
-  | FnExpr
+  | ClosureExpr
+  | AwaitExpr
   | ListExpr
   | ObjectExpr
   | ComponentExpr;
@@ -188,7 +192,7 @@ interface CallExpr extends BaseNode {
 interface ComponentExpr extends BaseNode {
   type: 'ComponentExpr';
   name: IdentifierNode;
-  args: NamedArgNode[];
+  args: ArgNode[];
   body: BlockNode | null;
 }
 
@@ -196,6 +200,19 @@ interface MatchExpr extends BaseNode {
   type: 'MatchExpr';
   subject: ExpressionNode;
   arms: MatchArmNode[];
+}
+
+interface ClosureExpr extends BaseNode {
+  type: 'ClosureExpr';
+  isAsync: boolean;
+  params: ParameterNode[];
+  returnType: TypeNode | null;
+  body: ExpressionNode | BlockNode;
+}
+
+interface AwaitExpr extends BaseNode {
+  type: 'AwaitExpr';
+  argument: ExpressionNode;
 }
 ```
 
@@ -234,6 +251,18 @@ interface NamedArgNode extends BaseNode {
   type: 'NamedArg';
   name: IdentifierNode;
   value: ExpressionNode;
+}
+
+interface ArgNode extends BaseNode {
+  type: 'Arg';
+  name: IdentifierNode | null;
+  value: ExpressionNode;
+}
+
+interface AttributeNode extends BaseNode {
+  type: 'Attribute';
+  name: IdentifierNode;
+  args: ArgNode[];
 }
 ```
 

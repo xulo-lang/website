@@ -12,12 +12,12 @@ fn log(message: string) {
 }
 
 // With return value (implicit return)
-fn add(a: number, b: number): number {
+fn add(a: int, b: int): int {
   a + b
 }
 
 // Explicit return
-fn subtract(a: number, b: number): number {
+fn subtract(a: int, b: int): int {
   return a - b
 }
 ```
@@ -74,38 +74,36 @@ fn first<T>(list: list<T>): T {
   list[0]
 }
 
-// Type argument inferred at call site: first([1, 2, 3]) binds T to number
-let n: number = first([1, 2, 3])
+// Type argument inferred at call site: first([1, 2, 3]) binds T to int
+let n: int = first([1, 2, 3])
 let s: string = first(["a"])      // OK, T = string
-let bad: string = first([1, 2])   // Error, T inferred as number
+let bad: string = first([1, 2])   // Error, T inferred as int
 ```
 
-> The current implementation supports **call-site inference** for generic type arguments. **Explicit** type arguments (`first<number>(...)`) are not yet supported.
+> Explicit type arguments (`first<number>(...)`) are **not** supported. Generic type parameters are always inferred at the call site.
 
-## Anonymous Functions / Closures
+## Closures
 
-`fn` can also appear in expression position as a value (closures capture the outer scope, equivalent to JS closures):
+Closures are anonymous functions written with `=>`. They capture outer scope variables automatically (equivalent to JS closures). Use `fn` only for named declarations.
 
 ```js
-fn apply(f: fn(number): number, x: number): number {
+fn apply(f: fn(int): int, x: int): int {
   f(x)
 }
 
-fn makeAdder(n: number): fn(number): number {
-  fn(v: number): number { v + n }   // Captures n
+fn makeAdder(n: int): fn(int): int {
+  (v: int): int => v + n   // Captures n
 }
 
 fn main() {
-  let double = fn(x: number): number {
-    x * 2
-  }
+  let double = (x: int): int => x * 2
 
   let add5 = makeAdder(5)
   print(apply(double, 3))   // 6
   print(add5(10))           // 15
 
-  // Async closure: async fn()
-  let work = async fn() { 42 }
+  // Async closure
+  let work = async () => 42
   let v = await work()      // 42
 }
 ```
@@ -143,19 +141,19 @@ pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
 ### EBNF Formal Rules
 
 ```text
-ClosureExpr      ::= ClosureParams ('->' Type)? '=>' ( Expression | Block ) ;
-ClosureParams    ::= Identifier
-                   | '(' (ClosureParam (',' ClosureParam)* ','?)? ')' ;
-ClosureParam     ::= Identifier (':' Type)? ;
+ClosureExpr      = [ 'async' ] ClosureParams [ ':' Type ] '=>' ( Expression | Block ) ;
+ClosureParams    = Identifier
+                 | '(' [ ClosureParam ( ',' ClosureParam )* ','? ] ')' ;
+ClosureParam     = Identifier [ ':' Type ] ;
 
-ClosureType      ::= 'fn' '(' (Type (',' Type)*)? ')' ':' Type ;
+ClosureType      = [ 'async' ] 'fn' '(' [ TypeList ] ')' [ ':' Type ] ;
 ```
 
 ### Rules
 
-- Anonymous function type is `fn(param types): return type`, assignable to parameters/variables with that type
+- `fn` is reserved for named function/method declarations; `=>` is for anonymous closures
+- Closure type is `fn(param types): return type`, assignable to parameters/variables with that type
 - Automatically accesses outer local variables through capture; mutable captures can modify outer `let` bindings directly
 - Function values are called with positional arguments only; the count must match exactly; named arguments are not supported
 - Function values can be called from any expression: `xs[0](10)`, `getFn()(x)`, `(f)(5)`
-- `fn(...)` in statement position (e.g., at the end of a block for implicit return) is parsed as an anonymous function expression
-- Async closures are written as `async fn()`, return a Promise when called, and can be `await`ed
+- Async closures are written as `async () => ...`, return a Promise when called, and can be `await`ed

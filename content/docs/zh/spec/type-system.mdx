@@ -20,6 +20,7 @@ struct       命名记录类型
 enum         代数数据类型
 trait        结构化能力契约
 fn           函数签名
+task         异步计算类型（Task<T>）
 view         UI 组件返回类型（仅标记）
 ```
 
@@ -151,6 +152,50 @@ fn describe<T: Area>(t: T): float {
 2. 调度调用**必须**使用显式语法：`Trait.method(receiver)`
 3. 泛型参数值在运行时被擦除 — 在 `T: Trait` 约束下**无法**进行调度调用
 
+## Async / Await 类型规则
+
+### Task 类型
+
+所有 `async` 函数和闭包的返回类型在类型系统中统一表示为内置泛型 **`Task<T>`**。
+
+| 语法 | 用户书写类型 | 实际求值类型 |
+|------|------------|------------|
+| `async fn foo(): T` | `T` | `Task<T>` |
+| `async fn bar()` | （无返回类型） | `Task<void>` |
+| `async (x: int): int => x + 1` | `int` | `Task<int>` |
+
+### 函数签名自动包装 (Automatic Task Wrapping)
+
+若函数或闭包被标记为 `async`，声明的返回类型为 `T`，则该函数或闭包求值后的实际类型为 `Task<T>`：
+
+```text
+async fn foo(): T   =>  foo: fn(): Task<T>
+async () => expr    =>  该闭包类型: fn(): Task<T>
+```
+
+**函数体内部校验**：在 `async` 函数体内部，`return` 语句或隐式尾表达式的类型必须匹配 `T`（而非 `Task<T>`），编译器自动将其包装为 `Task<T>`。
+
+### Await 解包规则 (Await Unwrapping)
+
+- **操作数要求**：`await expr` 中的 `expr` 必须求值为 `Task<T>` 类型。
+- **解包结果**：整个 `await expr` 表达式的类型为 `T`。
+- **作用域限制**：`await` 只能出现在 `async` 函数或闭包体内（除非编译器开启 Top-level Await 支持）。
+
+```text
+await (Task<T>)  =>  T
+```
+
+### 内置 Task 工具方法
+
+编译器在全局作用域内置 `Task` 命名空间：
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `Task.all` | `all<T>(tasks: list<Task<T>>): Task<list<T>>` | 并行等待所有 Task 完成 |
+| `Task.race` | `race<T>(tasks: list<Task<T>>): Task<T>` | 竞态等待第一个完成的 Task |
+| `Task.resolve` | `resolve<T>(value: T): Task<T>` | 创建一个立即成功的 Task |
+| `Task.reject` | `reject<T>(err: Error): Task<T>` | 创建一个立即失败的 Task |
+
 ## 类型兼容性
 
 两个类型 `A` 和 `B` 兼容当：
@@ -170,3 +215,6 @@ fn describe<T: Area>(t: T): float {
 - 非穷尽的 `match` 表达式
 - 函数参数类型不匹配
 - 在 `View` 函数外使用 `@State`/`@Store`/`@Effect`/`@Environment`
+- 在非 `async` 函数/闭包内使用 `await`
+- `await` 操作数的类型不是 `Task<T>`
+- `async` 函数体内 `return` 的类型与声明的返回类型不匹配

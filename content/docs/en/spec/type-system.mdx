@@ -20,6 +20,7 @@ struct       named record type
 enum         algebraic data type
 trait        structural capability contract
 fn           function signature
+task         async computation type (Task<T>)
 view         UI component return type (marker only)
 ```
 
@@ -151,6 +152,50 @@ Resolution rules:
 2. Dispatch calls **MUST** use explicit syntax: `Trait.method(receiver)`
 3. Generic parameter values are erased at runtime — dispatch calls are **not** possible under `T: Trait` constraints
 
+## Async / Await Type Rules
+
+### Task Type
+
+All `async` functions and closures have their return type represented in the type system as the built-in generic **`Task<T>`**.
+
+| Syntax | User-written type | Actual evaluated type |
+|--------|------------------|----------------------|
+| `async fn foo(): T` | `T` | `Task<T>` |
+| `async fn bar()` | (no return type) | `Task<void>` |
+| `async (x: int): int => x + 1` | `int` | `Task<int>` |
+
+### Automatic Task Wrapping
+
+If a function or closure is marked `async` and declares return type `T`, the actual type after evaluation is `Task<T>`:
+
+```text
+async fn foo(): T   =>  foo: fn(): Task<T>
+async () => expr    =>  closure type: fn(): Task<T>
+```
+
+**Function body validation**: Inside an `async` function body, the `return` statement or implicit trailing expression must match type `T` (not `Task<T>`) — the compiler automatically wraps it as `Task<T>`.
+
+### Await Unwrapping
+
+- **Operand requirement**: `await expr` requires `expr` to evaluate to `Task<T>`.
+- **Result type**: The entire `await expr` expression evaluates to type `T`.
+- **Scope restriction**: `await` may only appear inside `async` function or closure bodies (unless Top-level Await is enabled).
+
+```text
+await (Task<T>)  =>  T
+```
+
+### Built-in Task Utilities
+
+The compiler provides a global `Task` namespace:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `Task.all` | `all<T>(tasks: list<Task<T>>): Task<list<T>>` | Wait for all Tasks to complete |
+| `Task.race` | `race<T>(tasks: list<Task<T>>): Task<T>` | Race to first completed Task |
+| `Task.resolve` | `resolve<T>(value: T): Task<T>` | Create an immediately resolved Task |
+| `Task.reject` | `reject<T>(err: Error): Task<T>` | Create an immediately rejected Task |
+
 ## Type Compatibility
 
 Two types `A` and `B` are compatible when:
@@ -170,3 +215,6 @@ The compiler **SHALL** report the following type errors at compile time:
 - Non-exhaustive `match` expression
 - Type mismatch in function arguments
 - Use of `@State`/`@Store`/`@Effect`/`@Environment` outside a `View` function
+- Use of `await` inside a non-`async` function or closure
+- `await` operand type is not `Task<T>`
+- `return` type in `async` function body mismatches declared return type

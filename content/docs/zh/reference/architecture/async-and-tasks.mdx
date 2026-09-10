@@ -36,12 +36,12 @@ async fn fetchUser(id: string): User {
 
 ```js
 async fn main() {
-  let work = async fn(): number { 21 * 2 }
+  let work = async (): number => 21 * 2
   print(await work())   // 42
 }
 ```
 
-异步闭包写作 `async fn(): Type`，调用返回 Promise，可用 `await`。
+异步闭包写作 `async () => expr` 或 `async (): Type => expr`，调用返回 Task，可用 `await`。
 
 ## 异步函数中的状态限制
 

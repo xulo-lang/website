@@ -36,7 +36,7 @@ Declaration      = FnDeclaration
 ### 函数声明
 
 ```text
-FnDeclaration    = [ 'export' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
+FnDeclaration    = [ 'export' ] [ 'async' ] 'fn' Identifier [ GenericParams ] '(' ParameterList? ')' [ ':' Type ] Block ;
 ParameterList    = Parameter ( ',' Parameter )* ','? ;
 Parameter        = Identifier ':' Type [ '?' ] [ '=' Expression ] ;
 ```
@@ -53,7 +53,7 @@ GenericParams    = '<' Identifier ( ',' Identifier )* '>' ;
 ### 枚举声明
 
 ```text
-EnumDeclaration  = [ 'export' ] 'enum' Identifier '{' EnumVariantList? '}' ;
+EnumDeclaration  = [ 'export' ] 'enum' Identifier [ GenericParams ] '{' EnumVariantList? '}' ;
 EnumVariantList  = EnumVariant ( ',' EnumVariant )* ','? ;
 EnumVariant      = Identifier [ '(' TypeList ')' ] ;
 TypeList         = Type ( ',' Type )* ;
@@ -69,8 +69,7 @@ TraitMethod      = 'fn' Identifier '(' ParameterList? ')' ':' Type ';' ;
 ### Impl 声明
 
 ```text
-ImplDeclaration  = 'impl' Identifier 'for' Type '{' FnDeclaration* '}' ;
-                 | 'impl' Type '{' FnDeclaration* '}' ;
+ImplDeclaration  = 'impl' [ GenericParams ] [ Identifier 'for' ] Type '{' FnDeclaration* '}' ;
 ```
 
 ### 类型别名
@@ -130,8 +129,8 @@ let opacity: f32 = 0.8 (* 从 float 强制转换为 f32 *)
 Expression       = Assignment ;
 Assignment       = Ternary ( '=' Assignment )? ;
 Ternary          = LogicalOr [ '?' Expression ':' Expression ] ;
-LogicalOr        = LogicalAnd ( 'or' LogicalAnd )* ;
-LogicalAnd       = Comparison ( 'and' Comparison )* ;
+LogicalOr        = LogicalAnd ( '||' LogicalAnd )* ;
+LogicalAnd       = Comparison ( '&&' Comparison )* ;
 Comparison       = Addition ( ( '<' | '>' | '<=' | '>=' | '==' | '!=' | '..<' ) Addition )* ;
 Addition         = Multiplication ( ( '+' | '-' ) Multiplication )* ;
 Multiplication   = Unary ( ( '*' | '/' ) Unary )* ;
@@ -143,7 +142,11 @@ Primary          = Identifier | NumberLiteral | StringLiteral | BooleanLiteral |
                  | '{' ObjectFieldList? '}'
                  | 'if' Expression Block [ 'else' Block ]
                  | 'match' Expression '{' MatchArm* '}'
-                 | 'fn' '(' ParameterList? ')' [ ':' Type ] Block ;
+                 | ClosureExpr ;
+ClosureExpr      = [ 'async' ] ClosureParams [ ':' Type ] '=>' ( Expression | Block ) ;
+ClosureParams    = Identifier
+                 | '(' [ ClosureParam ( ',' ClosureParam )* ','? ] ')' ;
+ClosureParam     = Identifier [ ':' Type ] ;
 ```
 
 ## 语句
@@ -179,5 +182,7 @@ ArgList          = NamedArg ( ',' NamedArg )* ','? ;
 NamedArg         = Identifier ':' Expression
                  | Expression ;                    (位置参数)
 ```
+
+Attribute        = '@' Identifier [ '(' ArgList ')' ] ;
 
 在 UI Block 内部，只允许组件表达式、`if` 表达式和 `for` 循环。
