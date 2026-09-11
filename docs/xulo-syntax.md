@@ -885,7 +885,7 @@ import { AtomicI64 } from "std/sync"
 | `std/thread` | `Builder`, `current` |
 | `std/sync` | `AtomicBool`, `AtomicI64`, `Semaphore`, `Barrier` |
 | `std/process` | `Command`, `env.args()` |
-| `std/math` | `PI`, `E`, `sqrt`, `log`, `random` |
+| `std/math` | `Random`, `Matrix`, `Vector`, `Complex` |
 | `std/time` | `Instant`, `Duration`, `DateTime` |
 
-Built-in primitives (`list`, `map`, `set`, `JSON`, `spawn`, `lock`, `shared`) do not require import.
+Built-in primitives (`list`, `map`, `set`, `JSON`, `spawn`, `lock`, `shared`, `Math`) do not require import.

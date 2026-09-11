@@ -256,3 +256,96 @@ let msg = `User: ${u}`             // Compile error: Type `User` does not implem
 Template literals can be optimized at compile time:
 - Pure literal concatenation: `` `Hello, ` + name + `!` `` → `` `Hello, ${name}!` ``
 - Constant folding: `` `1 + 1 = ${1 + 1}` `` → `` `1 + 1 = 2` ``
+
+## Built-in `Math` Namespace
+
+`Math` is a built-in namespace in XULO, available without import. It contains commonly used mathematical functions and constants that the compiler can directly map to hardware instructions or fold at compile time.
+
+### Constants
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `Math.PI` | `float` | Pi (3.141592653589793) |
+| `Math.E` | `float` | Euler's number (2.718281828459045) |
+| `Math.TAU` | `float` | Two pi (6.283185307179586) |
+| `Math.INFINITY` | `float` | Positive infinity |
+| `Math.NAN` | `float` | Not a number |
+
+### Basic Math Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Math.abs` | `fn(x: number): number` | Absolute value |
+| `Math.min` | `fn(a: number, b: number): number` | Minimum value |
+| `Math.max` | `fn(a: number, b: number): number` | Maximum value |
+| `Math.sqrt` | `fn(x: float): float` | Square root |
+| `Math.cbrt` | `fn(x: float): float` | Cube root |
+| `Math.pow` | `fn(base: float, exp: float): float` | Power |
+| `Math.floor` | `fn(x: float): int` | Floor |
+| `Math.ceil` | `fn(x: float): int` | Ceiling |
+| `Math.round` | `fn(x: float): int` | Round |
+| `Math.trunc` | `fn(x: float): int` | Truncate |
+
+### Trigonometric Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Math.sin` | `fn(x: float): float` | Sine |
+| `Math.cos` | `fn(x: float): float` | Cosine |
+| `Math.tan` | `fn(x: float): float` | Tangent |
+| `Math.asin` | `fn(x: float): float` | Arcsine |
+| `Math.acos` | `fn(x: float): float` | Arccosine |
+| `Math.atan` | `fn(x: float): float` | Arctangent |
+| `Math.atan2` | `fn(y: float, x: float): float` | 2D arctangent |
+
+### Logarithmic & Exponential
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Math.log` | `fn(x: float): float` | Natural logarithm |
+| `Math.log2` | `fn(x: float): float` | Base-2 logarithm |
+| `Math.log10` | `fn(x: float): float` | Base-10 logarithm |
+| `Math.exp` | `fn(x: float): float` | Exponential e^x |
+
+### Usage Examples
+
+```js
+// Constants
+let circumference = 2 * Math.PI * radius
+let halfPi = Math.PI / 2
+
+// Basic operations
+let hypotenuse = Math.sqrt(a * a + b * b)
+let clamped = Math.min(Math.max(value, 0), 100)
+
+// Trigonometry
+let x = Math.cos(angle) * radius
+let y = Math.sin(angle) * radius
+
+// Compile-time constant folding
+let tau = Math.PI * 2  // Evaluated to 6.283185307179586 at compile time
+```
+
+### Compiler Optimizations
+
+- **Constant folding**: `Math.PI * 2.0` is evaluated to a literal at compile time
+- **Hardware instruction mapping**: `Math.sqrt` can be directly mapped to CPU's `SQRTSS`/`f64.sqrt` instruction
+- **Zero overhead**: Built-in functions have no function call overhead, directly inlined
+
+### Advanced Math Library (Standard Library)
+
+For more complex mathematical operations, use the standard library:
+
+```js
+import { Random } from "std::math"
+import { Matrix, Vector } from "std::math"
+import { Complex } from "std::math"
+
+// Random number generation
+let rng = Random.new()
+let n = rng.next_int(1, 100)
+
+// Matrix operations
+let m = Matrix.new(3, 3)
+let result = m.multiply(other)
+```

@@ -256,3 +256,96 @@ let msg = `User: ${u}`             // 编译错误: Type `User` does not impleme
 模板字符串在编译时可进行以下优化：
 - 纯字面量连接：`` `Hello, ` + name + `!` `` → `` `Hello, ${name}!` ``
 - 常量折叠：`` `1 + 1 = ${1 + 1}` `` → `` `1 + 1 = 2` ``
+
+## 内置 `Math` 命名空间
+
+`Math` 是 XULO 的内置命名空间，无需导入即可使用。包含最常用的数学函数和常量，编译器可直接将其映射为硬件指令或进行常量折叠。
+
+### 常量
+
+| 常量 | 类型 | 描述 |
+|------|------|------|
+| `Math.PI` | `float` | 圆周率 π (3.141592653589793) |
+| `Math.E` | `float` | 自然对数底 e (2.718281828459045) |
+| `Math.TAU` | `float` | 圆周率的两倍 2π (6.283185307179586) |
+| `Math.INFINITY` | `float` | 正无穷大 |
+| `Math.NAN` | `float` | 非数值 |
+
+### 基础数学函数
+
+| 函数 | 签名 | 描述 |
+|------|------|------|
+| `Math.abs` | `fn(x: number): number` | 绝对值 |
+| `Math.min` | `fn(a: number, b: number): number` | 最小值 |
+| `Math.max` | `fn(a: number, b: number): number` | 最大值 |
+| `Math.sqrt` | `fn(x: float): float` | 平方根 |
+| `Math.cbrt` | `fn(x: float): float` | 立方根 |
+| `Math.pow` | `fn(base: float, exp: float): float` | 幂运算 |
+| `Math.floor` | `fn(x: float): int` | 向下取整 |
+| `Math.ceil` | `fn(x: float): int` | 向上取整 |
+| `Math.round` | `fn(x: float): int` | 四舍五入 |
+| `Math.trunc` | `fn(x: float): int` | 截断小数部分 |
+
+### 三角函数
+
+| 函数 | 签名 | 描述 |
+|------|------|------|
+| `Math.sin` | `fn(x: float): float` | 正弦 |
+| `Math.cos` | `fn(x: float): float` | 余弦 |
+| `Math.tan` | `fn(x: float): float` | 正切 |
+| `Math.asin` | `fn(x: float): float` | 反正弦 |
+| `Math.acos` | `fn(x: float): float` | 反余弦 |
+| `Math.atan` | `fn(x: float): float` | 反正切 |
+| `Math.atan2` | `fn(y: float, x: float): float` | 二维反正切 |
+
+### 对数与指数
+
+| 函数 | 签名 | 描述 |
+|------|------|------|
+| `Math.log` | `fn(x: float): float` | 自然对数 |
+| `Math.log2` | `fn(x: float): float` | 以 2 为底的对数 |
+| `Math.log10` | `fn(x: float): float` | 以 10 为底的对数 |
+| `Math.exp` | `fn(x: float): float` | 指数函数 e^x |
+
+### 使用示例
+
+```js
+// 常量
+let circumference = 2 * Math.PI * radius
+let halfPi = Math.PI / 2
+
+// 基础运算
+let hypotenuse = Math.sqrt(a * a + b * b)
+let clamped = Math.min(Math.max(value, 0), 100)
+
+// 三角函数
+let x = Math.cos(angle) * radius
+let y = Math.sin(angle) * radius
+
+// 编译时常量折叠
+let tau = Math.PI * 2  // 编译时求值为 6.283185307179586
+```
+
+### 编译器优化
+
+- **常量折叠**：`Math.PI * 2.0` 在编译时直接求值为字面量
+- **硬件指令映射**：`Math.sqrt` 可直接映射为 CPU 的 `SQRTSS`/`f64.sqrt` 指令
+- **零调用开销**：内置函数无函数调用开销，直接内联
+
+### 高级数学库（标准库）
+
+对于更复杂的数学运算，使用标准库模块：
+
+```js
+import { Random } from "std::math"
+import { Matrix, Vector } from "std::math"
+import { Complex } from "std::math"
+
+// 随机数生成
+let rng = Random.new()
+let n = rng.next_int(1, 100)
+
+// 矩阵运算
+let m = Matrix.new(3, 3)
+let result = m.multiply(other)
+```
