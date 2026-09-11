@@ -129,7 +129,9 @@ ExportDeclaration = 'export' FnDeclaration
                   | 'export' TraitDeclaration
                   | 'export' ImplDeclaration
                   | 'export' TypeAlias
-                  | 'use' Identifier ( '::' Identifier )* ;
+                  | 'export' '{' ExportList '}' [ 'from' StringLiteral ] ;
+ExportList        = ExportItem ( ',' ExportItem )* ','? ;
+ExportItem        = Identifier [ 'as' Identifier ] ;
 
 (* -------------------------------------------------------------- *)
 (*  Types                                                         *)

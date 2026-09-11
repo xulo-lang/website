@@ -330,7 +330,14 @@ interface AttributeNode extends BaseNode {
 
 interface ExportDeclaration extends BaseNode {
   type: 'ExportDeclaration';
-  declaration: Declaration;
+  items: ExportItemNode[];
+  source: string | null;
+}
+
+interface ExportItemNode extends BaseNode {
+  type: 'ExportItem';
+  name: IdentifierNode;
+  alias: IdentifierNode | null;
 }
 
 interface ImportDeclaration extends BaseNode {

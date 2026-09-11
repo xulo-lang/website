@@ -705,8 +705,12 @@ export let PI = 3.14
 export type User = { name: string }
 export enum Status { Active Inactive }
 
-// Re-export
-export use { add, PI }
+// Re-export current module declarations
+export { add, PI }
+
+// Re-export from another module
+export { add, PI } from './math'
+export { default as Logger } from './logger'
 ```
 
 ### Visibility
