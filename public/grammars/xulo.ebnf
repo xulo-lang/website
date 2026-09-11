@@ -44,6 +44,10 @@ Digit             = ? US-ASCII digit 0-9 ? ;
 (* Literals *)
 StringLiteral     = '"' { ? any character except " and \ ? | EscapeSeq } '"'
                  | "'" { ? any character except ' and \ ? | EscapeSeq } "'" ;
+TemplateLiteral   = '`' { TemplateElement } '`' ;
+TemplateElement   = RawString | Interpolation ;
+Interpolation     = '${' Expression '}' ;
+RawString         = { ? any character except ` and \ ? | EscapeSeq | '${' } ;
 NumberLiteral     = IntegerLiteral [ FractionalPart ] ;
 IntegerLiteral    = DecimalLiteral | HexLiteral | BinaryLiteral | OctalLiteral ;
 DecimalLiteral    = Digit { Digit } ;
@@ -167,7 +171,7 @@ Addition          = Multiplication ( ( '+' | '-' ) Multiplication )* ;
 Multiplication    = Unary ( ( '*' | '/' ) Unary )* ;
 Unary             = ( '!' | '-' | 'await' ) Unary | Postfix ;
 Postfix           = Primary ( '.' Identifier | '[' Expression ']' | '(' ArgList ')' )* ;
-Primary           = Identifier | NumberLiteral | StringLiteral
+Primary           = Identifier | NumberLiteral | StringLiteral | TemplateLiteral
                   | BooleanLiteral | NullLiteral
                   | '(' Expression ')'
                   | '[' ExpressionList? ']'

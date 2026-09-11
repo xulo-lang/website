@@ -185,7 +185,8 @@ type ExpressionNode =
   | AwaitExpr
   | ListExpr
   | ObjectExpr
-  | ComponentExpr;
+  | ComponentExpr
+  | TemplateLiteralNode;
 
 interface BinaryExpr extends BaseNode {
   type: 'BinaryExpr';
@@ -231,6 +232,21 @@ interface IfExpr extends BaseNode {
   condition: ExpressionNode;
   consequent: BlockNode;
   alternate: IfExpr | BlockNode | null;
+}
+
+interface TemplateLiteralNode extends BaseNode {
+  type: 'TemplateLiteral';
+  quasis: TemplateElementNode[];
+  expressions: ExpressionNode[];
+}
+
+interface TemplateElementNode extends BaseNode {
+  type: 'TemplateElement';
+  value: {
+    raw: string;
+    cooked: string;
+  };
+  tail: boolean;
 }
 ```
 

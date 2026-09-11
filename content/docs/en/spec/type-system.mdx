@@ -218,3 +218,41 @@ The compiler **SHALL** report the following type errors at compile time:
 - Use of `await` inside a non-`async` function or closure
 - `await` operand type is not `Task<T>`
 - `return` type in `async` function body mismatches declared return type
+
+## Template Literals & String Interpolation
+
+### Syntax
+
+```js
+let name = "World"
+let greeting = `Hello, ${name}!`                    // Interpolation expression
+let math = `1 + 1 = ${1 + 1}`                      // Expression evaluation
+let nested = `Value: ${if x > 0 { "positive" } else { "negative" }}`  // Block expression
+```
+
+### Type Rules
+
+**Implicit Type Conversion (String Coercion)**: Any base type (`int`, `float`, `boolean`, `string`) or type implementing the `ToString` trait is automatically coerced to `string` when evaluated in `${expr}`.
+
+```js
+let count = 42
+let msg = `Count: ${count}`        // OK: int → string
+let flag = true
+let msg2 = `Flag: ${flag}`         // OK: boolean → string
+let pi = 3.14
+let msg3 = `Pi: ${pi}`             // OK: float → string
+```
+
+**Complex Type Restriction**: Custom types (e.g., `struct`) that do not implement a display protocol will cause a compile-time error when used in `${expr}`.
+
+```js
+struct User { name: string; age: int }
+let u = User(name: "Alice", age: 30)
+let msg = `User: ${u}`             // Compile error: Type `User` does not implement string formatting
+```
+
+### Compile-Time Optimizations
+
+Template literals can be optimized at compile time:
+- Pure literal concatenation: `` `Hello, ` + name + `!` `` → `` `Hello, ${name}!` ``
+- Constant folding: `` `1 + 1 = ${1 + 1}` `` → `` `1 + 1 = 2` ``

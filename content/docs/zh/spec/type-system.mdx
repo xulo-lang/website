@@ -218,3 +218,41 @@ await (Task<T>)  =>  T
 - 在非 `async` 函数/闭包内使用 `await`
 - `await` 操作数的类型不是 `Task<T>`
 - `async` 函数体内 `return` 的类型与声明的返回类型不匹配
+
+## 模板字符串与插值
+
+### 语法
+
+```js
+let name = "World"
+let greeting = `Hello, ${name}!`                    // 插值表达式
+let math = `1 + 1 = ${1 + 1}`                      // 表达式求值
+let nested = `Value: ${if x > 0 { "positive" } else { "negative" }}`  // 块表达式
+```
+
+### 类型规则
+
+**隐式类型转换 (String Coercion)**：任何基础类型（`int`, `float`, `boolean`, `string`）或实现了 `ToString` trait 的类型，在 `${expr}` 中求值时自动隐式转换为 `string`。
+
+```js
+let count = 42
+let msg = `Count: ${count}`        // OK: int → string
+let flag = true
+let msg2 = `Flag: ${flag}`         // OK: boolean → string
+let pi = 3.14
+let msg3 = `Pi: ${pi}`             // OK: float → string
+```
+
+**复杂类型限制**：对于不具备可打印表示的复杂结构（如自定义 `struct` 或未实现显示协议的类型），在 `${expr}` 中传入将在编译时触发类型报错。
+
+```js
+struct User { name: string; age: int }
+let u = User(name: "Alice", age: 30)
+let msg = `User: ${u}`             // 编译错误: Type `User` does not implement string formatting
+```
+
+### 编译时优化
+
+模板字符串在编译时可进行以下优化：
+- 纯字面量连接：`` `Hello, ` + name + `!` `` → `` `Hello, ${name}!` ``
+- 常量折叠：`` `1 + 1 = ${1 + 1}` `` → `` `1 + 1 = 2` ``
