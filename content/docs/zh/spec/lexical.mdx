@@ -66,12 +66,24 @@ LineComment   ::= '//' [^\n]*
 
 ## 字符串插值
 
-XULO **不**支持字符串插值。请使用字符串拼接：
+XULO **支持**模板字符串与字符串插值：
 
 ```js
-// 不支持
-let msg = `Hello, ${name}`
-
-// 正确
-let msg = "Hello, " + name
+let name = "World"
+let greeting = `Hello, ${name}!`      // 插值表达式
+let math = `1 + 1 = ${1 + 1}`        // 表达式求值
 ```
+
+### 语法规则
+
+```text
+TemplateLiteral   ::= '`' { TemplateElement } '`'
+TemplateElement   ::= RawString | Interpolation
+Interpolation     ::= '${' Expression '}'
+RawString         ::= { [^`\\] | EscapeSeq | '${' }
+```
+
+### 类型转换
+
+- **基础类型**（`int`、`float`、`boolean`、`string`）在 `${expr}` 中自动转换为 `string`
+- **复杂类型**（未实现 `ToString` 的 `struct` 等）将触发编译错误

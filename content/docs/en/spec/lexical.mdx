@@ -66,12 +66,24 @@ Comments are stripped before rendering and have no semantic effect.
 
 ## String Interpolation
 
-XULO does **not** support string interpolation. Use string concatenation:
+XULO **supports** template literals with string interpolation:
 
 ```js
-// Incorrect (not supported)
-let msg = `Hello, ${name}`
-
-// Correct
-let msg = "Hello, " + name
+let name = "World"
+let greeting = `Hello, ${name}!`      // Interpolation expression
+let math = `1 + 1 = ${1 + 1}`        // Expression evaluation
 ```
+
+### Syntax Rules
+
+```text
+TemplateLiteral   ::= '`' { TemplateElement } '`'
+TemplateElement   ::= RawString | Interpolation
+Interpolation     ::= '${' Expression '}'
+RawString         ::= { [^`\\] | EscapeSeq | '${' }
+```
+
+### Type Conversion
+
+- **Primitive types** (`int`, `float`, `boolean`, `string`) are automatically coerced to `string` in `${expr}`
+- **Complex types** (`struct` without `ToString` trait) will cause a compile error
