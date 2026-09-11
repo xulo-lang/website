@@ -1,0 +1,317 @@
+---
+title: Math
+description: XULO built-in math namespace with common mathematical functions and constants.
+---
+
+## Overview
+
+`Math` is a built-in namespace providing commonly used mathematical functions and constants. No import required. The compiler can map these directly to hardware instructions or fold constants at compile time.
+
+## Constants
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `Math.PI` | `float` | Pi (3.141592653589793) |
+| `Math.E` | `float` | Euler's number (2.718281828459045) |
+| `Math.TAU` | `float` | Two pi (6.283185307179586) |
+| `Math.INFINITY` | `float` | Positive infinity |
+| `Math.NAN` | `float` | Not a number |
+
+```js
+let circumference = 2 * Math.PI * radius
+let halfPi = Math.PI / 2
+let tau = Math.TAU  // 2 * Math.PI
+```
+
+## Basic Math Functions
+
+### `Math.abs(x)`
+
+Returns the absolute value.
+
+```js
+Math.abs(-5)      // 5
+Math.abs(3.14)    // 3.14
+Math.abs(-0)      // 0
+```
+
+### `Math.min(a, b)`
+
+Returns the smaller of two values.
+
+```js
+Math.min(10, 20)    // 10
+Math.min(-5, 5)     // -5
+Math.min(3.14, 3)   // 3
+```
+
+### `Math.max(a, b)`
+
+Returns the larger of two values.
+
+```js
+Math.max(10, 20)    // 20
+Math.max(-5, 5)     // 5
+Math.max(3.14, 3)   // 3.14
+```
+
+### `Math.sqrt(x)`
+
+Returns the square root.
+
+```js
+Math.sqrt(4)     // 2.0
+Math.sqrt(9)     // 3.0
+Math.sqrt(2)     // 1.4142135623730951
+```
+
+### `Math.cbrt(x)`
+
+Returns the cube root.
+
+```js
+Math.cbrt(8)     // 2.0
+Math.cbrt(27)    // 3.0
+Math.cbrt(-1)    // -1.0
+```
+
+### `Math.pow(base, exp)`
+
+Returns base raised to the power exp.
+
+```js
+Math.pow(2, 3)     // 8.0
+Math.pow(10, 2)    // 100.0
+Math.pow(9, 0.5)   // 3.0
+```
+
+### `Math.floor(x)`
+
+Rounds down to integer.
+
+```js
+Math.floor(3.7)     // 3
+Math.floor(3.2)     // 3
+Math.floor(-3.2)    // -4
+```
+
+### `Math.ceil(x)`
+
+Rounds up to integer.
+
+```js
+Math.ceil(3.7)     // 4
+Math.ceil(3.2)     // 4
+Math.ceil(-3.7)    // -3
+```
+
+### `Math.round(x)`
+
+Rounds to nearest integer.
+
+```js
+Math.round(3.7)     // 4
+Math.round(3.2)     // 3
+Math.round(3.5)     // 4
+Math.round(-3.5)    // -3
+```
+
+### `Math.trunc(x)`
+
+Truncates decimal part, returns integer.
+
+```js
+Math.trunc(3.7)     // 3
+Math.trunc(-3.7)    // -3
+Math.trunc(0.9)     // 0
+```
+
+## Trigonometric Functions
+
+### `Math.sin(x)`
+
+Returns sine (radians).
+
+```js
+Math.sin(0)                // 0.0
+Math.sin(Math.PI / 2)      // 1.0
+Math.sin(Math.PI)          // ~0 (floating point precision)
+```
+
+### `Math.cos(x)`
+
+Returns cosine (radians).
+
+```js
+Math.cos(0)                // 1.0
+Math.cos(Math.PI / 2)      // ~0 (floating point precision)
+Math.cos(Math.PI)          // -1.0
+```
+
+### `Math.tan(x)`
+
+Returns tangent (radians).
+
+```js
+Math.tan(0)                // 0.0
+Math.tan(Math.PI / 4)      // 1.0
+Math.tan(Math.PI / 3)      // 1.7320508075688767
+```
+
+### `Math.asin(x)`
+
+Returns arc sine (result in radians).
+
+```js
+Math.asin(0)       // 0.0
+Math.asin(1)       // Math.PI / 2
+Math.asin(-1)      // -Math.PI / 2
+```
+
+### `Math.acos(x)`
+
+Returns arc cosine (result in radians).
+
+```js
+Math.acos(0)       // Math.PI / 2
+Math.acos(1)       // 0.0
+Math.acos(-1)      // Math.PI
+```
+
+### `Math.atan(x)`
+
+Returns arc tangent (result in radians).
+
+```js
+Math.atan(0)       // 0.0
+Math.atan(1)       // Math.PI / 4
+Math.atan(-1)      // -Math.PI / 4
+```
+
+### `Math.atan2(y, x)`
+
+Returns 2D arc tangent (result in radians), considering quadrant.
+
+```js
+Math.atan2(0, 1)     // 0.0
+Math.atan2(1, 0)     // Math.PI / 2
+Math.atan2(0, -1)    // Math.PI
+Math.atan2(-1, 0)    // -Math.PI / 2
+```
+
+## Logarithmic & Exponential Functions
+
+### `Math.log(x)`
+
+Returns natural logarithm (base e).
+
+```js
+Math.log(1)          // 0.0
+Math.log(Math.E)     // 1.0
+Math.log(10)         // 2.302585092994046
+```
+
+### `Math.log2(x)`
+
+Returns base-2 logarithm.
+
+```js
+Math.log2(1)         // 0.0
+Math.log2(2)         // 1.0
+Math.log2(8)         // 3.0
+Math.log2(1024)      // 10.0
+```
+
+### `Math.log10(x)`
+
+Returns base-10 logarithm.
+
+```js
+Math.log10(1)        // 0.0
+Math.log10(10)       // 1.0
+Math.log10(100)      // 2.0
+Math.log10(1000)     // 3.0
+```
+
+### `Math.exp(x)`
+
+Returns e raised to the power x.
+
+```js
+Math.exp(0)          // 1.0
+Math.exp(1)          // 2.718281828459045
+Math.exp(2)          // 7.38905609893065
+```
+
+## Use Cases
+
+### Animation & UI Layout
+
+```js
+// Easing function
+fn ease_in_out(t: float): float {
+  if t < 0.5 {
+    2 * t * t
+  } else {
+    1 - Math.pow(-2 * t + 2, 2) / 2
+  }
+}
+
+// Rotation calculation
+let x = Math.cos(angle) * radius
+let y = Math.sin(angle) * radius
+
+// Distance calculation
+let distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
+```
+
+### Color & Gradients
+
+```js
+// HSV to RGB conversion
+let hue_sector = hue / 60
+let c = value * saturation
+let x = c * (1 - Math.abs(hue_sector % 2 - 1))
+```
+
+### Physics Simulation
+
+```js
+// Parabolic motion
+let position = initial_velocity * time - 0.5 * gravity * Math.pow(time, 2)
+
+// Damped oscillation
+let amplitude = max_amplitude * Math.exp(-damping * time) * Math.cos(frequency * time)
+```
+
+## Compiler Optimizations
+
+### Constant Folding
+
+The compiler evaluates constant expressions at compile time:
+
+```js
+let tau = Math.PI * 2           // Evaluated to 6.283185307179586 at compile time
+let sqrt2 = Math.sqrt(2)        // Evaluated to 1.4142135623730951 at compile time
+let deg_to_rad = Math.PI / 180  // Evaluated to 0.017453292519943295 at compile time
+```
+
+### Hardware Instruction Mapping
+
+Common functions can be mapped directly to CPU instructions:
+
+| Function | x86 Instruction | WASM Instruction |
+|----------|-----------------|------------------|
+| `Math.sqrt` | `SQRTSS` | `f64.sqrt` |
+| `Math.abs` | `ANDPS` | `f64.abs` |
+| `Math.floor` | `ROUNDSS` | `f64.floor` |
+| `Math.ceil` | `ROUNDSS` | `f64.ceil` |
+
+### Zero-Overhead Abstraction
+
+Built-in functions have no function call overhead; the compiler directly inlines them.
+
+## See Also
+
+- [Numeric Type System](/en/spec/type-system#numeric-type-system)
+- [Standard Library Math Module](/en/reference/stdlib/standard-library-net-fs) (advanced math features)

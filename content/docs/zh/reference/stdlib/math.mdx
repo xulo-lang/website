@@ -1,0 +1,317 @@
+---
+title: Math
+description: XULO 内置数学命名空间，提供常用数学函数与常量。
+---
+
+## 概述
+
+`Math` 是语言内置命名空间，提供常用的数学函数和常量，无需导入即可使用。编译器可将其直接映射为硬件指令或在编译时进行常量折叠。
+
+## 常量
+
+| 常量 | 类型 | 描述 |
+|------|------|------|
+| `Math.PI` | `float` | 圆周率 π (3.141592653589793) |
+| `Math.E` | `float` | 自然对数底 e (2.718281828459045) |
+| `Math.TAU` | `float` | 圆周率的两倍 2π (6.283185307179586) |
+| `Math.INFINITY` | `float` | 正无穷大 |
+| `Math.NAN` | `float` | 非数值 |
+
+```js
+let circumference = 2 * Math.PI * radius
+let halfPi = Math.PI / 2
+let tau = Math.TAU  // 2 * Math.PI
+```
+
+## 基础数学函数
+
+### `Math.abs(x)`
+
+返回绝对值。
+
+```js
+Math.abs(-5)      // 5
+Math.abs(3.14)    // 3.14
+Math.abs(-0)      // 0
+```
+
+### `Math.min(a, b)`
+
+返回两个值中的较小值。
+
+```js
+Math.min(10, 20)    // 10
+Math.min(-5, 5)     // -5
+Math.min(3.14, 3)   // 3
+```
+
+### `Math.max(a, b)`
+
+返回两个值中的较大值。
+
+```js
+Math.max(10, 20)    // 20
+Math.max(-5, 5)     // 5
+Math.max(3.14, 3)   // 3.14
+```
+
+### `Math.sqrt(x)`
+
+返回平方根。
+
+```js
+Math.sqrt(4)     // 2.0
+Math.sqrt(9)     // 3.0
+Math.sqrt(2)     // 1.4142135623730951
+```
+
+### `Math.cbrt(x)`
+
+返回立方根。
+
+```js
+Math.cbrt(8)     // 2.0
+Math.cbrt(27)    // 3.0
+Math.cbrt(-1)    // -1.0
+```
+
+### `Math.pow(base, exp)`
+
+返回 base 的 exp 次幂。
+
+```js
+Math.pow(2, 3)     // 8.0
+Math.pow(10, 2)    // 100.0
+Math.pow(9, 0.5)   // 3.0
+```
+
+### `Math.floor(x)`
+
+向下取整，返回整数。
+
+```js
+Math.floor(3.7)     // 3
+Math.floor(3.2)     // 3
+Math.floor(-3.2)    // -4
+```
+
+### `Math.ceil(x)`
+
+向上取整，返回整数。
+
+```js
+Math.ceil(3.7)     // 4
+Math.ceil(3.2)     // 4
+Math.ceil(-3.7)    // -3
+```
+
+### `Math.round(x)`
+
+四舍五入，返回整数。
+
+```js
+Math.round(3.7)     // 4
+Math.round(3.2)     // 3
+Math.round(3.5)     // 4
+Math.round(-3.5)    // -3
+```
+
+### `Math.trunc(x)`
+
+截断小数部分，返回整数。
+
+```js
+Math.trunc(3.7)     // 3
+Math.trunc(-3.7)    // -3
+Math.trunc(0.9)     // 0
+```
+
+## 三角函数
+
+### `Math.sin(x)`
+
+返回正弦值（弧度制）。
+
+```js
+Math.sin(0)                // 0.0
+Math.sin(Math.PI / 2)      // 1.0
+Math.sin(Math.PI)          // ~0 (浮点精度)
+```
+
+### `Math.cos(x)`
+
+返回余弦值（弧度制）。
+
+```js
+Math.cos(0)                // 1.0
+Math.cos(Math.PI / 2)      // ~0 (浮点精度)
+Math.cos(Math.PI)          // -1.0
+```
+
+### `Math.tan(x)`
+
+返回正切值（弧度制）。
+
+```js
+Math.tan(0)                // 0.0
+Math.tan(Math.PI / 4)      // 1.0
+Math.tan(Math.PI / 3)      // 1.7320508075688767
+```
+
+### `Math.asin(x)`
+
+返回反正弦值（结果为弧度）。
+
+```js
+Math.asin(0)       // 0.0
+Math.asin(1)       // Math.PI / 2
+Math.asin(-1)      // -Math.PI / 2
+```
+
+### `Math.acos(x)`
+
+返回反余弦值（结果为弧度）。
+
+```js
+Math.acos(0)       // Math.PI / 2
+Math.acos(1)       // 0.0
+Math.acos(-1)      // Math.PI
+```
+
+### `Math.atan(x)`
+
+返回反正切值（结果为弧度）。
+
+```js
+Math.atan(0)       // 0.0
+Math.atan(1)       // Math.PI / 4
+Math.atan(-1)      // -Math.PI / 4
+```
+
+### `Math.atan2(y, x)`
+
+返回二维反正切值（结果为弧度），考虑象限。
+
+```js
+Math.atan2(0, 1)     // 0.0
+Math.atan2(1, 0)     // Math.PI / 2
+Math.atan2(0, -1)    // Math.PI
+Math.atan2(-1, 0)    // -Math.PI / 2
+```
+
+## 对数与指数函数
+
+### `Math.log(x)`
+
+返回自然对数（以 e 为底）。
+
+```js
+Math.log(1)          // 0.0
+Math.log(Math.E)     // 1.0
+Math.log(10)         // 2.302585092994046
+```
+
+### `Math.log2(x)`
+
+返回以 2 为底的对数。
+
+```js
+Math.log2(1)         // 0.0
+Math.log2(2)         // 1.0
+Math.log2(8)         // 3.0
+Math.log2(1024)      // 10.0
+```
+
+### `Math.log10(x)`
+
+返回以 10 为底的对数。
+
+```js
+Math.log10(1)        // 0.0
+Math.log10(10)       // 1.0
+Math.log10(100)      // 2.0
+Math.log10(1000)     // 3.0
+```
+
+### `Math.exp(x)`
+
+返回 e 的 x 次幂。
+
+```js
+Math.exp(0)          // 1.0
+Math.exp(1)          // 2.718281828459045
+Math.exp(2)          // 7.38905609893065
+```
+
+## 使用场景
+
+### 动画与 UI 布局
+
+```js
+// 缓动函数
+fn ease_in_out(t: float): float {
+  if t < 0.5 {
+    2 * t * t
+  } else {
+    1 - Math.pow(-2 * t + 2, 2) / 2
+  }
+}
+
+// 旋转计算
+let x = Math.cos(angle) * radius
+let y = Math.sin(angle) * radius
+
+// 距离计算
+let distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
+```
+
+### 颜色与渐变
+
+```js
+// HSV 到 RGB 转换
+let hue_sector = hue / 60
+let c = value * saturation
+let x = c * (1 - Math.abs(hue_sector % 2 - 1))
+```
+
+### 物理模拟
+
+```js
+// 抛物线运动
+let position = initial_velocity * time - 0.5 * gravity * Math.pow(time, 2)
+
+// 阻尼振荡
+let amplitude = max_amplitude * Math.exp(-damping * time) * Math.cos(frequency * time)
+```
+
+## 编译器优化
+
+### 常量折叠
+
+编译器会在编译时将常量表达式求值：
+
+```js
+let tau = Math.PI * 2           // 编译时求值为 6.283185307179586
+let sqrt2 = Math.sqrt(2)        // 编译时求值为 1.4142135623730951
+let deg_to_rad = Math.PI / 180  // 编译时求值为 0.017453292519943295
+```
+
+### 硬件指令映射
+
+常见函数可直接映射为 CPU 指令：
+
+| 函数 | x86 指令 | WASM 指令 |
+|------|----------|-----------|
+| `Math.sqrt` | `SQRTSS` | `f64.sqrt` |
+| `Math.abs` | `ANDPS` | `f64.abs` |
+| `Math.floor` | `ROUNDSS` | `f64.floor` |
+| `Math.ceil` | `ROUNDSS` | `f64.ceil` |
+
+### 零开销抽象
+
+内置函数无函数调用开销，编译器会直接内联展开。
+
+## 相关内容
+
+- [数值类型系统](/zh/spec/type-system#数值类型系统)
+- [标准库数学模块](/zh/reference/stdlib/standard-library-net-fs)（高级数学功能）

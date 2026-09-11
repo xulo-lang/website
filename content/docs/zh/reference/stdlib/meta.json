@@ -1,4 +1,4 @@
 {
   "title": "内置原语与标准库",
-  "pages": ["json", "regular-expressions", "error-handling", "standard-library-net-fs"]
+  "pages": ["json", "math", "regular-expressions", "error-handling", "standard-library-net-fs"]
 }
