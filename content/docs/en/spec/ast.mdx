@@ -65,8 +65,18 @@ interface TraitDeclaration extends BaseNode {
   methods: TraitMethodNode[];
 }
 
+interface TraitMethodNode extends BaseNode {
+  type: 'TraitMethod';
+  isAsync: boolean;
+  name: IdentifierNode;
+  params: ParameterNode[];
+  returnType: TypeNode;
+}
+
 interface ImplDeclaration extends BaseNode {
   type: 'ImplDeclaration';
+  isExport: boolean;
+  genericParams: IdentifierNode[];
   traitName: IdentifierNode | null;
   targetType: TypeNode;
   methods: FnDeclaration[];
@@ -148,6 +158,7 @@ interface IntersectionType extends BaseNode {
 
 interface FnType extends BaseNode {
   type: 'FnType';
+  isAsync: boolean;
   params: TypeNode[];
   returnType: TypeNode | null;
 }
@@ -214,6 +225,13 @@ interface AwaitExpr extends BaseNode {
   type: 'AwaitExpr';
   argument: ExpressionNode;
 }
+
+interface IfExpr extends BaseNode {
+  type: 'IfExpr';
+  condition: ExpressionNode;
+  consequent: BlockNode;
+  alternate: IfExpr | BlockNode | null;
+}
 ```
 
 ## Statements
@@ -223,7 +241,10 @@ type StatementNode =
   | VariableDecl
   | ReturnStatement
   | ThrowStatement
-  | ExpressionStatement;
+  | ExpressionStatement
+  | ForStatement
+  | WhileStatement
+  | TryStatement;
 
 interface VariableDecl extends BaseNode {
   type: 'VariableDecl';
@@ -231,6 +252,32 @@ interface VariableDecl extends BaseNode {
   name: IdentifierNode;
   varType: TypeNode | null;
   init: ExpressionNode;
+}
+
+interface ForStatement extends BaseNode {
+  type: 'ForStatement';
+  variable: IdentifierNode;
+  iterable: ExpressionNode;
+  body: BlockNode;
+}
+
+interface WhileStatement extends BaseNode {
+  type: 'WhileStatement';
+  condition: ExpressionNode;
+  body: BlockNode;
+}
+
+interface TryStatement extends BaseNode {
+  type: 'TryStatement';
+  body: BlockNode;
+  catches: CatchClause[];
+  finally: BlockNode | null;
+}
+
+interface CatchClause extends BaseNode {
+  type: 'CatchClause';
+  variable: IdentifierNode;
+  body: BlockNode;
 }
 ```
 
@@ -263,6 +310,28 @@ interface AttributeNode extends BaseNode {
   type: 'Attribute';
   name: IdentifierNode;
   args: ArgNode[];
+}
+
+interface ExportDeclaration extends BaseNode {
+  type: 'ExportDeclaration';
+  declaration: Declaration;
+}
+
+interface ImportDeclaration extends BaseNode {
+  type: 'ImportDeclaration';
+  items: ImportItemNode[];
+  source: string;
+}
+
+interface ImportItemNode extends BaseNode {
+  type: 'ImportItem';
+  name: IdentifierNode;
+  alias: IdentifierNode | null;
+}
+
+interface UseDeclaration extends BaseNode {
+  type: 'UseDeclaration';
+  path: IdentifierNode[];
 }
 ```
 

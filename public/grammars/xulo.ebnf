@@ -21,7 +21,7 @@
 (* Keywords — reserved, must not be used as identifiers *)
 Keyword           = 'fn' | 'let' | 'mut' | 'const'
                  | 'struct' | 'enum' | 'trait' | 'impl'
-                 | 'pub' | 'export' | 'use' | 'import'
+                 | 'pub' | 'export' | 'use' | 'import' | 'as' | 'in'
                  | 'type' | 'if' | 'else' | 'match'
                  | 'for' | 'while' | 'return' | 'throw'
                  | 'try' | 'catch' | 'finally'
@@ -78,12 +78,12 @@ Whitespace        = ? US-ASCII space #20 or tab #09 ? ;
 (* -------------------------------------------------------------- *)
 
 Program           = { Declaration | Statement } ;
-Declaration       = FnDeclaration
-                  | StructDeclaration
-                  | EnumDeclaration
-                  | TraitDeclaration
-                  | ImplDeclaration
-                  | TypeAlias
+Declaration       = { Attribute } FnDeclaration
+                  | { Attribute } StructDeclaration
+                  | { Attribute } EnumDeclaration
+                  | { Attribute } TraitDeclaration
+                  | { Attribute } ImplDeclaration
+                  | { Attribute } TypeAlias
                   | ExportDeclaration ;
 
 (* -------------------------------------------------------------- *)
@@ -91,35 +91,41 @@ Declaration       = FnDeclaration
 (* -------------------------------------------------------------- *)
 
 (* Function Declaration *)
-FnDeclaration     = [ 'export' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
+FnDeclaration     = [ 'async' ] 'fn' Identifier '(' ParameterList? ')' [ ':' Type ] Block ;
 ParameterList     = Parameter ( ',' Parameter )* ','? ;
 Parameter         = Identifier ':' Type [ '?' ] [ '=' Expression ] ;
 
 (* Struct Declaration *)
-StructDeclaration = [ 'export' ] [ 'pub' ] 'struct' Identifier [ GenericParams ] '{' FieldList? '}' ;
+StructDeclaration = [ 'pub' ] 'struct' Identifier [ GenericParams ] '{' FieldList? '}' ;
 FieldList         = Field ( ',' Field )* ','? ;
-Field             = [ 'pub' ] Identifier ':' Type ;
+Field             = { Attribute } [ 'pub' ] Identifier ':' Type ;
 GenericParams     = '<' Identifier ( ',' Identifier )* '>' ;
 
 (* Enum Declaration *)
-EnumDeclaration   = [ 'export' ] 'enum' Identifier '{' EnumVariantList? '}' ;
+EnumDeclaration   = 'enum' Identifier '{' EnumVariantList? '}' ;
 EnumVariantList   = EnumVariant ( ',' EnumVariant )* ','? ;
 EnumVariant       = Identifier [ '(' TypeList ')' ] ;
 TypeList          = Type ( ',' Type )* ;
 
 (* Trait Declaration *)
-TraitDeclaration  = [ 'export' ] 'trait' Identifier '{' TraitMethod* '}' ;
+TraitDeclaration  = 'trait' Identifier '{' TraitMethod* '}' ;
 TraitMethod       = 'fn' Identifier '(' ParameterList? ')' ':' Type ';' ;
 
 (* Impl Declaration *)
-ImplDeclaration   = 'impl' Identifier 'for' Type '{' FnDeclaration* '}' ;
-                  | 'impl' Type '{' FnDeclaration* '}' ;
+ImplDeclaration   = 'impl' [ GenericParams ] Identifier 'for' Type '{' FnDeclaration* '}' ;
+                  | 'impl' [ GenericParams ] Type '{' FnDeclaration* '}' ;
 
 (* Type Alias *)
-TypeAlias         = [ 'export' ] 'type' Identifier [ GenericParams ] '=' Type ;
+TypeAlias         = 'type' Identifier [ GenericParams ] '=' Type ;
 
 (* Export Declaration *)
-ExportDeclaration = 'export' Identifier ;
+ExportDeclaration = 'export' FnDeclaration
+                  | 'export' StructDeclaration
+                  | 'export' EnumDeclaration
+                  | 'export' TraitDeclaration
+                  | 'export' ImplDeclaration
+                  | 'export' TypeAlias
+                  | 'use' Identifier ( '::' Identifier )* ;
 
 (* -------------------------------------------------------------- *)
 (*  Types                                                         *)
@@ -153,9 +159,10 @@ Type              = Identifier
 Expression        = Assignment ;
 Assignment        = Ternary ( '=' Assignment )? ;
 Ternary           = LogicalOr [ '?' Expression ':' Expression ] ;
-LogicalOr         = LogicalAnd ( 'or' LogicalAnd )* ;
-LogicalAnd        = Comparison ( 'and' Comparison )* ;
-Comparison        = Addition ( ( '<' | '>' | '<=' | '>=' | '==' | '!=' | '..<' ) Addition )* ;
+LogicalOr         = LogicalAnd ( '||' LogicalAnd )* ;
+LogicalAnd        = Comparison ( '&&' Comparison )* ;
+Comparison        = Equality ( ( '<' | '>' | '<=' | '>=' | '..<' ) Equality )* ;
+Equality          = Addition ( ( '==' | '!=' ) Addition )* ;
 Addition          = Multiplication ( ( '+' | '-' ) Multiplication )* ;
 Multiplication    = Unary ( ( '*' | '/' ) Unary )* ;
 Unary             = ( '!' | '-' | 'await' ) Unary | Postfix ;
@@ -165,12 +172,22 @@ Primary           = Identifier | NumberLiteral | StringLiteral
                   | '(' Expression ')'
                   | '[' ExpressionList? ']'
                   | '{' ObjectFieldList? '}'
-                  | 'if' Expression Block [ 'else' Block ]
+                  | IfExpr
+                  | ComponentExpr
+                  | ClosureExpr
                   | 'match' Expression '{' MatchArm* '}'
                   | 'fn' '(' ParameterList? ')' [ ':' Type ] Block ;
 ExpressionList    = Expression ( ',' Expression )* ','? ;
 ObjectFieldList   = ObjectField ( ',' ObjectField )* ','? ;
 ObjectField       = Identifier ':' Expression ;
+
+(* If Expression *)
+IfExpr            = 'if' Expression Block [ 'else' IfExpr | 'else' Block ] ;
+
+(* Closure Expression *)
+ClosureExpr       = [ 'async' ] ClosureParams [ ':' Type ] '=>' ( Expression | Block ) ;
+ClosureParams     = Identifier
+                  | '(' ParameterList? ')' ;
 
 (* -------------------------------------------------------------- *)
 (*  Statements                                                    *)
@@ -180,10 +197,16 @@ Statement         = VariableDecl
                   | Assignment ';'
                   | Expression ';'
                   | ReturnStatement
-                  | ThrowStatement ;
+                  | ThrowStatement
+                  | ForStatement
+                  | WhileStatement
+                  | TryStatement ;
 VariableDecl      = 'let' [ 'mut' ] Identifier [ ':' Type ] '=' Expression ;
 ReturnStatement   = 'return' Expression? ';' ;
 ThrowStatement    = 'throw' Expression ';' ;
+ForStatement      = 'for' Identifier 'in' Expression Block ;
+WhileStatement    = 'while' Expression Block ;
+TryStatement      = 'try' Block { 'catch' Identifier ':' Type Block | 'catch' Identifier Block } [ 'finally' Block ] ;
 
 (* -------------------------------------------------------------- *)
 (*  Blocks and Control Flow                                       *)
