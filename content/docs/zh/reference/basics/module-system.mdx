@@ -24,8 +24,12 @@ export enum Status {
   Inactive
 }
 
-// 名称再导出
-export use { add, PI }
+// 重新导出当前模块已声明的名称
+export { add, PI }
+
+// 重新导出从其他模块导入的内容
+export { add, PI } from './math'
+export { default as Logger } from './logger'
 
 // 导入
 import { add, PI } from "math"
@@ -43,7 +47,7 @@ import "core"
 | `import * as ns from "..."` | 命名空间导入 |
 | `import "..."` | 副作用导入 |
 
-**导出形式：** 两种，全部以 `export` 开头——`export fn/let/type/enum`（声明级）、`export use { a, b }`（名称再导出）。
+**导出形式：** 两种，全部以 `export` 开头——`export fn/let/type/enum`（声明级）、`export { a, b }`（名称再导出，可带 `from`）。
 
 ## `export` 关键字（模块级导出）
 
@@ -57,7 +61,8 @@ export type User = { name: string }
 ```
 
 - `export fn/let/type/enum` 只影响跨模块可见性，模块内照常使用
-- `export use { a, b }` 把本模块已声明的名称再导出
+- `export { a, b }` 把本模块已声明的名称再导出
+- `export { a, b } from './module'` 重新导出从其他模块导入的内容
 - `export fn main`、`fn main` 都被识别为程序入口
 
 > 注意：`import type` 写在 `import` 之后（`import type { ... }`），而非花括号内。

@@ -24,8 +24,12 @@ export enum Status {
   Inactive
 }
 
-// Re-export
-export use { add, PI }
+// Re-export current module declarations
+export { add, PI }
+
+// Re-export from another module
+export { add, PI } from './math'
+export { default as Logger } from './logger'
 
 // Import
 import { add, PI } from "math"
@@ -43,7 +47,7 @@ import "core"
 | `import * as ns from "..."` | Namespace import |
 | `import "..."` | Side-effect import |
 
-**Export Forms:** Two forms, both starting with `export` — `export fn/let/type/enum` (declaration-level), `export use { a, b }` (re-export).
+**Export Forms:** Two forms, both starting with `export` — `export fn/let/type/enum` (declaration-level), `export { a, b }` (re-export, optionally with `from`).
 
 ## `export` Keyword (Module-Level Export)
 
@@ -57,7 +61,8 @@ export type User = { name: string }
 ```
 
 - `export fn/let/type/enum` only affects cross-module visibility; within the module, use as normal
-- `export use { a, b }` re-exports names already declared in this module
+- `export { a, b }` re-exports names already declared in this module
+- `export { a, b } from './module'` re-exports content imported from another module
 - `export fn main` and `fn main` are both recognized as program entry points
 
 > Note: `import type` is written after `import` (`import type { ... }`), not inside the braces.
