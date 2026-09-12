@@ -53,10 +53,11 @@ std/
 │   ├── Command           // External system command execution & sandbox dispatch
 │   └── env.args()        // Environment variable reading & command-line argument parsing
 │
-├── math.xulo             // Math computation & random numbers
-│   ├── PI, E             // Math constants
-│   ├── sqrt, log         // Trigonometric functions, square root, logarithm, etc.
-│   └── random            // High-performance pseudo-random number generator
+├── math.xulo             // Advanced math (basic functions built into Math namespace)
+│   ├── Random            // Pseudo-random number generator (with seed support)
+│   ├── Matrix            // Matrix operations
+│   ├── Vector            // Vector operations
+│   └── Complex           // Complex number operations
 │
 └── time.xulo             // High-precision time & timezone
     ├── Instant           // High-precision monotonic timestamp
@@ -108,7 +109,7 @@ spawn async {
 | **I/O** | - | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
 | **Data** | `JSON.stringify`, `JSON.parse` | - |
 | **System** | - | `process/command`, `process/env` |
-| **Math** | - | `math/constants`, `math/numeric`, `math/random` |
+| **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, etc. | `Random`, `Matrix`, `Vector`, `Complex` |
 | **Time** | - | `time/instant`, `time/duration`, `time/date_time` |
 
 Built-in primitives are directly supported by the compiler without import; standard library modules require explicit `import` to use.

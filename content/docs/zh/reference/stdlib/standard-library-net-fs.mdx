@@ -53,10 +53,11 @@ std/
 │   ├── Command           // 外部系统命令执行与沙盒派发
 │   └── env.args()        // 环境变量读取与命令行参数解析
 │
-├── math.xulo             // 数学计算与随机数
-│   ├── PI, E             // 数学常量
-│   ├── sqrt, log         // 三角函数、开方、对数等
-│   └── random            // 高性能伪随机数生成器
+├── math.xulo             // 高级数学（基础函数已内置于 Math 命名空间）
+│   ├── Random            // 伪随机数生成器（支持种子）
+│   ├── Matrix            // 矩阵运算
+│   ├── Vector            // 向量运算
+│   └── Complex           // 复数运算
 │
 └── time.xulo             // 高精度时间与时区
     ├── Instant           // 高精度单调时间戳
@@ -108,7 +109,7 @@ spawn async {
 | **I/O** | - | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
 | **数据** | `JSON.stringify`, `JSON.parse` | - |
 | **系统** | - | `process/command`, `process/env` |
-| **数学** | - | `math/constants`, `math/numeric`, `math/random` |
+| **数学** | `Math.PI`, `Math.sqrt`, `Math.sin`, 等 | `Random`, `Matrix`, `Vector`, `Complex` |
 | **时间** | - | `time/instant`, `time/duration`, `time/date_time` |
 
 内置原语由编译器直接支持，无需导入；标准库模块需要显式 `import` 才能使用。
