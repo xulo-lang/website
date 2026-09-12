@@ -59,7 +59,7 @@ std/
 │   ├── Vector            // 向量运算
 │   └── Complex           // 复数运算
 │
-└── time.xulo             // 高精度时间与时区
+└── time.xulo             // 高级时间功能（基础时间原语已内置于 Time 命名空间）
     ├── Instant           // 高精度单调时间戳
     ├── Duration          // 持续时间
     └── DateTime          // 格式化与解析
@@ -110,6 +110,6 @@ spawn async {
 | **数据** | `JSON.stringify`, `JSON.parse` | - |
 | **系统** | - | `process/command`, `process/env` |
 | **数学** | `Math.PI`, `Math.sqrt`, `Math.sin`, 等 | `Random`, `Matrix`, `Vector`, `Complex` |
-| **时间** | - | `time/instant`, `time/duration`, `time/date_time` |
+| **时间** | `Time.now`, `Time.monotonic`, `Time.sleep` | `Instant`, `Duration`, `DateTime` |
 
 内置原语由编译器直接支持，无需导入；标准库模块需要显式 `import` 才能使用。

@@ -1,0 +1,181 @@
+---
+title: Time
+description: XULO 内置时间命名空间，提供高精度时间戳与异步休眠功能。
+---
+
+## 概述
+
+`Time` 是语言内置命名空间，提供高精度时间戳获取与异步休眠功能，无需导入即可使用。所有方法返回标量数值（`u64`），不引入任何复杂的结构体或字符串对象。
+
+## 方法
+
+### `Time.now()`
+
+获取当前 Unix 时间戳（自 1970-01-01 00:00:00 UTC 起的毫秒数）。
+
+**返回类型**: `u64`
+
+**用途**: 业务日志、简单的时间戳记录、数据持久化。
+
+```js
+let timestamp = Time.now()
+print("Current time: " + str(timestamp))
+```
+
+### `Time.now_nanos()`
+
+获取纳秒级高精度 Unix 时间戳。
+
+**返回类型**: `u64`
+
+**用途**: 高精度事件追踪、唯一 ID 生成辅助。
+
+```js
+let nanos = Time.now_nanos()
+print("Nanosecond timestamp: " + str(nanos))
+```
+
+### `Time.monotonic()`
+
+获取系统单调递增时间戳（毫秒）。不受用户修改系统时间或 NTP 时钟同步调回的影响。
+
+**返回类型**: `u64`
+
+**用途**: UI 动画帧间隔、计时器、防抖/节流。
+
+```js
+let start = Time.monotonic()
+// ... 执行操作 ...
+let elapsed = Time.monotonic() - start
+print("Elapsed: " + str(elapsed) + "ms")
+```
+
+### `Time.monotonic_nanos()`
+
+获取纳秒级单调递增时间戳。
+
+**返回类型**: `u64`
+
+**用途**: 代码性能 Benchmark、微秒/纳秒级性能剖析。
+
+```js
+let start = Time.monotonic_nanos()
+// ... 执行代码 ...
+let elapsed = Time.monotonic_nanos() - start
+print("Elapsed: " + str(elapsed) + "ns")
+```
+
+### `Time.sleep(ms: u64): Task<void>`
+
+非阻塞地挂起当前 `async` 协程/任务指定的毫秒数。在同步环境中则阻塞当前线程。
+
+**参数**:
+- `ms: u64` - 休眠的毫秒数
+
+**返回类型**: `Task<void>`
+
+**用途**: 异步等待、定时任务、重试机制。
+
+```js
+// 异步休眠
+spawn async {
+    await Time.sleep(1000)           // 休眠 1 秒
+    print("1 second later")
+}
+
+// 重试机制
+fn fetch_with_retry(url: string): Task<Response> {
+    let attempts = 0
+    while attempts < 3 {
+        try {
+            return await http.fetch(url)
+        } catch {
+            attempts += 1
+            await Time.sleep(100 * attempts)  // 递增延迟
+        }
+    }
+    throw Error("Max retries exceeded")
+}
+```
+
+## 使用场景
+
+### 性能测量
+
+```js
+// 精确计时
+let start = Time.monotonic_nanos()
+for i in 0..<1000000 {
+    // 执行循环
+}
+let elapsed = Time.monotonic_nanos() - start
+print("Loop took " + str(elapsed / 1000) + "μs")
+```
+
+### 防抖/节流
+
+```js
+let last_click = Time.monotonic()
+
+fn handle_click() {
+    let now = Time.monotonic()
+    if now - last_click > 300 {  // 300ms 防抖
+        // 执行操作
+        last_click = now
+    }
+}
+```
+
+### 动画帧间隔
+
+```js
+let last_frame = Time.monotonic()
+
+fn animate() {
+    let now = Time.monotonic()
+    let delta = now - last_frame  // 毫秒
+    last_frame = now
+    
+    // 基于 delta 更新动画
+    position += velocity * delta / 1000.0
+}
+```
+
+### 唯一 ID 生成
+
+```js
+fn generate_id(): u64 {
+    let timestamp = Time.now_nanos()
+    let random_part = Math.floor(Math.random() * 1000)
+    return timestamp * 1000 + random_part
+}
+```
+
+## 编译器优化
+
+### 硬件指令映射
+
+`Time` 方法可直接映射到操作系统内核 API：
+
+| 平台 | 实现 |
+|------|------|
+| Native (POSIX) | `clock_gettime(CLOCK_MONOTONIC, ...)` |
+| Native (Windows) | `QueryPerformanceCounter(...)` |
+| WASM | `clock_time_get(...)` |
+
+### 零开销抽象
+
+- 无函数调用开销
+- 无堆内存分配
+- 无垃圾回收压力
+- 直接映射到硬件指令
+
+### 常量折叠（测试场景）
+
+在测试或编译时可求值的场景中，编译器可将 `Time.now()` 折叠为常量。
+
+## 相关内容
+
+- [数值类型系统](/zh/spec/type-system#数值类型系统)
+- [标准库时间模块](/zh/reference/stdlib/standard-library-net-fs)（高级时间功能）
+- [异步与协程](/zh/reference/stdlib/standard-library-net-fs)（异步休眠）

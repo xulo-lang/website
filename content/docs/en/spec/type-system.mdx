@@ -349,3 +349,71 @@ let n = rng.next_int(1, 100)
 let m = Matrix.new(3, 3)
 let result = m.multiply(other)
 ```
+
+## Built-in `Time` Namespace
+
+`Time` is a built-in namespace in XULO providing high-precision timestamps and async sleep functionality. No import required. All methods return scalar values (`u64`) without introducing complex structs or string objects.
+
+### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `Time.now` | `fn(): u64` | Get current Unix timestamp (milliseconds) |
+| `Time.now_nanos` | `fn(): u64` | Get current Unix timestamp (nanoseconds) |
+| `Time.monotonic` | `fn(): u64` | Get monotonic timestamp (milliseconds) |
+| `Time.monotonic_nanos` | `fn(): u64` | Get monotonic timestamp (nanoseconds) |
+| `Time.sleep` | `fn(ms: u64): Task<void>` | Async sleep for specified milliseconds |
+
+### Design Principles
+
+- **Pure & Zero-Overhead**: Primitive layer outputs only scalar values (`u64`), no complex structs
+- **Hardware Instruction Mapping**: Compiler can map directly to OS kernel APIs (e.g., POSIX `clock_gettime` / WASM `clock_time_get`)
+- **No Special AST Handling**: `Time.now()` is parsed as a normal `CallExpr` (Callee is `MemberExpr`)
+
+### Usage Examples
+
+```js
+// Get current timestamp
+let timestamp = Time.now()           // Unix millisecond timestamp
+let nanos = Time.now_nanos()         // Unix nanosecond timestamp
+
+// Performance measurement
+let start = Time.monotonic_nanos()
+// ... execute code ...
+let elapsed = Time.monotonic_nanos() - start  // Nanosecond precision
+
+// Async sleep
+spawn async {
+    await Time.sleep(1000)           // Sleep for 1 second
+    print("1 second later")
+}
+
+// Debounce/throttle
+let last_click = Time.monotonic()
+// ... handle click event ...
+if Time.monotonic() - last_click > 300 {  // 300ms debounce
+    // Execute action
+}
+```
+
+### Compiler Optimizations
+
+- **Constant folding**: If `Time.now()` can be evaluated at compile time (e.g., in tests), compiler can fold it
+- **Zero call overhead**: Built-in functions have no function call overhead, directly mapped to hardware instructions
+- **Cross-platform consistency**: All targets (Native, WASM) behave consistently
+
+### Advanced Time Library (Standard Library)
+
+For more complex time operations (timezone conversion, formatting), use the standard library:
+
+```js
+import { Instant, Duration, DateTime } from "std/time"
+
+// High-precision timestamp
+let instant = Instant.now()
+let duration = Duration.from_millis(500)
+
+// DateTime formatting
+let dt = DateTime.now()
+let formatted = dt.format("YYYY-MM-DD HH:mm:ss")
+```

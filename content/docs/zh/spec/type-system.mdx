@@ -349,3 +349,71 @@ let n = rng.next_int(1, 100)
 let m = Matrix.new(3, 3)
 let result = m.multiply(other)
 ```
+
+## 内置 `Time` 命名空间
+
+`Time` 是 XULO 的内置命名空间，提供高精度时间戳获取与异步休眠功能，无需导入即可使用。所有方法返回标量数值（`u64`），不引入复杂结构体或字符串对象。
+
+### 方法
+
+| 方法 | 签名 | 描述 |
+|------|------|------|
+| `Time.now` | `fn(): u64` | 获取当前 Unix 时间戳（毫秒） |
+| `Time.now_nanos` | `fn(): u64` | 获取当前 Unix 时间戳（纳秒） |
+| `Time.monotonic` | `fn(): u64` | 获取单调递增时间戳（毫秒） |
+| `Time.monotonic_nanos` | `fn(): u64` | 获取单调递增时间戳（纳秒） |
+| `Time.sleep` | `fn(ms: u64): Task<void>` | 异步休眠指定毫秒数 |
+
+### 设计原则
+
+- **纯粹与零开销**：原语层只输出标量数值（`u64`），不引入任何复杂结构体
+- **硬件指令映射**：编译器可直接映射到 OS 内核 API（如 POSIX `clock_gettime` / WASM `clock_time_get`）
+- **无需 AST 特殊处理**：`Time.now()` 被解析为普通的 `CallExpr`（Callee 为 `MemberExpr`）
+
+### 使用示例
+
+```js
+// 获取当前时间戳
+let timestamp = Time.now()           // Unix 毫秒时间戳
+let nanos = Time.now_nanos()         // Unix 纳秒时间戳
+
+// 性能测量
+let start = Time.monotonic_nanos()
+// ... 执行代码 ...
+let elapsed = Time.monotonic_nanos() - start  // 纳秒级精度
+
+// 异步休眠
+spawn async {
+    await Time.sleep(1000)           // 休眠 1 秒
+    print("1 second later")
+}
+
+// 防抖/节流
+let last_click = Time.monotonic()
+// ... 处理点击事件 ...
+if Time.monotonic() - last_click > 300 {  // 300ms 防抖
+    // 执行操作
+}
+```
+
+### 编译器优化
+
+- **常量折叠**：如果 `Time.now()` 在编译时可求值（如测试场景），编译器可将其折叠
+- **零调用开销**：内置函数无函数调用开销，直接映射到硬件指令
+- **跨平台一致性**：所有 Target（Native、WASM）行为一致
+
+### 高级时间库（标准库）
+
+对于更复杂的时间操作（如时区转换、格式化），使用标准库模块：
+
+```js
+import { Instant, Duration, DateTime } from "std/time"
+
+// 高精度时间戳
+let instant = Instant.now()
+let duration = Duration.from_millis(500)
+
+// 日期时间格式化
+let dt = DateTime.now()
+let formatted = dt.format("YYYY-MM-DD HH:mm:ss")
+```

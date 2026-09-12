@@ -1,0 +1,181 @@
+---
+title: Time
+description: XULO built-in time namespace providing high-precision timestamps and async sleep.
+---
+
+## Overview
+
+`Time` is a built-in namespace providing high-precision timestamp retrieval and async sleep functionality. No import required. All methods return scalar values (`u64`) without introducing complex structs or string objects.
+
+## Methods
+
+### `Time.now()`
+
+Get current Unix timestamp (milliseconds since 1970-01-01 00:00:00 UTC).
+
+**Return Type**: `u64`
+
+**Use Case**: Business logging, simple timestamp recording, data persistence.
+
+```js
+let timestamp = Time.now()
+print("Current time: " + str(timestamp))
+```
+
+### `Time.now_nanos()`
+
+Get nanosecond-precision Unix timestamp.
+
+**Return Type**: `u64`
+
+**Use Case**: High-precision event tracking, unique ID generation.
+
+```js
+let nanos = Time.now_nanos()
+print("Nanosecond timestamp: " + str(nanos))
+```
+
+### `Time.monotonic()`
+
+Get system monotonic timestamp (milliseconds). Not affected by user time changes or NTP clock adjustments.
+
+**Return Type**: `u64`
+
+**Use Case**: UI animation frame intervals, timers, debounce/throttle.
+
+```js
+let start = Time.monotonic()
+// ... execute operation ...
+let elapsed = Time.monotonic() - start
+print("Elapsed: " + str(elapsed) + "ms")
+```
+
+### `Time.monotonic_nanos()`
+
+Get nanosecond-precision monotonic timestamp.
+
+**Return Type**: `u64`
+
+**Use Case**: Code performance benchmarks, microsecond/nanosecond profiling.
+
+```js
+let start = Time.monotonic_nanos()
+// ... execute code ...
+let elapsed = Time.monotonic_nanos() - start
+print("Elapsed: " + str(elapsed) + "ns")
+```
+
+### `Time.sleep(ms: u64): Task<void>`
+
+Non-blocking sleep for the current `async` coroutine/task. Blocks the current thread in synchronous contexts.
+
+**Parameters**:
+- `ms: u64` - Sleep duration in milliseconds
+
+**Return Type**: `Task<void>`
+
+**Use Case**: Async waiting, scheduled tasks, retry mechanisms.
+
+```js
+// Async sleep
+spawn async {
+    await Time.sleep(1000)           // Sleep for 1 second
+    print("1 second later")
+}
+
+// Retry mechanism
+fn fetch_with_retry(url: string): Task<Response> {
+    let attempts = 0
+    while attempts < 3 {
+        try {
+            return await http.fetch(url)
+        } catch {
+            attempts += 1
+            await Time.sleep(100 * attempts)  // Incremental delay
+        }
+    }
+    throw Error("Max retries exceeded")
+}
+```
+
+## Use Cases
+
+### Performance Measurement
+
+```js
+// Precise timing
+let start = Time.monotonic_nanos()
+for i in 0..<1000000 {
+    // Execute loop
+}
+let elapsed = Time.monotonic_nanos() - start
+print("Loop took " + str(elapsed / 1000) + "μs")
+```
+
+### Debounce/Throttle
+
+```js
+let last_click = Time.monotonic()
+
+fn handle_click() {
+    let now = Time.monotonic()
+    if now - last_click > 300 {  // 300ms debounce
+        // Execute action
+        last_click = now
+    }
+}
+```
+
+### Animation Frame Intervals
+
+```js
+let last_frame = Time.monotonic()
+
+fn animate() {
+    let now = Time.monotonic()
+    let delta = now - last_frame  // milliseconds
+    last_frame = now
+    
+    // Update animation based on delta
+    position += velocity * delta / 1000.0
+}
+```
+
+### Unique ID Generation
+
+```js
+fn generate_id(): u64 {
+    let timestamp = Time.now_nanos()
+    let random_part = Math.floor(Math.random() * 1000)
+    return timestamp * 1000 + random_part
+}
+```
+
+## Compiler Optimizations
+
+### Hardware Instruction Mapping
+
+`Time` methods can be directly mapped to OS kernel APIs:
+
+| Platform | Implementation |
+|----------|----------------|
+| Native (POSIX) | `clock_gettime(CLOCK_MONOTONIC, ...)` |
+| Native (Windows) | `QueryPerformanceCounter(...)` |
+| WASM | `clock_time_get(...)` |
+
+### Zero-Overhead Abstraction
+
+- No function call overhead
+- No heap memory allocation
+- No garbage collection pressure
+- Direct mapping to hardware instructions
+
+### Constant Folding (Testing Scenarios)
+
+In test or compile-time evaluable scenarios, the compiler can fold `Time.now()` to a constant.
+
+## See Also
+
+- [Numeric Type System](/en/spec/type-system#numeric-type-system)
+- [Standard Library Time Module](/en/reference/stdlib/standard-library-net-fs) (advanced time features)
+- [Async & Coroutines](/en/reference/stdlib/standard-library-net-fs) (async sleep)

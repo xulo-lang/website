@@ -59,7 +59,7 @@ std/
 │   ├── Vector            // Vector operations
 │   └── Complex           // Complex number operations
 │
-└── time.xulo             // High-precision time & timezone
+└── time.xulo             // Advanced time features (basic time primitives built into Time namespace)
     ├── Instant           // High-precision monotonic timestamp
     ├── Duration          // Duration
     └── DateTime          // Formatting & parsing
@@ -110,6 +110,6 @@ spawn async {
 | **Data** | `JSON.stringify`, `JSON.parse` | - |
 | **System** | - | `process/command`, `process/env` |
 | **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, etc. | `Random`, `Matrix`, `Vector`, `Complex` |
-| **Time** | - | `time/instant`, `time/duration`, `time/date_time` |
+| **Time** | `Time.now`, `Time.monotonic`, `Time.sleep` | `Instant`, `Duration`, `DateTime` |
 
 Built-in primitives are directly supported by the compiler without import; standard library modules require explicit `import` to use.
