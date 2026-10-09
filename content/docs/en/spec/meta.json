@@ -1,14 +1,23 @@
 {
   "title": "Language Specification",
   "pages": [
-    "index",
-    "--- Formal Definition ---",
-    "lexical",
+    "introduction",
+    "lexical-structure",
+    "names",
+    "types",
+    "expressions",
+    "statements",
+    "functions",
+    "components",
+    "modules",
+    "type-system",
+    "builtins",
+    "memory-and-runtime",
+    "concurrency",
+    "error-handling",
     "grammar",
     "ast",
-    "--- Semantics & Types ---",
-    "type-system",
-    "--- Machine Readable ---",
-    "machine-readable"
+    "machine-readable",
+    "..."
   ]
 }

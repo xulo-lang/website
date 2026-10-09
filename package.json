@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "predev": "npm run spec:sync",
+    "prebuild": "npm run spec:sync",
+    "spec:sync": "node scripts/sync-spec.mjs",
     "start": "vite preview",
     "preview": "npm run build && vite preview",
     "types:check": "tsc --noEmit",
