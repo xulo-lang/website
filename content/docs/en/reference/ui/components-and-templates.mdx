@@ -1,30 +1,45 @@
 ---
 title: Components
-description: Component naming conventions and composition in XULO.
+description: Component declarations, naming, and composition in XULO.
 ---
 
-## Component Naming
+## Component Declaration
 
-In XULO, any **PascalCase** identifier is a component. There are no built-in components — component names are conventions, not reserved words.
+A **component** is a function whose declared return type is `View`. That return type — never the spelling of the name — is what makes it a component:
 
 ```js
-Screen {
-  Header {
-    Text("Dashboard")
-  }
-  Body {
-    VStack(spacing: 16) {
-      Card(title: "Stats", radius: "lg") {
-        Text("3,214 accounts")
-      }
-    }
-  }
+fn Greeting(name: String): View {
+  Text(`Hello, ${name}`)
 }
 ```
 
+- Component names are conventionally UpperCamelCase (`Counter`, `UserCard`); the convention guides readers but is not a grammar rule.
+- Parameters are ordinary typed parameters: required, optional (`T?`), defaults, named arguments, and generics all follow the ordinary function rules.
+- The value of the body is its trailing expression, which must have type `View`.
+- `fn main(): View` is a renderable program: the host invokes `main`, lays out and paints the tree it returns, and invokes it again for every later pass. A plain `fn main()` runs headlessly and paints nothing.
+
+## Component Blocks
+
+An invocation may carry a trailing `{ … }` block whose items are its **children**:
+
+```js
+VStack(spacing: 8) {
+  Text("Account balance")
+  Button("Deposit", onClick: fn() { deposit() })
+}
+```
+
+Three forms are recognized:
+
+- `Name(args)` — invocation with arguments, no children
+- `Name(args) { children }` — invocation with both
+- `Name { children }` — invocation with children, no arguments
+
+At least one of `( )` and `{ }` must be present: a bare `Counter` where an invocation is required is an error; the repair is to invoke it (`Counter()`), not to mention it. Arguments in `( )` configure the component; children in `{ }` are the `View`s it embeds. A block's items attach to the **nearest enclosing block**: in `VStack { HStack { Text("a") } }` the `Text` is a child of the `HStack`.
+
 ## Recommended Component Names
 
-The following names are **recommended conventions** inspired by [shadcn/ui](https://ui.shadcn.com). You are free to use any PascalCase name that fits your domain.
+The language defines no component vocabulary: which components exist, what parameters they declare, and what each one means is the component **library's** contract. The following names — inspired by [shadcn/ui](https://ui.shadcn.com) — are recommended conventions; you are free to use any name that fits your domain.
 
 | Name | Category | Typical use |
 |------|----------|-------------|
@@ -82,9 +97,9 @@ The following names are **recommended conventions** inspired by [shadcn/ui](http
 | `Skeleton` | Feedback | Loading placeholder |
 | `Spinner` | Feedback | Loading indicator |
 
-## Implicit Parameters
+## Content Parameter
 
-Each component can define a default property for its first positional argument. Writing `Text("Hi")` is identical to writing `Text(content: "Hi")` — the parser maps the shorthand to the named attribute automatically.
+The convention that the first positional argument is a label or content — `Text("Hi")`, `Button("Go")` — comes from the component's declared parameter list: the language matches it to the **first declared parameter** like any other positional argument. The shorthand and the explicit form are the same call exactly when that parameter carries the name below; the language itself performs no mapping.
 
 | Component | Recommended first param | Shorthand | Explicit |
 |-----------|------------------------|-----------|----------|
@@ -96,7 +111,7 @@ Each component can define a default property for its first positional argument. 
 | `Field` | `label` | `Field("Name") { Input() }` | `Field(label: "Name") { Input() }` |
 
 ```js
-// Shorthand — first positional arg maps implicitly
+// First positional argument, matched to the first declared parameter
 Text("Hello World")
 Button("Click Me")
 Input("Enter email")
@@ -104,18 +119,64 @@ Image("avatar.png")
 Link("Go Home")
 Field("Password") { Input() }
 
-// Equivalent explicit form
+// The same calls, written with named arguments
 Text(content: "Hello World")
 Button(label: "Click Me")
 Input(placeholder: "Enter email")
-Image(src: "avatar.png")
+Image(src: "logo.png")
 Link(label: "Home")
 Field(label: "Password") { Input() }
 ```
 
+## Conditional Rendering
+
+`if` inside a component block selects which children are contributed:
+
+```js
+VStack {
+  if loggedIn {
+    Text("Welcome back!")
+  } else {
+    Button("Sign in", onClick: fn() { signIn() })
+  }
+}
+```
+
+- The condition must have type `Boolean` — there is no truthiness — and exactly one branch is evaluated.
+- The items of the selected branch's block are contributed in place of the `if`.
+- An `if` without an `else` contributes its children when the condition is `true` and **no** children when it is `false`.
+
+## List Rendering
+
+`for` inside a block renders one child per element:
+
+```js
+VStack {
+  for item in items {
+    Text(item)
+  }
+}
+```
+
+- The iterable must be a `List<T>`, a `Map<K, V>` (visiting its keys), a `Set<T>`, or a `Range<T>`.
+- The loop variable is a fresh binding for each iteration, and the body's block contributes its items in order.
+
+## What a Block Accepts
+
+| Item | Form | Contributes |
+|------|------|-------------|
+| Component invocation | `Name(args) { … }` | one child |
+| String | `"…"`, `'…'`, `` `…` `` | a text node |
+| `if` / `else` | `if cond { … } else { … }` | the children of the selected branch |
+| `for` | `for x in xs { … }` | one child per element |
+| `View` expression | `makeRow(item)` | one child |
+| `List<View>` expression | `rows` | one child per element, in list order |
+
+Anything else is a compile-time error (`E0702`): in particular a binding declaration, an assignment, a `return`, or an expression of any other type — `Int`, `List<Int>`, `Map<K, V>` — must not appear as a child item. Blocks nest without limit, and an empty block (`Card { }`) contributes no children. State, effects, and environment are covered in [Props & State](/en/docs/reference/ui/props-and-state/).
+
 ## Fill (Flexible Spacer)
 
-`Fill` is a zero-intrinsic-size container that expands to fill the remaining space in its parent. Multiple `Fill` children share the space equally.
+`Fill` is a recommended library container for the flexible size the language spells as `height: "fill"` / `width: "fill"` (see [Style Props](/en/docs/reference/ui/style-props/)). It takes the space left after its siblings, and several `Fill` children split that space equally.
 
 - Semantically equivalent to flexible layout `flex: 1` (`flex-grow: 1`).
 - Inside a `VStack`, fills the **vertical** remaining space.
@@ -124,7 +185,7 @@ Field(label: "Password") { Input() }
 - Can contain child elements, which are laid out inside it.
 
 ```js
-// Header + Fill(expand) + Footer
+// Header + Fill + Footer
 VStack {
   Text("Header")
   Fill {
@@ -166,28 +227,6 @@ Screen {
 }
 ```
 
-## Conditional Rendering
+Each run of a component produces a fresh tree — its blocks are evaluated again and the contributed children are new values. What survives from run to run is state, not the tree.
 
-```js
-if isLoggedIn {
-  Text("Welcome back!")
-} else {
-  Button {
-    Text("Sign in")
-  }
-}
-```
-
-## List Rendering
-
-```js
-for item in items {
-  Text(item)
-}
-```
-
-In a UI Block, `if` and `for` are **UI logic nodes**, not ordinary statements:
-
-- `if` returns `View` or `null`.
-- `for` maps its body into `list<View>`.
-- Only UI elements are allowed inside `{ }` — no variable declarations or assignments.
+See also: [View Syntax](/en/docs/spec/components/view-syntax/) and [Layout](/en/docs/spec/components/layout/) in the specification.

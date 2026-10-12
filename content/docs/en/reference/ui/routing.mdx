@@ -3,9 +3,7 @@ title: Routing
 description: Describing routing structure in XULO.
 ---
 
-## Routing Components
-
-The following names are **recommended conventions** for describing routing structure:
+The language specifies component syntax, not a routing vocabulary: which routing components exist and what parameters they take is library contract. The following names are **recommended conventions** for describing routing structure:
 
 | Name | Purpose |
 |------|---------|
@@ -24,6 +22,8 @@ Router {
 }
 ```
 
+`component: Home` passes the component **itself**, not a call: an identifier written with neither `( )` nor `{ }` is a reference to the component as a value of function type. Invoking it instead — `component: Home()` — would invoke it at the argument position.
+
 ## Navigation Links
 
 ```js
@@ -31,3 +31,28 @@ Link(to: "/about") {
   Text("About")
 }
 ```
+
+`Link(to: "/about") { … }` is an ordinary invocation: arguments in `( )`, children in `{ }`.
+
+## Programmatic Navigation
+
+A router is typically read from the environment rather than passed down as a prop:
+
+```js
+import type { Router } from "@xulo/router"
+
+fn Nav(): View {
+  @Environment let router: Router
+
+  VStack {
+    Button("About", onClick: fn() { router.push("/about") })
+    Button("Docs", onClick: fn() { router.push("/docs") })
+  }
+}
+```
+
+- `@Environment let router: Router` — the type annotation is required and there is no initializer; the host provides the router for the whole session, and the nearest enclosing provision wins.
+- The binding is read-only, and reading it never schedules a re-run.
+- Route patterns (`"/profile/:id"`, `"*"`) and `router.push` are library concerns; the language fixes only the declaration form and the component syntax around it.
+
+See also: [Environment](/en/docs/spec/components/environment/) in the specification, and [Props & State](/en/docs/reference/ui/props-and-state/) for the declaration rules.

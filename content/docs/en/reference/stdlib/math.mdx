@@ -1,246 +1,245 @@
 ---
 title: Math
-description: XULO built-in math namespace with common mathematical functions and constants.
+description: The built-in Math namespace of constants and mathematical functions in XULO.
 ---
 
 ## Overview
 
-`Math` is a built-in namespace providing commonly used mathematical functions and constants. No import required. The compiler can map these directly to hardware instructions or fold constants at compile time.
+`Math` is a built-in namespace of mathematical constants and functions. No import is required: `Math` is in scope in every module from its first line, and members are selected with `.` — `Math.PI`, `Math.max(a, b)`. The bare member names are in scope nowhere: `max(a, b)` alone is not a call to the namespace member.
+
+Each member has exactly one signature. There is no overloading, and neither default nor named arguments apply at a call site; type arguments are inferred there and never written there. `Math` is a reserved name: a module-scope declaration may not bear it (compile-time error `E0106`).
+
+See the [intrinsic `Math` chapter](/en/docs/spec/builtins/intrinsic-functions/#math-namespace) of the formal specification.
 
 ## Constants
 
-| Constant | Type | Description |
-|----------|------|-------------|
-| `Math.PI` | `float` | Pi (3.141592653589793) |
-| `Math.E` | `float` | Euler's number (2.718281828459045) |
-| `Math.TAU` | `float` | Two pi (6.283185307179586) |
-| `Math.INFINITY` | `float` | Positive infinity |
-| `Math.NAN` | `float` | Not a number |
+| Constant | Type | Value |
+|----------|------|-------|
+| `Math.PI` | `Float` | 3.141592653589793 |
+| `Math.E` | `Float` | 2.718281828459045 |
+| `Math.TAU` | `Float` | 6.283185307179586 |
+| `Math.INFINITY` | `Float` | positive infinity |
+| `Math.NAN` | `Float` | not a number |
+
+Constants are ordinary `Float` values and appear anywhere a `Float` may:
 
 ```js
-let circumference = 2 * Math.PI * radius
+let circumference = 2.0 * Math.PI * radius
 let halfPi = Math.PI / 2
 let tau = Math.TAU  // 2 * Math.PI
 ```
 
-## Basic Math Functions
+## Methods
 
-### `Math.abs(x)`
+### `Math.abs(x: Number): Number`
 
-Returns the absolute value.
+Absolute value. Accepts an `Int` or a `Float`; the result is a `Number`.
 
 ```js
 Math.abs(-5)      // 5
 Math.abs(3.14)    // 3.14
-Math.abs(-0)      // 0
 ```
 
-### `Math.min(a, b)`
+### `Math.min(a: Number, b: Number): Number`
 
-Returns the smaller of two values.
+The smaller of two values.
 
 ```js
 Math.min(10, 20)    // 10
-Math.min(-5, 5)     // -5
 Math.min(3.14, 3)   // 3
 ```
 
-### `Math.max(a, b)`
+### `Math.max(a: Number, b: Number): Number`
 
-Returns the larger of two values.
+The larger of two values.
 
 ```js
 Math.max(10, 20)    // 20
 Math.max(-5, 5)     // 5
-Math.max(3.14, 3)   // 3.14
 ```
 
-### `Math.sqrt(x)`
+### `Math.sqrt(x: Float): Float`
 
-Returns the square root.
+Square root. A negative argument yields `NaN`.
 
 ```js
 Math.sqrt(4)     // 2.0
-Math.sqrt(9)     // 3.0
 Math.sqrt(2)     // 1.4142135623730951
 ```
 
-### `Math.cbrt(x)`
+### `Math.cbrt(x: Float): Float`
 
-Returns the cube root.
+Cube root. Defined for every `Float`, negative values included.
 
 ```js
 Math.cbrt(8)     // 2.0
-Math.cbrt(27)    // 3.0
 Math.cbrt(-1)    // -1.0
 ```
 
-### `Math.pow(base, exp)`
+### `Math.pow(base: Float, exp: Float): Float`
 
-Returns base raised to the power exp.
+`base` raised to `exp`.
 
 ```js
 Math.pow(2, 3)     // 8.0
-Math.pow(10, 2)    // 100.0
 Math.pow(9, 0.5)   // 3.0
 ```
 
-### `Math.floor(x)`
+### `Math.floor(x: Float): Int`
 
-Rounds down to integer.
+The largest integer not above `x`. The result is an `Int`, so it never carries a fractional part.
 
 ```js
 Math.floor(3.7)     // 3
-Math.floor(3.2)     // 3
 Math.floor(-3.2)    // -4
 ```
 
-### `Math.ceil(x)`
+### `Math.ceil(x: Float): Int`
 
-Rounds up to integer.
+The smallest integer not below `x`. The result is an `Int`.
 
 ```js
 Math.ceil(3.7)     // 4
-Math.ceil(3.2)     // 4
 Math.ceil(-3.7)    // -3
 ```
 
-### `Math.round(x)`
+### `Math.round(x: Float): Int`
 
-Rounds to nearest integer.
+The nearest integer to `x`. The result is an `Int`; a value exactly halfway between two integers rounds away from zero.
 
 ```js
 Math.round(3.7)     // 4
-Math.round(3.2)     // 3
-Math.round(3.5)     // 4
-Math.round(-3.5)    // -3
+Math.round(-3.5)    // -4
 ```
 
-### `Math.trunc(x)`
+### `Math.trunc(x: Float): Int`
 
-Truncates decimal part, returns integer.
+The integer formed by discarding the fractional part — rounding toward zero. The result is an `Int`.
 
 ```js
 Math.trunc(3.7)     // 3
 Math.trunc(-3.7)    // -3
-Math.trunc(0.9)     // 0
 ```
 
-## Trigonometric Functions
+### `Math.sin(x: Float): Float`
 
-### `Math.sin(x)`
-
-Returns sine (radians).
+Sine of an angle in radians.
 
 ```js
 Math.sin(0)                // 0.0
 Math.sin(Math.PI / 2)      // 1.0
-Math.sin(Math.PI)          // ~0 (floating point precision)
 ```
 
-### `Math.cos(x)`
+### `Math.cos(x: Float): Float`
 
-Returns cosine (radians).
+Cosine of an angle in radians.
 
 ```js
 Math.cos(0)                // 1.0
-Math.cos(Math.PI / 2)      // ~0 (floating point precision)
 Math.cos(Math.PI)          // -1.0
 ```
 
-### `Math.tan(x)`
+### `Math.tan(x: Float): Float`
 
-Returns tangent (radians).
+Tangent of an angle in radians.
 
 ```js
 Math.tan(0)                // 0.0
 Math.tan(Math.PI / 4)      // 1.0
-Math.tan(Math.PI / 3)      // 1.7320508075688767
 ```
 
-### `Math.asin(x)`
+### `Math.asin(x: Float): Float`
 
-Returns arc sine (result in radians).
+Arcsine, in radians. Outside `-1.0...1.0` the result is `NaN`.
 
 ```js
-Math.asin(0)       // 0.0
 Math.asin(1)       // Math.PI / 2
-Math.asin(-1)      // -Math.PI / 2
+Math.asin(2)       // NaN
 ```
 
-### `Math.acos(x)`
+### `Math.acos(x: Float): Float`
 
-Returns arc cosine (result in radians).
+Arccosine, in radians. Outside `-1.0...1.0` the result is `NaN`.
 
 ```js
 Math.acos(0)       // Math.PI / 2
-Math.acos(1)       // 0.0
 Math.acos(-1)      // Math.PI
 ```
 
-### `Math.atan(x)`
+### `Math.atan(x: Float): Float`
 
-Returns arc tangent (result in radians).
+Arctangent, in radians.
 
 ```js
-Math.atan(0)       // 0.0
 Math.atan(1)       // Math.PI / 4
 Math.atan(-1)      // -Math.PI / 4
 ```
 
-### `Math.atan2(y, x)`
+### `Math.atan2(y: Float, x: Float): Float`
 
-Returns 2D arc tangent (result in radians), considering quadrant.
+Arctangent of `y / x`, using the signs of both operands to choose the quadrant.
 
 ```js
-Math.atan2(0, 1)     // 0.0
 Math.atan2(1, 0)     // Math.PI / 2
 Math.atan2(0, -1)    // Math.PI
-Math.atan2(-1, 0)    // -Math.PI / 2
 ```
 
-## Logarithmic & Exponential Functions
+### `Math.log(x: Float): Float`
 
-### `Math.log(x)`
-
-Returns natural logarithm (base e).
+Natural logarithm. `Math.log(0)` is `-Infinity`; a negative argument yields `NaN`.
 
 ```js
 Math.log(1)          // 0.0
 Math.log(Math.E)     // 1.0
-Math.log(10)         // 2.302585092994046
 ```
 
-### `Math.log2(x)`
+### `Math.log2(x: Float): Float`
 
-Returns base-2 logarithm.
+Base-2 logarithm, with the same special values as `Math.log`.
 
 ```js
-Math.log2(1)         // 0.0
-Math.log2(2)         // 1.0
 Math.log2(8)         // 3.0
 Math.log2(1024)      // 10.0
 ```
 
-### `Math.log10(x)`
+### `Math.log10(x: Float): Float`
 
-Returns base-10 logarithm.
+Base-10 logarithm, with the same special values as `Math.log`.
 
 ```js
-Math.log10(1)        // 0.0
-Math.log10(10)       // 1.0
-Math.log10(100)      // 2.0
 Math.log10(1000)     // 3.0
+Math.log10(0)        // -Infinity
 ```
 
-### `Math.exp(x)`
+### `Math.exp(x: Float): Float`
 
-Returns e raised to the power x.
+`e` raised to `x`. Overflow yields `Infinity`.
 
 ```js
 Math.exp(0)          // 1.0
 Math.exp(1)          // 2.718281828459045
-Math.exp(2)          // 7.38905609893065
+```
+
+## Error Handling
+
+Math members never return a `Result`: trouble is reported as an IEEE-754 value.
+
+- Every `Float` parameter and result follows IEEE-754 binary64: an operation outside its domain yields `NaN`, an overflow yields the appropriate infinity, and the special values propagate through further operations.
+- `Math.sqrt` of a negative value yields `NaN`; `Math.log`, `Math.log2`, and `Math.log10` yield `-Infinity` at `0` and `NaN` for a negative argument; `Math.asin` and `Math.acos` yield `NaN` outside `-1.0...1.0`.
+- `Math.floor`, `Math.ceil`, `Math.round`, and `Math.trunc` return `Int`, so a `Float` reaches an integer only through one of them — there is no implicit narrowing.
+- `Math.abs`, `Math.min`, and `Math.max` are declared over `Number`: an `Int` or `Float` operand is accepted, and a fixed-bit operand (`I8`…`U64`, `F32`, `F64`) is not.
+
+A program that must decide on a non-finite result tests it with `NaN != NaN` or a comparison against `Math.INFINITY`; it does not wait for an error value.
+
+```js
+fn safe_root(delta: Float): Result<Float, String> {
+  let root = Math.sqrt(delta)
+  if root != root {                 // NaN is not equal to itself
+    Result::Err("negative delta")
+  } else {
+    Result::Ok(root)
+  }
+}
 ```
 
 ## Use Cases
@@ -248,8 +247,7 @@ Math.exp(2)          // 7.38905609893065
 ### Animation & UI Layout
 
 ```js
-// Easing function
-fn ease_in_out(t: float): float {
+fn ease_in_out(t: Float): Float {
   if t < 0.5 {
     2 * t * t
   } else {
@@ -257,11 +255,9 @@ fn ease_in_out(t: float): float {
   }
 }
 
-// Rotation calculation
 let x = Math.cos(angle) * radius
 let y = Math.sin(angle) * radius
 
-// Distance calculation
 let distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
 ```
 
@@ -284,34 +280,23 @@ let position = initial_velocity * time - 0.5 * gravity * Math.pow(time, 2)
 let amplitude = max_amplitude * Math.exp(-damping * time) * Math.cos(frequency * time)
 ```
 
-## Compiler Optimizations
-
-### Constant Folding
-
-The compiler evaluates constant expressions at compile time:
+## Examples
 
 ```js
-let tau = Math.PI * 2           // Evaluated to 6.283185307179586 at compile time
-let sqrt2 = Math.sqrt(2)        // Evaluated to 1.4142135623730951 at compile time
-let deg_to_rad = Math.PI / 180  // Evaluated to 0.017453292519943295 at compile time
+let radius = 2.5
+let area = Math.PI * radius * radius
+let hypotenuse = Math.sqrt(3.0 * 3.0 + 4.0 * 4.0)   // 5.0
+let clamped = Math.min(Math.max(120, 0), 100)         // 100, of type Number
+let whole = Math.floor(3.7)                           // 3, of type Int
+let radians = 90 * (Math.PI / 180.0)                  // Int literal promotes in `*`
+
+print(`area=${area} hypotenuse=${hypotenuse}`)
 ```
 
-### Hardware Instruction Mapping
+## Design Notes
 
-Common functions can be mapped directly to CPU instructions:
-
-| Function | x86 Instruction | WASM Instruction |
-|----------|-----------------|------------------|
-| `Math.sqrt` | `SQRTSS` | `f64.sqrt` |
-| `Math.abs` | `ANDPS` | `f64.abs` |
-| `Math.floor` | `ROUNDSS` | `f64.floor` |
-| `Math.ceil` | `ROUNDSS` | `f64.ceil` |
-
-### Zero-Overhead Abstraction
-
-Built-in functions have no function call overhead; the compiler directly inlines them.
-
-## See Also
-
-- [Numeric Type System](/en/docs/spec/types/primitive-types#numeric-types)
-- [Standard Library Math Module](/en/reference/stdlib/standard-library-net-fs) (advanced math features)
+- **One signature each.** An intrinsic is not overloaded: the argument count and argument types MUST match the signature, and type parameters are inferred at the call site rather than written there.
+- **`Number` vs `Float`.** `Math.abs`, `Math.min`, and `Math.max` take `Number` (`Int | Float`); every other member reads and writes `Float`, except the four rounding functions, which return `Int`. An `Int` value does not implicitly become a `Float` — arithmetic promotes, assignment does not.
+- **No random member.** `Math` has no random function: pseudo-random numbers come from the standard library's `Random` ([Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/)).
+- **Reserved name.** `Math` may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow it for the duration of that scope.
+- Further reading: [Numeric Types](/en/docs/spec/types/primitive-types/#numeric-types), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Prelude](/en/docs/spec/builtins/prelude/).

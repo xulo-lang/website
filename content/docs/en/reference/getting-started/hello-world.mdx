@@ -1,11 +1,11 @@
 ---
 title: Hello World
-description: Build your first XULO program.
+description: Build your first program in XULO.
 ---
 
 ## Terminal Program
 
-Every XULO file needs a `fn main()` entry point. Create a new file with the following:
+Every XULO program has a `fn main()` entry point. Create a new file with the following:
 
 ```js
 fn main() {
@@ -19,15 +19,15 @@ Running it outputs:
 Hello World
 ```
 
-`println` prints to the terminal. This is a complete XULO program — no boilerplate, no imports, just one function.
+`println` prints to the terminal. This is a complete XULO program — no boilerplate, no imports, just one function. A plain `fn main()` runs headlessly: the body executes and nothing is laid out or painted.
 
 ## Functions with Parameters
 
 Functions are declared with the `fn` keyword, with typed parameters:
 
 ```js
-fn greet(name: string): string {
-  "Hello, " + name
+fn greet(name: String): String {
+  `Hello, ${name}`
 }
 
 fn main() {
@@ -41,7 +41,7 @@ Output:
 Hello, XULO
 ```
 
-The last expression in a function body (without a semicolon) is the implicit return value — no `return` needed.
+The last expression in a function body is the implicit return value — no `return` needed. Types are capitalized (`String`, `Int`, `Boolean`), and a template literal in backticks interpolates while `"..."` and `'...'` never do.
 
 ## Structs & Methods
 
@@ -49,16 +49,16 @@ Define data structures with `struct`, add methods with `impl`:
 
 ```js
 struct Rectangle {
-  w: number
-  h: number
+  w: Int,
+  h: Int
 }
 
 impl Rectangle {
-  fn area(self): number {
+  fn area(self): Int {
     self.w * self.h
   }
 
-  fn is_square(self): boolean {
+  fn is_square(self): Boolean {
     self.w == self.h
   }
 }
@@ -70,6 +70,8 @@ fn main() {
 }
 ```
 
+The receiver is an explicit `self` parameter; a method that assigns to itself or a field declares `mut self`. `str(x)` converts explicitly, because `+` never mixes strings and numbers.
+
 ## Conditionals & Loops
 
 ```js
@@ -80,30 +82,36 @@ fn main() {
   println(label)
 
   // for loop
-  for i in 1..5 {
+  for i in 1..<5 {
     println(str(i))
   }
 }
 ```
 
+`if` used as an expression requires both branches to have a common type. `1..<5` is a half-open range (`1...5` is closed), and `for` also iterates `List`, `Map` (its keys), and `Set`.
+
 ## UI Programs
 
-If a function returns `View`, XULO renders it as a UI interface:
+A function whose declared return type is `View` **is** a component — the return type marks it, not the name:
 
 ```js
+fn Greeting(): View {
+  VStack(spacing: 16) {
+    Text("Hello, XULO!")
+    Button("Click Me", variant: "primary")
+  }
+}
+
 fn main(): View {
   Screen {
     Center {
-      VStack(spacing: 16) {
-        Text("Hello, XULO!")
-        Button("Click Me", variant: "primary")
-      }
+      Greeting()
     }
   }
 }
 ```
 
-`fn main(): View` tells the compiler this is a UI entry point. The component tree is rendered into a corresponding interface — `Screen` is the root container, `Center` centers content, `VStack` arranges children vertically.
+`fn main(): View` tells the host this is a renderable program: it invokes `main`, lays out and paints the returned tree, and invokes it again for every later pass. `VStack` stacks children vertically, `Center` centers its content, and `Screen` is the root container — all recommended library components, not reserved words.
 
 ## Next Steps
 
@@ -111,4 +119,4 @@ Now you know the structure of a XULO program. Dive deeper with:
 
 - [Types & Data Structures](/en/docs/reference/basics/types-and-data-structures/) — base types, struct, enum
 - [Functions & Methods](/en/docs/reference/basics/functions-and-methods/) — parameters, closures, generics
-- [Components](/en/docs/reference/ui/components-and-templates/) — full UI component list
+- [Components](/en/docs/reference/ui/components-and-templates/) — component declaration and composition

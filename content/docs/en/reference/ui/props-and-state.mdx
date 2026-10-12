@@ -1,36 +1,38 @@
 ---
-title: Props
-description: Component parameters, optional props, and default values in XULO.
+title: Props & State
+description: Component parameters, state, bindings, and effects in XULO.
 ---
 
 ## Required Parameters
 
-Parameters without a default value must be provided:
+Component parameters are ordinary typed parameters. A parameter is required unless it declares a default value or has an optional type; a call that omits it is an error:
 
 ```js
 Button(label: "Submit")  // OK
-Button()                 // Error
+Button()                 // Error: required parameter missing
 ```
 
 ## Optional Parameters (`?`)
 
-Parameters marked with `?` can be omitted (defaults to `null`):
+A parameter whose type is optional (`T?`) may be omitted at the call site and is then bound to `null`:
 
 ```js
-Button(label: "Submit")              // OK, icon = null
+Button(label: "Submit")               // OK, icon = null
 Button(label: "Submit", icon: "save") // OK
 ```
 
 ## Default Values (`=`)
 
-Parameters with a default value can be omitted:
+A parameter may declare a default with `=`; the default is evaluated at each call that omits the argument:
 
 ```js
 Button(label: "Submit")                    // OK, variant = "primary"
 Button(label: "Submit", variant: "outline") // OK
 ```
 
-## Combining All Three
+## Argument Order
+
+Positional arguments come first and are matched in declaration order. Once a named argument appears, every following argument must be named; named arguments may be reordered.
 
 ```js
 Button(
@@ -40,3 +42,125 @@ Button(
   disabled: true                       // Optional, can be omitted
 )
 ```
+
+An attribute written in `( )` is an ordinary named argument. Which attributes a component accepts, and what each one means, is that component's contract.
+
+## Local State `@State`
+
+```js
+fn Counter(): View {
+  @State let count: Int = 0
+
+  VStack(spacing: 8) {
+    Text(`count = ${count}`)
+    Button("More", onClick: fn() { count = count + 1 })
+  }
+}
+```
+
+- The form is `@State let name: T = expression`; the annotation is optional when the initializer determines the type.
+- **Implicitly mutable**: no `mut` is written, and there is no form `@State let mut`. Assigning to the binding writes the cell and schedules the component to re-run.
+- The initializer runs when the component instance is created — a later run re-reads the retained value, it does not re-evaluate the initializer.
+- State belongs to the instance: two invocations of `Counter` produce two independent counts.
+
+## Two-Way Binding `$`
+
+```js
+fn NameField(): View {
+  @State let name: String = ""
+
+  VStack(spacing: 8) {
+    Input(value: $name, placeholder: "Your name")
+    Text(`Hello, ${name}`)
+  }
+}
+```
+
+- `$name` in an **argument position** passes the current value plus a setter, not a copy of the value.
+- The name must be an `@State` or `@Store` name of the enclosing component. A parameter, an ordinary `let`, a loop variable, or a field (`$user.name`) is a compile-time error.
+- Writing through the setter updates the source cell and re-runs the owning component — exactly as if that component had assigned it itself.
+- `$` is legal only in an argument of a component invocation, never in a child block or an ordinary expression.
+- A plain argument (`value: name`) is one-way: it carries a snapshot and never re-runs the owner.
+
+## Event Handlers
+
+```js
+fn Counter(): View {
+  @State let count: Int = 0
+
+  HStack(spacing: 4) {
+    Button("-", onClick: fn() { count = count - 1 })
+    Text(str(count))
+    Button("+", onClick: fn() { count = count + 1 })
+  }
+}
+```
+
+- Handlers are closures written in the component that passes them: they capture the same `@State` cells the body reads and writes, across runs.
+- Handlers run synchronously; an assignment inside one schedules the re-run after the dispatch completes.
+
+## Shared State `@Store`
+
+```js
+fn Home(): View {
+  @Store let { user, theme } = useAppStore()
+  @Store let { setTheme } = useAppStore()
+
+  VStack {
+    Text(`signed in as ${user?.name ?? "guest"}`)
+    if theme == Theme::Dark {
+      Text("Dark mode")
+    }
+    Button("Toggle theme", onClick: fn() { setTheme(Theme::Dark) })
+  }
+}
+```
+
+- The form is a destructuring binding: values (`user`, `theme`) and functions the store exposes (`setTheme`) come from the same declaration.
+- Store values are shared program-wide, not per instance; state that must be per instance belongs in `@State`.
+- An update through a store's setters re-runs every component that declared `@Store` for that store.
+
+## Environment `@Environment`
+
+```js
+fn Nav(): View {
+  @Environment let router: Router
+
+  VStack {
+    Button("About", onClick: fn() { router.push("/about") })
+  }
+}
+```
+
+- The form is `@Environment let name: T`: the type annotation is **required** and there is **no initializer** — the value is supplied by the embedding context.
+- The nearest enclosing provision wins; reading a key that was never provided is a runtime error.
+- The binding is read-only: no assignment exists, and reading it never schedules a re-run.
+
+## Effects `@Effect`
+
+```js
+fn UserProfile(id: String): View {
+  @State let profile: String = ""
+
+  @Effect fn() { fetchProfile(id) }, [id]
+
+  Text(profile)
+}
+```
+
+- The form is `@Effect fn() { … }`: an anonymous closure of type `fn(): Unit`.
+- An effect runs **after** the run completes and its tree is committed. With a dependency list (`… }, [id]`) it runs on mount and whenever a listed value changes; without one, after every re-run.
+- Returning a function registers it as the effect's **cleanup** — it runs before the effect runs again, and when the instance unmounts.
+- Effects are invoked in declaration order; cleanups in reverse declaration order.
+
+## Legality
+
+`@State`, `@Store`, `@Effect`, and `@Environment` are valid **only** at the top level of a component body — a function whose declared return type is `View`. In an ordinary function, an `async` function, or a nested block they are a compile-time error (`E0701`):
+
+```js
+fn helper() {
+  @State let count = 0   // error: not a component body
+}
+```
+
+See also: [State](/en/docs/spec/components/state/), [Binding and Events](/en/docs/spec/components/binding/), [Effects](/en/docs/spec/components/effect/), and [Environment](/en/docs/spec/components/environment/) in the specification.

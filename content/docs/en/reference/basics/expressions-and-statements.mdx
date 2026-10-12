@@ -1,93 +1,180 @@
 ---
-title: Expressions
-description: Operators, precedence, and expression types in XULO.
+title: Expressions & Statements
+description: Operators, precedence, and the statement rules in XULO.
 ---
 
-## Operator Precedence (High → Low)
+XULO is expression-oriented but not purely so: a small set of constructs is a statement and produces no value.
 
-```text
-Postfix            x.y  x[i]  f(x)  x?.y
-Unary              !  -  await
-Multiply/Divide    *  /
-Add/Subtract       +  -
-Comparison/Equal   <  >  <=  >=  ==  !=  ..<
-Nullish            ??
-Logical And        and
-Logical Or         or
-Ternary            ?:
-Assignment         =
+## Statement / Expression Split
+
+| Construct | Category |
+|-----------|----------|
+| `let`, `let mut`, `const`, destructuring bindings | statement |
+| `place = value` | statement |
+| `return e`, `return` | statement |
+| `break`, `continue` | statement |
+| `for … in … { … }`, `while … { … }` | statement |
+| bare expression in statement position | statement |
+| `if` / `else`, `match`, block `{ … }` | expression |
+| literals, operators, member access, subscript, calls | expression |
+| closures, `await`, `?` propagation, `panic(...)` | expression |
+
+**Statement termination.** The grammar is newline-insensitive: a statement ends when the next token cannot continue it, and `;` is an optional terminator — this is not automatic semicolon insertion. Several statements on one line are separated with `;`.
+
+**The statement-value rule.** An expression statement that is not `Unit` is an error (`E0218`), **except** when it is a control-flow construct (`if`, `match`, `for`, `while`) whose value is discarded.
+
+```js
+print("hi")                              // legal: Unit call
+total + 1                                // error: value discarded (E0218)
+if total > 0 { print("yes") }            // legal: control-flow exception
+total > 0 ? a() : b()                    // error: ternary is not control flow
+let sum = a + b                          // legal: expression position uses the value
 ```
 
-> Note: The implementation merges equality (`==`/`!=`) and comparison (`<`/`>`/`<=`/`>=`) into the same precedence level, left-associative.
+Two structural restrictions follow the same rule:
+
+- An expression statement must not begin with `{` — statement-position `{` always starts a block. Parenthesize a map literal: `({ a: 1 })`.
+- The trailing expression of a block is its value; writing `;` after it discards that value (`42;` in an `Int` function is `E0218`).
+
+## Operator Precedence
+
+Levels from loosest to tightest binding:
+
+| Level | Operators | Assoc |
+|-------|-----------|-------|
+| assignment | `=` | right |
+| ternary | `?:` | right |
+| logical or | `or` | left |
+| logical and | `and` | left |
+| nullish | `??` | left |
+| equality | `==` `!=` | left |
+| type test | `is` `is not` | non-assoc |
+| relational | `<` `>` `<=` `>=` | non-assoc |
+| range | `..<` `...` | non-assoc |
+| bitwise or | `\|` | left |
+| bitwise xor | `^` | left |
+| bitwise and | `&` | left |
+| shift | `<<` `>>` | left |
+| additive | `+` `-` | left |
+| multiplicative | `*` `/` `%` | left |
+| power | `**` | right |
+| unary | `!` `-` `~` `await` `move` `copy` | prefix |
+| postfix | `f(x)` `x[i]` `x.y` `x.0` `x?.y` `x?.0` `x?` | left |
+
+Non-assoc operators must not be chained: `a < b < c` does not parse — write `a < b and b < c`. Prefix `...` (spread) exists only inside list and map literals and is not part of this chain.
+
+## Assignment
+
+```js
+let mut x = 1
+x = x + 1
+a = b = c            // right-associative: a = (b = c), each yielding Unit
+```
+
+The target must be a place backed by a `mut` binding (`E0401`); the right-hand side is evaluated before the write; the result is `Unit`. **Compound assignment does not exist** — no `+=`, `-=`, `*=`, or increment operators.
 
 ## Logical and Ternary
 
 ```js
-let ok = a > 1 and b < 2       // `and` / `or` (not `&&` `||`)
-let n = a > 1 ? "big" : "small" // Ternary
-print(!flag)                    // Logical not
+let ok = a > 1 and b < 2        // `and` / `or`, not && and ||
+let grade = score >= 90 ? "A" : "B"
+print(!flag)
 ```
 
-## String Concatenation
+- `and`, `or`, and `!` take and yield `Boolean` only; there is no truthiness (`E0201`). `and` and `or` short-circuit.
+- The ternary condition must be `Boolean`; both branches must have a common type. It is right-associative and is **not** a control-flow construct, so in statement position its type must be `Unit`.
+- The `?` of a ternary is read first whenever `Expression :` follows it, so `c ? a : b` and `f()?` are each read as written.
+
+## Equality and Type Tests
 
 ```js
-let who = "Xulo"
-print("Hello, " + who + "!")        // `+` concatenates strings
-print("count=" + str(count))        // `str(x)` converts any value to string
+let same = [1, 2] == [1, 2]
+let ok = data is String
+if size is not Int { print("other") }
 ```
 
-**Rules:**
+- Equality is structural for primitives, `List`, `Map`, `Set`, tuples, structs, and enums; both operands must have a common type (`E0211`), so there is no cross-type equality.
+- `null == null` is `true`; comparing `null` with a value requires that value's type to be optional.
+- `is` / `is not` yield `Boolean` and are non-associative. The right side must be a **testable type** — a base type, a non-generic struct/enum, `Unknown`, or a union/optional of testable types (`E0222`).
+- As the condition of an `if`, `x is T` narrows `x` in the branches; in every other `Boolean` position it is an ordinary test.
 
-- `number + number` → `number`
-- `string + string` (including string literal types) → `string`
-- `list<T> + list<U>` → concatenated `list`
-- **Mixed types are prohibited**: `"hi" + 1`, `"hi" + true`, etc. cause errors; use `str(x)` to convert before concatenating
-
-## Member Access / Subscript / Optional Chaining / Nullish Coalescing
+## Arithmetic, Bitwise, Shift
 
 ```js
-user.name           // Member access
-xs[0]               // Subscript
-user?.name          // Optional member access (null if object is null)
-let name = user?.name ?? "anonymous"   // Nullish coalescing
+let sum = a + b
+let square = n ** 2            // right-associative
+let half = -x                  // unary binds tighter than any binary operator
+let bits = flags & mask
+let wide = n << 2
 ```
 
-## List Spread
+- Integer division truncates toward zero (`-7 / 2` is `-3`); `%` takes the sign of the dividend (`-7 % 2` is `-1`).
+- Mixed `Int`/`Float` promotes to `Float`; fixed-bit types stay in their own type, and other mixtures are errors (`E0201`). Constant overflow is `E0210`, a literal out of range is `E0209`.
+- Division or remainder by zero is a compile-time error on constants (`E0210`) and a runtime trap otherwise.
+- Bitwise and shift operators take integers of the same type; `<<`/`>>` bind tighter than `&`, so `a < b | c` groups as `a < (b | c)`.
+
+## String and List `+`
 
 ```js
-let head = [1, 2]
-let tail = [3, 4]
-let all = [...head, ...tail]   // Spread and merge
-let withExtra = [...all, 9]
+print("Hello, " + who + "!")
+print("count=" + str(count))
+let all = head + tail
 ```
 
-`...` can only appear inside list/object literals; the operand must be `list<T>` or an object.
+`String + String` yields `String`; `List<T> + List<U>` yields `List<T | U>`. Mixing a string with a non-string is an error (`E0227`) — convert explicitly with `str(x)` or a template. There is no implicit conversion anywhere.
 
-## Object Spread
+## Access, Optional Chaining, Spread
 
 ```js
-let base = { a: 1 }
-let copy = { ...base, b: 2 }   // Spread and merge
+user.name                // member access (struct field, map key, method)
+xs[0]                    // subscript
+p.0                      // tuple position
+user?.name               // optional member access
+session?.refresh()       // null receiver short-circuits the whole chain
+let name = user?.name ?? "anonymous"
+let all = [...head, ...tail]
+let merged = { ...base, active: true }
 ```
 
-## `match` as Expression
+- `?.` is the only optional-chaining form — there is no optional subscript. Each `?.` step adds one optional layer, and when the receiver is `null` the rest of the chain (including call arguments) is not evaluated.
+- `??` requires an optional left operand: `T? ?? T` is `T`, `T? ?? U` is `T | U`. It reacts only to `null`, never to `false`, `0`, or `""`.
+- Prefix `...` appears only inside list and map literals, with a `List` operand in a list and a `Map` operand in a map; a later duplicate key wins.
 
-`match` is an expression (see [Control Flow](/en/docs/reference/basics/control-flow-and-matching/)):
+## Calls
 
 ```js
-let label = match status {
-  0 => "zero"
-  1 => "one"
-  _ => "other"
+double(21)
+xs[0](10)        // a function in a list
+getFn()(x)       // a returned function
+(f)(5)           // parenthesized callee
+```
+
+The callee is evaluated first, then arguments left to right, each exactly once. A call through a function **value** (`fn(…)`) accepts positional arguments only — named arguments exist for declared functions and methods. Calling a non-function is `E0204`.
+
+## Blocks as Values
+
+```js
+let x = {
+  let a = 1
+  let b = 2
+  a + b          // the block's value
 }
 ```
 
-## Function Value Calls
+A block's type is its final expression's type, or `Unit` when there is none. The final expression must not be followed by `;` if its value is wanted.
 
-Function values can be called from any expression:
+## Evaluation Order
 
-```js
-xs[0](10)        // Call a function in a list
-getFn()(x)       // Call a returned function
-(f)(5)           // Call a parenthesized function value
-```
+| Construct | Evaluated | Skipped |
+|-----------|-----------|---------|
+| `A and B` / `A or B` | `A` first | the right operand when short-circuited |
+| `c ? x : y` | `c`, then one branch | the other branch |
+| `a ?? b` | `a`; `b` only when `a` is `null` | `b` otherwise |
+| `if c { A } else { B }` | `c` once, then the selected branch | the other branch |
+| `match e { … }` | `e` once, then arms in order | every later arm |
+| `for x in it { B }` | `it` once, then one binding and `B` per element | the body when empty |
+| `while c { B }` | `c` before each iteration | the body when `c` is false |
+
+Statements in a block are evaluated in source order with no reordering across statement boundaries.
+
+See [Control Flow](/en/docs/reference/basics/control-flow-and-matching/) for `if`/`match`/loops, [Functions](/en/docs/reference/basics/functions-and-methods/) for calls and closures, and the [operators spec](/en/docs/spec/expressions/operators/) for the normative precedence table.

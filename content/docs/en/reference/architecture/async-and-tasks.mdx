@@ -1,63 +1,204 @@
 ---
-title: Async
-description: Async/await, error handling, and async closures in XULO.
+title: Async & Tasks
+description: Async functions, await, Task<T>, and error propagation in XULO.
 ---
 
-## `async` / `await`
+## Overview
+
+Asynchronous computation in Xulo is built on `async` functions and closures, the `await` expression, and the built-in generic task type `Task<T>`. Calling an `async` function yields a `Task`; `await` unwraps it. Task scheduling — `spawn`, cancellation, structured concurrency — is covered in [Memory & Concurrency Model](/en/docs/reference/architecture/memory-and-concurrency-model/); this page covers the expression layer.
+
+The normative text is [Async Expressions](/en/docs/spec/expressions/async-expressions/) and [Error Handling](/en/docs/spec/error-handling/).
+
+## `async` functions
 
 ```js
-async fn fetchUser(id: string): User {
-  let response = await fetch("/api/users/" + id)
-  let data = await response.json()
-  return data
+async fn fetchUser(id: Int): User {
+  let raw = await request(`/users/${id}`)
+  decodeUser(raw)
+}
+
+async fn notify() {
+  print("done")
 }
 ```
 
-- `async` prefix declares an async function (equivalent to JS `async function`)
-- Return type follows the same syntax as regular functions: `: Type` after parentheses
-- `await` can only appear inside async functions; using `await` on a non-Promise value is an error
-- `throw <expr>` throws an exception
+- `async` is written before `fn` (after `pub` when present).
+- The declared return type is written exactly as in a synchronous function, but it denotes the *declared* result: the value of the function name has the evaluated type `Task<T>`.
+- Inside an `async` body the trailing expression and every `return` operand MUST have the declared type `T` — not `Task<T>`; wrapping the result into the task is automatic.
+- An `async` function without a declared return type has the evaluated type `fn(): Task<Unit>` and its body produces `Unit`.
+- Calling an `async` function yields its `Task`; the result `T` is obtained with `await`.
+- `main` MAY be declared `async`; the program ends when its task settles.
 
-## `try` / `catch`
+| Written form | Value type |
+|--------------|------------|
+| `async fn f(): T { ... }` | `fn(): Task<T>` |
+| `async fn f() { ... }` | `fn(): Task<Unit>` |
+| `async (x: A): R => ...` | `fn(A): Task<R>` |
+| `async (x: A) => ...` | `fn(A): Task<R>` |
+| `async fn(x: A): R { ... }` | `fn(A): Task<R>` |
+
+## `async` closures
+
+An `async` closure is either closure form prefixed with `async`:
 
 ```js
-async fn fetchUser(id: string): User {
-  try {
-    let response = await fetch("/api/users/" + id)
-    return await response.json()
-  } catch (e) {
-    print("Error: " + e.message)
-    return null
+async fn main() {
+  let double = async (x: Int): Int => x * 2
+  let t: Task<Int> = double(21)
+  print(await t)     // 42
+}
+```
+
+- Arrow form: `async (x: A) => ...` or `async (x: A): R => ...`; function form: `async fn(x: A): R { ... }` (all five written forms are in the table above).
+- Calling an `async` closure returns its `Task`, exactly like calling an `async` function.
+- Parameter types come from the annotations, or from the expected function type where closures allow omission.
+
+## `await`
+
+`await expr` waits for a task and produces its result.
+
+- The operand MUST have type `Task<T>`; `await expr` then has type `T`. Awaiting anything else is a compile-time error (`E0502`).
+- The operand is evaluated exactly once, before the suspension it causes.
+- `await` is legal only inside the body of an `async` function or an `async` closure; elsewhere it is a compile-time error (`E0501`).
+- `await` is a prefix operator at the unary level of the precedence table: it binds tighter than any binary operator and looser than postfix operators such as calls, indexing, and member access.
+- Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables.
+
+```js
+async fn greet(id: Int): String {
+  let user = await fetchUser(id)   // suspends here until the task settles
+  "hello " + user.name
+}
+
+async fn demo(a: Task<Int>, b: Task<Int>) {
+  let r1 = await cache.get("k")    // == await (cache.get("k"))
+  let r2 = await a + await b       // == (await a) + (await b)
+  print(await fetchCount())        // await in argument position
+}
+```
+
+## Evaluation model
+
+Calling an `async` function starts its body immediately. The body runs until it either suspends at an `await` or completes:
+
+- if the body completes without suspending, the call returns a `Task` that already holds the result;
+- if the body suspends at an `await`, the call returns a `Task` representing the eventual result, and the remainder of the body runs when the awaited task settles.
+
+`await` is the only suspension point visible in the language: no other expression suspends an `async` body. A `Task` may be awaited later rather than immediately; a task that is never awaited leaves its result unused and is not thereby cancelled.
+
+```js
+async fn main() {
+  let a = fetch(1)      // starts now, until its first suspension
+  let b = fetch(2)      // starts now as well
+  print(await a)        // resumes when `a` settles
+  print(await b)
+}
+```
+
+## Composition patterns
+
+Awaiting an `async` call immediately after making it runs the work sequentially. Calling several `async` functions first starts each of them at its call, and awaiting their tasks afterwards lets the started work overlap:
+
+```js
+// sequential: each await completes before the next call is made
+async fn sequential(): Int {
+  let a = await stepA()
+  let b = await stepB()
+  a + b
+}
+
+// concurrent: both tasks start at their calls, then both are awaited
+async fn concurrent(): Int {
+  let ta = stepA()
+  let tb = stepB()
+  await ta + await tb
+}
+```
+
+`Task.all` and `Task.race` combine several tasks into one. Starting work independently of the current task — detached work, work on another execution resource — is done with `spawn`.
+
+## The `Task` utilities
+
+`Task<T>` is a built-in generic type. It requires no import, and the built-in `Task` namespace is accessed with `.`:
+
+| Member | Signature | Meaning |
+|--------|-----------|---------|
+| `Task.all` | `all<T>(tasks: List<Task<T>>): Task<List<T>>` | completes when every task has completed; results in argument order |
+| `Task.race` | `race<T>(tasks: List<Task<T>>): Task<T>` | completes with the first task to complete |
+| `Task.resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
+
+```js
+async fn fetchAll(): List<User> {
+  let a = fetchUser(1)
+  let b = fetchUser(2)
+  await Task.all([a, b])
+}
+```
+
+## Results, panics, and cancellation
+
+An `async` body is ordinary control flow with one extension — suspension — and its failure model is the synchronous one:
+
+- **Expected failures travel in the result.** `async fn f(): Result<T, E>` has the evaluated type `Task<Result<T, E>>`: `await` yields the `Result`, and `?` propagates from there — parenthesized as `(await t)?`, because `await` is a prefix operator and `?` a postfix one. `await t?` would try to propagate the *task* and is an error (`E0217`).
+- **A body that ends in `Err` completes normally.** Its task settles with the `Result` value; an `Err` is data, not a failed task. There is no rejected task and no error to raise at an `await`.
+- **A `panic` stops the whole program** from wherever in the body it runs — not only the task: no task boundary contains it. There is no `throw` and no `try`/`catch`; `panic` has no handler.
+- **Cancellation carries no error.** Awaiting a task that has settled as cancelled stops the awaiting body at that `await`: the await produces no value, and the awaiting task settles as cancelled in turn. The stop propagates outward through every enclosing `await` — until a scope absorbs its children's cancellation, or a cancelled `main` ends the program. There is nothing to catch, because no error value exists.
+
+```js
+async fn fetch_user(id: Int): Result<User, LoadError> {
+  let raw = (await get_json(`/users/${id}`))?   // Err propagates out
+  decode_user(raw)                              // Result<User, LoadError>
+}
+
+async fn log_user(id: Int) {
+  match await find_user(id) {
+    Result::Ok(user) => print(user.name)
+    Result::Err(reason) => print(reason)
   }
 }
 ```
 
-## Async Closures
+The combinators combine results and cancellation the way the operations they describe settle:
+
+- `Task.all` waits until every task of the list has settled, then completes with the results in argument order; if any of them settled as cancelled, the combined task settles as cancelled.
+- `Task.race` settles as soon as the first task of the list settles: with that task's result when it completed, as cancelled when it was cancelled.
+- Neither combinator cancels the tasks it combines: the others run on and their results are discarded when they are not the ones selected.
+
+## Where `await` is forbidden
+
+`await` requires an `async` context. It is a compile-time error (`E0501`) to write `await`:
+
+- in the body of a function or closure that is not declared `async`, including a component body — a component is a function whose declared return type is `View`, not an `async` function;
+- in an `@Effect` body, which is not declared `async`;
+- at the top level of a module: module-level code is not an `async` context;
+- outside any function or closure body;
+- on a value whose type is not `Task<T>` (`E0502`).
+
+Inside an `async` body no further restriction applies:
 
 ```js
-async fn main() {
-  let work = async (): number => 21 * 2
-  print(await work())   // 42
+async fn cached(id: Int): User {
+  if await isCached(id) {
+    return await readCache(id)
+  }
+  await fetchUser(id)
 }
 ```
 
-Async closures are written as `async () => expr` or `async (): Type => expr`, return a Task when called, and can be `await`ed.
+## Component declarations in async bodies
 
-## State Restrictions in Async Functions
-
-Async functions **cannot** use `@State`, `@Store`, `@Effect`, or `@Environment`. Use **direct Store API calls** instead:
+`@State`, `@Store`, `@Effect`, and `@Environment` are valid only at the top level of a component body. Writing any of them in an `async` function — or any ordinary function — is a compile-time error (`E0701`):
 
 ```js
-// Correct: call useAppStore() directly
-pub async fn fetchUser(id: string): User {
-  let store = useAppStore()
-  store.actions.setLoading(true)
-  let data = await fetch("/api/users/" + id).json()
-  store.actions.setUser(data)
-}
-
-// Incorrect: using @Store in an async function
-pub async fn fetchUser(id: string): User {
-  @Store let { setUser } = useAppStore()  // Error
+async fn Load(): View {       // error: no state declarations in an `async` body
+  @State let done = false     // (E0701)
+  VStack { }
 }
 ```
+
+Because a component body is not an `async` context, the two never mix: an `async` function is an ordinary function with the one extension of suspension.
+
+## Scheduling
+
+Nothing about scheduling is language-visible: which ready task runs next, how many run concurrently, which execution resource a mode uses, and how long a suspension lasts are outside the specification, and programs MUST NOT depend on them. What is fixed — evaluation order, scope completion, message arrival order, and the order of `Task.all` results — is listed in [Memory & Concurrency Model](/en/docs/reference/architecture/memory-and-concurrency-model/).
+
+See also: [Async Expressions](/en/docs/spec/expressions/async-expressions/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/) in the specification.

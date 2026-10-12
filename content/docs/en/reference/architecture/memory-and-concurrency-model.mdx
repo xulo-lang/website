@@ -1,660 +1,373 @@
 ---
 title: Memory & Concurrency Model
-description: XULO's GC-free memory management, ownership & borrowing model, multi-threading concurrency, and multi-process isolation.
+description: Ownership, borrowing, storage reclamation, and task-based concurrency in XULO.
 ---
 
-## Design Philosophy
+## Overview
 
-**Normative Reference**: The keywords *SHALL*, *MUST*, *SHOULD*, and *MAY* used in this specification follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+Xulo's runtime model answers two questions: what a binding denotes, and how tasks share storage.
 
-XULO adopts a **No Garbage Collection (No GC)** and **strong Ownership & Borrowing** memory management model to achieve deterministic resource release and zero-cost abstractions.
+- **Storage is managed automatically.** A value lives while it is reachable and is reclaimed when nothing can reach it. There is no manual free, no destructor, and no observable reclamation.
+- **Ownership is explicit where it matters.** `move` severs a binding from its value, `copy` produces a deep copy, and every parameter borrows its argument for the duration of the call.
+- **Concurrency is structured.** `async` calls and `spawn` produce `Task<T>` values, every block settles the tasks spawned inside it before it finishes, and the only storage two tasks can both reach is a `shared` region guarded by `lock`.
 
-### Why No GC?
+This page is a practical summary; the normative text is [Memory and Runtime](/en/docs/spec/memory-and-runtime/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/). Async syntax and `Task` utilities are covered in [Async & Tasks](/en/docs/reference/architecture/async-and-tasks/).
 
-While garbage collectors (GC) reduce the cognitive burden of memory management, they introduce unpredictable pauses (Stop-the-World), memory fragmentation, and additional runtime overhead. XULO takes a different approach:
+## Value semantics and reference semantics
 
-- **Deterministic Release**: Resources are freed immediately when leaving scope, no waiting for GC cycles
-- **Zero Runtime Overhead**: Ownership checks happen at compile time with zero runtime cost
-- **Predictable Performance**: Suitable for real-time systems, game engines, high-frequency trading, and other latency-sensitive scenarios
+Every type has one of two categories, and the category decides what a binding denotes.
 
-### Smart Defaults Principle
+| Category | Types | `let x = e` and assignment |
+|----------|-------|----------------------------|
+| **Value** | `Boolean`, `String`, `Int`, `Float`, `Number`, fixed-bit numerics, `Null`, `Unit`, `struct`, `enum`, `Range<T>`, tuples | a fresh, independent copy of `e`'s value; a `struct`, `enum`, or tuple copy is shallow — each field or element is copied by its own category |
+| **Reference** | `List<T>`, `Map<K, V>`, `Set<T>` | the same value, shared: `x` and `e` then denote the one underlying value |
 
-To reduce developer cognitive load, the language follows the **"Smart Defaults"** principle:
-
-1. **Explicit Semantics, Symbol-Free Syntax**: Rejects punctuation pollution like `&`, `&mut`, `*`, using clear English keywords uniformly
-2. **Immutable Borrow by Default**: Without any modifier, value passing defaults to an **Immutable Borrow**, with no deep copy (Copy) or ownership transfer (Move)
-
-This means most function calls are zero-cost — you don't need to remember whether each function produces a copy, because the default behavior is safe borrowing.
-
----
-
-## Memory Access Modifiers
-
-### Basic Ownership Semantics
-
-In single-threaded and local scopes, variable and parameter passing follows these 4 basic forms:
-
-| Form / Syntax | Standard Semantics | Access Rights | Low-level Mapping (Rust/C++) | Description |
-| --- | --- | --- | --- | --- |
-| **`u: T`** | Immutable Borrow *(Default)* | Shared Read-only (`Read`) | `&T` | **Default form**. Zero keywords, no ownership transfer, no memory copy. |
-| **`u: mut T`** | Exclusive/Mutable Borrow | Exclusive Writable (`Read/Write`) | `&mut T` | Declares exclusive modification rights to the original memory object. |
-| **`move expr`** | Ownership Transfer | Ownership Transfer (`Transfer`) | `move` / T | Completely transfers resource ownership; the original scope variable immediately becomes invalid (Compile Error). |
-| **`copy expr`** | Explicit Deep Copy | Independent Copy (`Clone`) | `.clone()` | Clones a brand-new memory on heap/stack, completely severing ownership ties with the original variable. |
-
-### Example: Comparing the Four Forms
+Four further values carry **identity** rather than content — function values (closures), `Task<T>`, `View`, and `Error` — and behave as references to a single, distinct thing: two such values are equal only when they are the same value. `copy` of an identity-carrying value is the same value, so there is no way to clone a task in flight or to split a closure's captured storage by copying it.
 
 ```js
-struct User {
-    name: string
-    age: number
-}
+struct Point { x: Int, y: Int }
 
-// 1. Immutable borrow (default)
-fn print_user(u: User) {
-    print(u.name)  // Read-only access
-}
+let a = Point(x: 1, y: 2)
+let mut b = a        // b holds an independent copy of a's value
+b.x = 9
+print(a.x)           // 1: the write through b never reaches a
 
-// 2. Mutable borrow
-fn birthday(u: mut User) {
-    u.age += 1  // Exclusive modification
-}
+let xs = [1, 2, 3]
+let ys = xs          // ys and xs denote the same list
+let mut zs = ys
+zs[0] = 9
+print(xs[0])         // 9: the write through zs is visible through xs
+```
 
-// 3. Ownership transfer
-fn consume(u: User) {
-    // u's ownership is transferred to this function
-    // u is freed when function ends
-}
+Consequences:
 
-// 4. Explicit deep copy
-fn clone_user(u: User): User {
-    copy u  // Create independent copy
+- Value-semantic values cannot be aliased: a write through one binding is never observable through another.
+- Reference values are shared: a write through any mutable place naming the value is visible through every other binding naming it. Independence is obtained explicitly with `copy`.
+- Arguments are independent of this table: a parameter *borrows* its argument and never copies it, whatever the category.
+
+`==` compares by content for every value-carrying type — element-wise for tuples, following references for collections, terminating on cyclic values — and by identity for the four identity-carrying values. A comparison of unrelated types is a compile-time error (`E0211`).
+
+## Ownership with `move`
+
+`move` transfers ownership: it produces the value of its operand and invalidates the binding it came from. From then on the binding has been **moved out**, and any use of it is a compile-time error (`E0403`).
+
+- The operand MUST be a path naming a binding. `move p.x`, `move xs[0]`, and `move compute()` are errors: a transfer moves a whole binding, never a part of one.
+- `move` is accepted in exactly three positions: the initializer of a `let`, an argument of a call, and the operand of `return`. In any other position — a condition, a binary operand, a field initializer, a literal element — it is `E0403`.
+- `move` and `copy` are prefix operators at the `unary` precedence level, so `move a + b` groups as `(move a) + b` and the position rule then rejects it.
+- `move` applies to every category. For a value-semantic value the transfer is not observable through other bindings (there are none); for a reference value it is: after the move, no binding of the moving scope denotes that value.
+
+```js
+fn consume(data: List<Int>): Int {
+  data[0] * 2
 }
 
 fn main() {
-    let mut alice = User { name: "Alice", age: 30 }
-    
-    print_user(alice)        // Immutable borrow, alice still valid
-    birthday(mut alice)      // Mutable borrow, alice still valid
-    let bob = copy alice     // Deep copy, alice and bob independent
-    consume(move alice)      // Ownership transfer, alice invalid
-    // print_user(alice)     // Compile error: alice has been moved
+  let items = [1, 2, 3]
+  let n = consume(move items)   // ownership transfers to the call
+  print(n)                      // 2
+  // print(items)               // error: `items` has been moved (E0403)
 }
 ```
 
-### Aliasing XOR Mutability Rule
+The one place where `move` is *required* is capture into a `spawn` block (see [Capture](#capture-into-a-spawn-block)).
 
-The compiler enforces the following borrowing rules at compile time (violation triggers a compile error):
+## Ownership with `copy`
 
-- **Rule 1**: At any given scope and point in time, an object may have **unlimited immutable borrows (`u: T`)**
-- **Rule 2**: At any given scope and point in time, an object may have **at most one mutable borrow (`u: mut T`)**
-- **Rule 3**: Mutable borrows and immutable borrows **cannot coexist**
+`copy` produces an independent deep copy of its operand's value: a fresh value in which every reachable content-bearing part has been duplicated, so later writes through either copy are invisible to the other.
 
-### Example: Rule Verification
+- Deep copying follows references through `List`, `Map`, and `Set` values, through `struct` and `enum` fields, and through tuple elements. Copying a cyclic structure terminates: the copy graph mirrors the original.
+- Identity-carrying values — function values, `Task<T>`, `View`, `Error` — are not duplicated: the copy is the same value.
+- `copy` accepts any expression as its operand and, like `move`, appears only as a `let` initializer, a call argument, or a `return` operand. `copy` of an already value-semantic value is redundant but legal.
 
 ```js
-struct Config {
-    debug: boolean
-    log_level: number
-}
-
-fn example() {
-    let mut config = Config { debug: true, log_level: 3 }
-    
-    // ✅ Correct: Multiple immutable borrows can coexist
-    let r1 = config
-    let r2 = config
-    let r3 = config
-    print(r1.debug)
-    print(r2.log_level)
-    print(r3.debug)
-    
-    // ❌ Error: Immutable and mutable borrows cannot coexist
-    let r = config
-    let m = mut config  // Compile error: config is already borrowed as immutable
-    m.debug = false
-}
-
-fn example2() {
-    let mut config = Config { debug: true, log_level: 3 }
-    
-    // ✅ Correct: Mutable borrow takes effect after immutable borrow ends
-    {
-        let r = config
-        print(r.debug)
-    }  // r's borrow ends here
-    let m = mut config  // Now we can get a mutable borrow
-    m.debug = false
-}
-
-fn example3() {
-    let mut config = Config { debug: true, log_level: 3 }
-    
-    // ❌ Error: Multiple mutable borrows in same scope
-    let m1 = mut config
-    let m2 = mut config  // Compile error: config is already borrowed mutably
-    m1.debug = false
-}
+let alice = { name: "Alice", age: 30 }
+let bob = copy alice      // an independent deep copy
 ```
 
-### Scopes and Lifetimes
+## Borrowing
 
-The lifetime of a borrow is strictly limited by its scope. When a borrow leaves its scope, it is automatically released:
+A parameter never receives its argument's storage; it *borrows* it for the duration of the call.
 
-```js
-fn process() {
-    let mut data = list<number> { 1, 2, 3 }
-    
-    // Borrow scope is delimited by curly braces
-    {
-        let view = data  // Immutable borrow starts
-        print(view.length)  // Use the borrow
-    }  // Borrow ends, view invalid
-    
-    // Now we can modify directly
-    mut data.push(4)  // Explicit mutable operation
-}
-```
+| Form | Meaning |
+|------|---------|
+| `p: T` | **immutable borrow** — the default: the callee may read, not write |
+| `p: mut T` | **mutable borrow** — exclusive write access for the duration of the call |
+| `self` / `mut self` | method receiver, written the same way: `self` borrows immutably, `mut self` mutably |
 
----
+Borrowing obeys **aliasing XOR mutability**: at any moment a value is either shared by any number of immutable borrows or held by at most one mutable borrow, never both. Three rules make that checkable:
 
-## Multi-Threading Model
-
-To prevent **data races** in multi-threaded scenarios, the compiler enforces strict safety boundaries on cross-thread dispatch (`spawn`) through type inference.
-
-### Core Challenges of Thread Safety
-
-Multi-threaded programming faces three core challenges:
-
-1. **Data Races**: Multiple threads accessing the same memory, with at least one thread writing
-2. **Dangling References**: Thread A holds a pointer that is freed by Thread B
-3. **Memory Visibility**: Thread A's modifications are not visible to Thread B
-
-XULO solves these problems at compile time through its ownership system, with no runtime detection needed.
-
-### spawn Dispatch Modes
-
-`spawn` is a built-in keyword supporting four dispatch modes, covering the full spectrum from lightweight coroutines to heavyweight processes:
+1. **A mutable borrow needs a mutable place.** An argument passed to a `mut` parameter — or supplied as a `mut self` receiver — MUST be a place backed by a `mut` binding. Passing a literal, a computed value, or an immutable binding is a compile-time error (`E0404`).
+2. **One call borrows without overlap.** Two arguments of one call MUST NOT denote overlapping places when either parameter is `mut`: the same binding, or a field or subscript of a place borrowed by another argument, is borrowed mutably twice (`E0404`).
+3. **A mutable borrow spans suspension.** A mutable borrow begins when the call starts and ends when the callee returns — or, for an `async` callee, when its task settles. While a place is so borrowed, code outside the callee MUST NOT read or write it (`E0405`). The same span applies to a `let mut` binding written by an `async` closure that has suspended.
 
 ```js
-// 1. Default: Lightweight Async Task (90% of use cases)
-spawn async {
-    do_work()
-}
+struct Counter { value: Int }
 
-// 2. Dispatch to OS Physical Thread
-spawn.thread async {
-    compute_heavy_matrix(move data)
-}
-
-// 3. Dispatch to Independent Child Process (Actor)
-spawn.process async {
-    run_sandboxed_plugin()
-}
-
-// 4. Dispatch to Custom Thread Pool / Scheduler
-spawn.on(my_custom_pool) async {
-    handle_request()
-}
-```
-
-| Mode | Syntax | Underlying Implementation | Use Case |
-| --- | --- | --- | --- |
-| **Default** | `spawn async { ... }` | Lightweight Async Task | I/O-bound, high concurrency (90% of cases) |
-| **Thread** | `spawn.thread async { ... }` | OS Physical Thread | CPU-intensive computation, blocking operations |
-| **Process** | `spawn.process async { ... }` | Independent Child Process | Sandbox isolation, plugin system, crash isolation |
-| **Custom** | `spawn.on(pool) async { ... }` | Custom Scheduler | Specific thread pools, priority queues |
-
-### Ownership Transfer Mode
-
-Ordinary variables (not wrapped in `shared`) must explicitly transfer ownership via the **`move`** keyword when dispatched across threads.
-
-**Constraint**: Once a variable is `move`d into a `spawn` task block, the main thread and other threads immediately lose access to that variable.
-
-```js
-fn spawn_worker() {
-    let config = load_config()
-    let data = process_data(config)
-    
-    // ✅ Correct: Use move to transfer ownership
-    spawn async {
-        let local_config = move config  // config ownership transferred
-        let local_data = move data      // data ownership transferred
-        upload(local_data, local_config)
-    }
-    // config and data are invalid here
-    
-    // ❌ Error: Attempting to access moved ownership
-    // print(config.debug)  // Compile error: config has been moved
-}
-```
-
-### Thread-Safe Shared Containers
-
-When multiple threads need to simultaneously access and modify the same memory object, it must be wrapped with the **`shared`** keyword, and a **`lock`** must declare a critical section.
-
-- **`shared` Declaration**: Constructs a shared container with thread-safe atomic reference counting and mutual locking mechanisms (equivalent to `Arc<Mutex<T>>`)
-- **`lock` Scope**: The `lock` keyword declares an exclusive critical section. Inside the `lock` scope, internal data is exposed as mutable (`mut`); when the scope ends, the mutex is implicitly released (RAII mechanism)
-
-```js
-struct AppState {
-    total_online: number
-    active_users: list<string>
-}
-
-// Example: Thread-safe shared state and modification
-let global_state = shared AppState {
-    total_online: 0,
-    active_users: []
-}
-
-// Thread 1: Increment online user count
-spawn async {
-    lock global_state {
-        global_state.total_online += 1
-    }
-}
-
-// Thread 2: Add user
-spawn async {
-    lock global_state {
-        global_state.active_users.push("Alice")
-    }
-}
-```
-
-### Internal Mechanism of shared
-
-The `shared` keyword creates a thread-safe reference-counted container under the hood:
-
-```js
-// Conceptual implementation of shared (not real syntax)
-struct Shared<T> {
-    data: T,
-    ref_count: AtomicUsize,  // Atomic reference count
-    lock: Mutex<()>          // Exclusive lock
-}
-
-// Usage with automatic management
-let state = shared AppState { total_online: 0 }
-// ref_count = 1
-
-spawn async {
-    // Cross-thread capture implicitly increments shared container's ref_count (ref_count = 2)
-    lock state {
-        state.total_online += 1
-    }
-    // state leaves spawn scope, ref_count = 1
-}
-// state leaves main scope, ref_count = 0, memory freed
-```
-
-### Avoiding Deadlocks
-
-The `lock` scope is designed to be as small as possible to minimize lock hold time:
-
-```js
-// ✅ Recommended: Minimize lock scope
-fn update_state(state: shared AppState) {
-    // Only hold the lock when necessary
-    let new_value = {
-        lock state {
-            let current = state.value
-            current + 1
-        }  // Lock released here
-    }
-    
-    // Other computation outside the lock
-    let processed = heavy_computation(new_value)
-    
-    lock state {
-        state.result = processed
-    }
-}
-
-// ❌ Not recommended: Overly long lock scope
-fn bad_example(state: shared AppState) {
-    lock state {
-        state.value += 1
-        let result = heavy_computation()  // Expensive operation inside lock
-        state.result = result  // Unnecessary lock hold
-    }
-}
-```
-
----
-
-## Multi-Processing & Sandbox Isolation Model
-
-XULO's multi-process model follows a **Shared-Nothing** architecture, implementing physical-level memory isolation and crash isolation.
-
-### Why Multi-Processes?
-
-While multi-threading is efficient, it has critical drawbacks:
-
-1. **Crash Contagion**: A segmentation fault in one thread crashes the entire process
-2. **Shared Memory**: Threads share memory, so memory corruption in one thread can affect others
-3. **Debugging Difficulty**: Multi-threaded bugs are hard to reproduce and debug
-
-The multi-process model solves these problems through physical isolation.
-
-### Channel Communication
-
-Processes communicate with threads/child processes via channels (`channel`).
-
-**Data Serialization**: All data sent through a `channel` is **implicitly copied and serialized** at send time. The receiver parses it as a completely new memory object, eliminating cross-process memory pointer dependencies entirely.
-
-```js
-// Main process: Create channel using channel.channel<T>() factory function
-let ch = channel.channel<Command, Response>()
-
-// Start child process (pass channel handle to WorkerService)
-let worker = spawn.process WorkerService { id: 1, channel: ch }
-
-// Send command (auto-serialized)
-ch.send(Command.Analyze("hello"))
-
-// Receive result
-let result = ch.receive()
-print(result)
-```
-
-The more common pattern is to directly use the handle returned by `spawn.process` with its built-in `.send()` method:
-
-```js
-// Main process: Communicate directly via handle, no explicit Channel creation needed
-let worker = spawn.process WorkerService { id: 1 }
-
-// Handle has built-in .send() method, cross-process auto-serialization
-worker.send(Command.Analyze("important data"))
-
-// Synchronously wait for response
-let result = worker.send_sync(Command.Analyze("data"))
-```
-
-### Process Service Declaration
-
-Developers can define independent process service entities (Actor model) using **`struct` + `impl`**. Child processes have their own event loops and memory spaces; their crash behavior does not cause the main process to die.
-
-```js
-// 1. Define standard message types and response structures
-enum Command {
-    Analyze(string),
-    Shutdown,
-    Crash
-}
-
-// 2. WorkerService is a regular struct with process logic
-struct WorkerService {
-    // Internal state isolated within the process
-    metrics: Metrics
-}
-
-impl WorkerService {
-    // Process message loop callback
-    fn on_message(u: mut self, cmd: Command) {
-        match cmd {
-            Command.Analyze(data) => {
-                let result = heavy_analysis(data)
-                reply(result)
-            }
-            Command.Shutdown => {
-                reply(Status.ShuttingDown)
-            }
-            Command.Crash => {
-                panic("Simulated crash")
-            }
-        }
-    }
-
-    fn on_error(err: Error) {
-        print("Worker error: " + err.message)
-        reply(Status.Error)
-    }
-}
-
-// 3. Main process usage
-fn main() {
-    // Use spawn.process primitive to launch Worker entity in isolated process sandbox
-    let worker = spawn.process WorkerService { metrics: Metrics.new() }
-
-    // Send message (cross-process auto-serialized and deep copied)
-    worker.send(Command.Analyze("important data"))
-
-    // Crash isolation: even if worker process crashes severely, main process remains safe
-    try {
-        let result = worker.send_sync(Command.Crash)
-    } catch (e) {
-        print("Worker crashed, but main process is safe")
-    }
-}
-```
-
-### Inter-Process Communication Patterns
-
-XULO supports multiple IPC patterns:
-
-```js
-// 1. Request-Response pattern
-struct Calculator {
-    result: number
-}
-
-impl Calculator {
-    fn on_message(u: mut self, msg: { op: string, a: number, b: number }) {
-        let result = match msg.op {
-            "add" => msg.a + msg.b,
-            "mul" => msg.a * msg.b,
-            _ => 0
-        }
-        reply(result)
-    }
+fn bump(p: mut Counter) {
+  p.value = p.value + 1
 }
 
 fn main() {
-    let calc = spawn.process Calculator { result: 0 }
-    let sum = calc.send_sync({ op: "add", a: 10, b: 20 })
-    print(str(sum))  // 30
-}
-
-// 2. Publish-Subscribe pattern
-struct EventBroker {
-    subscribers: list<channel.Handler>
-}
-
-impl EventBroker {
-    fn on_message(u: mut self, msg: Subscribe) {
-        u.subscribers.push(msg.channel)
-        reply(Status.Ok)
-    }
-
-    fn on_message(u: mut self, msg: Publish) {
-        for sub in u.subscribers {
-            sub.send(msg.data)
-        }
-        reply(Status.Ok)
-    }
+  let mut c = Counter(value: 0)
+  bump(c)                    // mutable borrow of c for the call
+  print(c.value)             // 1: the borrow ended with the call
 }
 ```
-
----
-
-## Complete Code Example
-
-The following code demonstrates how memory modifiers, multi-threading, and multi-process work together in XULO:
 
 ```js
-// 1. Immutable borrow (zero keywords)
-fn inspect(u: User) {
-    print(u.name)  // Read-only access, zero cost
+async fn fill(p: mut List<Int>) {
+  p[0] = 7
 }
 
-// 2. Mutable borrow (only mut)
-fn update_profile(u: mut User, new_name: string) {
-    u.name = new_name  // Exclusive modification
-}
-
-// 3. Ownership transfer function
-fn transfer_ownership(u: User) {
-    // u's ownership is within this function
-    save_to_database(u)
-    // u is freed when function ends
-}
-
-fn main() {
-    // === Single-threaded Memory Management ===
-    let mut local_user = User { name: "Alice", age: 20 }
-    
-    // Immutable borrow: zero cost, local_user still valid
-    inspect(local_user)
-    
-    // Mutable borrow: exclusive modification
-    update_profile(mut local_user, "Bob")
-    
-    // Explicit deep copy: create independent copy
-    let user_backup = copy local_user
-    
-    // === Multi-threaded Concurrency ===
-    
-    // Scenario 1: Ownership transfer to async task
-    spawn async {
-        save_to_database(move local_user)
-    }
-    // local_user has been transferred, accessing again triggers compile error
-    
-    // Scenario 2: Thread-safe sharing
-    let app_metrics = shared Metrics { requests: 0 }
-    
-    // Multiple threads safely concurrent modification
-    spawn async {
-        lock app_metrics {
-            app_metrics.requests += 1
-        }
-    }
-    
-    spawn async {
-        lock app_metrics {
-            app_metrics.requests += 1
-        }
-    }
-    
-    // === Multi-process IPC ===
-    
-    // Start independent process service
-    let worker = spawn.process WorkerService { id: 1 }
-    
-    // Send message via handle (auto-serialized)
-    worker.send(Command.Analyze)
-    
-    // Crash isolation: worker crash doesn't affect main process
-    try {
-        let result = worker.send_sync(Command.HeavyTask)
-    } catch (e) {
-        print("Worker failed, restarting...")
-        let new_worker = spawn.process WorkerService { id: 2 }
-    }
+async fn main() {
+  let mut xs = [0]
+  let t = fill(xs)           // exclusive borrow of xs, until t settles
+  // print(xs[0])            // error: `xs` is mutably borrowed (E0405)
+  await t
+  print(xs[0])               // 7: the borrow ended when t settled
 }
 ```
 
----
+Immutable borrows impose no such exclusion: a value may be read through any number of them at once. Ordinary reference sharing between bindings is not a borrow and is always allowed.
 
-## Best Practices and Common Pitfalls
+## Mutability rules
 
-### Recommended Practices
+`mut` belongs to a binding or a parameter, never to a type — and never appears at a call site: `bump(c)`, not `bump(mut c)`.
+
+- A place is **mutable** when the binding at the base of the path is a `let mut`, a `mut` parameter, or the `mut self` receiver of the running call; a field or subscript inherits the mutability of its base. Everything else is immutable, and assigning to it is a compile-time error (`E0401`).
+- Value-semantic storage belongs to one binding, so mutation through a `mut` place changes only that binding's copy. Reference-semantic storage is shared, so a mutation through any mutable place naming it is visible through every binding naming that value.
+- A `const` is immutable and has no mutable form; a shadowing `let mut` of the same name is an ordinary new binding.
+- Across tasks, mutation of one value is permitted only through the shared-state discipline — `shared` bindings and `lock` — below. The borrow rules govern a single running task.
+
+## Lifetimes (informal)
+
+Xulo has no lifetime annotation; storage outlives every use that can be written. *Lifetime* is used only to say when something is usable:
+
+- A binding's usable life runs from its declaration to the end of its block; using it earlier or after a `move` is a compile-time error (`E0403`).
+- A borrow lives exactly as long as its call — or, when the callee is `async`, until its task settles — and no use outside the callee can name it, because borrows are parameters, not values that can be stored.
+- A closure captures by reference: captured bindings become part of the closure's value and their storage remains valid for as long as the closure is reachable, even beyond the frame that created them.
+- Because storage is reclaimed only when it is unreachable, no program can hold a reference to freed memory: dangling references do not exist, and neither use-after-free nor double-free is a possible failure.
+
+## Garbage collection
+
+Storage is managed automatically. Memory becomes eligible for reclamation when it is unreachable from any root — a live binding, a running or suspended call frame, a closure, a task, or a shared region — and is reclaimed at an unspecified time thereafter.
+
+- A value reachable from anywhere is kept: a returned closure keeps its captures alive, a suspended task keeps its frame alive, and a shared region lives while any binding or task names it.
+- There is no explicit deallocation, no destructor, and no operation that frees memory early; a program cannot observe reclamation, and no program behavior depends on when it happens.
+- Deterministic *release of a resource* — a file, a connection — is a library concern expressed with ordinary control flow: cleanup is written on each path that needs it, because the language provides no destructor and no `finally` clause. The language itself manages only storage.
+
+## Runtime failures
+
+A runtime failure stops the program where it occurs: it is a `panic` raised by the implementation, and — like the program's own `panic(...)` — it has no handler.
+
+| Condition | When it occurs |
+|-----------|----------------|
+| List index out of bounds | reading or writing `xs[i]` where `i` is negative or at or past the list's length |
+| Absent map key | reading `m[k]` for a key with no binding |
+| Division or remainder by zero | `/` or `%` on non-constant operands whose value is zero |
+| Arithmetic overflow | an `Int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
+| Unprovided environment key | reading an `@Environment` key no provision supplies |
+| Stack or task exhaustion | recursion depth or the runtime's task limit is exceeded |
+| Lock misuse | a task acquires a `lock` it already holds (locks are not reentrant) |
+| Task exhaustion | the runtime's limit on live tasks is exceeded while spawning |
+
+The recursion and live-task limits behind the exhaustion rows are implementation-defined, as is how a failure is presented (message, stream, exit status). Expected failures are not runtime failures: they travel as `Result` values and are handled with `match` or `?`.
+
+## Tasks
+
+A **task** is a unit of asynchronous computation with type `Task<T>`.
+
+- Calling an `async` function or closure starts its body in the current task's context; `await` is the only suspension point the language exposes.
+- `spawn` starts work whose body is not part of any call: the spawning expression yields a `Task` immediately, the body runs as its own task, and the task settles when the body completes or is cancelled.
+- Tasks are values: a `Task<T>` may be stored, passed, returned, and awaited later. A task that is never awaited leaves its result unused and is not thereby cancelled.
+
+## The `spawn` expression
+
+`spawn` has five forms — four that run a block, and one that starts a service:
 
 ```js
-// ✅ Prefer immutable borrow (default is immutable borrow, zero keywords)
-fn process_data(data: User) {
-    // Most scenarios only need read access
-    print(data.name)
-}
-
-// ✅ Be explicit with mutable borrow using mut
-fn update_user(u: mut User, changes: UserUpdate) {
-    u.name = changes.name
-    u.email = changes.email
-}
-
-// ✅ Use shared with lock for multi-threaded shared state
-let app_cache = shared Cache { data: map<string, Data>{} }
-spawn async {
-    lock app_cache {
-        app_cache.data.set("key", value)
-    }
-}
-
-// ✅ Use spawn.process handle directly for IPC
-let worker = spawn.process WorkerService { id: 1 }
-worker.send(Message.Task(data))
+spawn async { Block }
+spawn.thread async { Block }
+spawn.process async { Block }
+spawn.on(Pool) async { Block }
+spawn.process Type { FieldInit , … }
 ```
 
-### Common Pitfalls
+| Form | Runs the block |
+|------|----------------|
+| `spawn async { … }` | on the default task scheduler |
+| `spawn.thread async { … }` | on an operating-system thread |
+| `spawn.process async { … }` | in a separate process |
+| `spawn.on(pool) async { … }` where `pool` has type `fn(fn(): Unit): Unit` | where `pool` decides |
+| `spawn.process Type { … }` | as a service of type `Type` (see [Services](#services)) |
+
+- The `async` keyword is required in the block forms, and the block is an `async` context: `await` is legal inside it wherever it is legal inside an `async` function body.
+- The first four forms are expressions of type `Task<T>`, where `T` is the type of the block. The service form evaluates to a service handle.
+- The dispatch mode changes only where the block runs. Capture, scope, and cancellation rules are identical in every mode.
+- `spawn` is an ordinary expression: it may appear in a synchronous or an `async` body, in any expression position its type permits.
+- A `spawn` expression is not `Unit`, so — like every non-`Unit` expression — it may not stand alone as an expression statement. Bind it, `await` it, or pass it on.
 
 ```js
-// ❌ Pitfall 1: Accidental ownership transfer
-fn example() {
-    let data = load_data()
-    spawn async {
-        process(move data)  // data is transferred
-    }
-    // print(data)  // Error: data is invalid
-}
-
-// ✅ Solution: Use shared or copy
-fn example_fixed() {
-    let data = shared load_data()
-    spawn async {
-        lock data {
-            process(data)
-        }
-    }
-    print(data)  // Still valid
-}
-
-// ❌ Pitfall 2: Expensive operations inside lock
-fn bad_lock_usage(state: shared AppState) {
-    lock state {
-        let result = expensive_computation()  // Blocks other threads
-        state.result = result
-    }
-}
-
-// ✅ Solution: Minimize lock scope
-fn good_lock_usage(state: shared AppState) {
-    let result = expensive_computation()  // Compute outside lock
-    lock state {
-        state.result = result  // Only hold lock when necessary
-    }
-}
-
-// ❌ Pitfall 3: Ignoring process crashes
-fn example() {
-    let worker = spawn.process WorkerService { id: 1 }
-    worker.send_unchecked(Command.Risky)  // May crash
-}
-
-// ✅ Solution: Use try/catch
-fn example_fixed() {
-    let worker = spawn.process WorkerService { id: 1 }
-    try {
-        worker.send(Command.Risky)
-    } catch (e) {
-        // Gracefully handle crash
-        let new_worker = spawn.process WorkerService { id: 2 }
-    }
+async fn main() {
+  let first = spawn async { weight(3) }
+  let second = spawn.thread async { weight(4) }
+  print(await first + await second)   // 7
 }
 ```
 
----
+## Capture into a `spawn` block
 
-## Comparison with Traditional Languages
+A `spawn` block is not a closure. It does not see the bindings of the scope that surrounds it; it must be given what it uses.
 
-| Feature | XULO | Rust | Go | C++ |
-| --- | --- | --- | --- | --- |
-| Memory Management | Ownership + Borrowing | Ownership + Borrowing | GC | Manual/GC |
-| Syntax Style | Keywords (`mut`, `move`) | Symbols (`&`, `&mut`) | No explicit management | Manual management |
-| Default Behavior | Immutable borrow | Mutable borrow | Value copy | Value copy |
-| Thread Safety | Compile-time checks | Compile-time checks | Runtime detection | No guarantees |
-| Process Isolation | Built-in Actor model | No built-in | Goroutines | No built-in |
-| Learning Curve | Medium | Higher | Lower | High |
+- Always visible inside a block, without capture: declarations (`fn`, `struct`, `enum`, `trait`, `impl`, `type`), `const` bindings, and the prelude's intrinsics and names.
+- Every other enclosing binding — a parameter, a local `let` or `let mut`, a module-level `let` or `let mut` — MUST be captured before the block's body may use it. A capture is written as a `let` initializer in the block: `let local = move config` or `let local = copy config`. Mentioning an uncaptured enclosing binding anywhere else in the block is a compile-time error (`E0408`).
+- `move` transfers ownership: the capture is evaluated when the `spawn` expression is evaluated, and the enclosing binding is moved out; using it after the `spawn` is an error (`E0403`).
+- `copy` takes a snapshot at the same moment and leaves the enclosing binding usable.
+- A `shared` binding needs no capture form: the block captures the shared region itself, and its contents are reachable only under `lock`.
 
-XULO's design goal is: **To maintain high safety while providing simpler syntax and lower cognitive load**.
+Capture is decided when the `spawn` expression is evaluated, before the body runs, so what a block receives never changes while it executes:
+
+```js
+fn upload_files(): Task<Unit> {
+  let config = load_config()
+  let data = gather()
+  let job = spawn.thread async {
+    let local_config = move config   // captured when the spawn runs
+    let local_data = copy data       // a snapshot; `data` stays usable
+    transmit(local_data, local_config)
+  }
+  print(data)                        // legal: `data` was copied, not moved
+  // print(config)                   // error: `config` has been moved (E0403)
+  job                                // returned: this task outlives the scope
+}
+```
+
+## Scopes and structured concurrency
+
+Every block is a **scope** for the tasks spawned inside it, including a function or closure body and the body of `main`. When a block finishes, it does not simply stop: it settles its tasks first.
+
+1. The block's value, if any, is determined.
+2. Each task spawned in the block that has not settled is cancelled.
+3. The block waits until every one of those tasks has settled.
+4. Each settled child contributes nothing further: a child that settled as cancelled is absorbed, and a result no longer reachable from the block's value is discarded.
+5. The block's value is produced.
+
+A task **reachable from the block's value** is exempt from step 2: it is not cancelled, and its ownership passes to the enclosing scope together with the value, where the same rules apply. This is how a function returns a task it spawned.
+
+Two consequences:
+
+- **Parent cancellation propagates downward.** Cancelling a task cancels the scope inside its body, which cancels that scope's tasks in turn.
+- **The program ends when `main` returns.** `main` may be declared `async`; when it is, the program ends when its task settles — completed or cancelled — by which time its body's scope has already drained. Work that must finish before exit is awaited inside the scope that owns it.
+
+## Cancellation
+
+Cancellation is cooperative and requested only by the language — when a scope exits — and propagates to a cancelled task's own scope.
+
+- A cancelled task stops at its next `await`: the pending `await` produces no value and the task settles as cancelled. A task that is running continues until it suspends.
+- Cancellation carries no error value: no expression observes it, nothing raises it, and there is nothing to catch. The body runs as written between the cancellation request and its next `await`.
+- Cancellation is final: a cancelled task settles as cancelled whatever its body does afterwards, and a value the body produces after settling is discarded.
+- `await` of a cancelled task stops the awaiting body at that `await`, which produces no value, and the awaiting task settles as cancelled in turn — the propagation continues outward through every `await` until a scope absorbs it or a cancelled `main` ends the program.
+- A scope that cancels its own children absorbs their cancellation: they settle as cancelled and the scope continues normally.
+- Cancellation cannot interrupt code between suspension points: a body that never awaits again runs to completion even though it has been cancelled.
+
+## Shared state and `lock`
+
+Concurrent tasks mutate one value only through a **shared region** guarded by a lock. `shared` is part of a binding form, exactly as `mut` is: it appears in a `let` and in a parameter declaration, and it adds no type — a shared binding of `AppState` has type `AppState`.
+
+```js
+let state = shared Expr          // a shared binding
+fn f(state: shared T, …)         // a shared parameter
+lock state { Block }             // a critical section
+```
+
+- The contents of a shared binding — every field and subscript reached through it — MAY be read or written only while the current task holds the lock on that binding: lexically inside `lock state { … }` on that very binding, or inside a function called from such a section that receives the region as a `shared` parameter. Any other access is a compile-time error (`E0406`).
+- Inside `lock state { … }` the contents reached through `state` are mutable places, whether or not the binding is `let mut`; assignment through them follows the ordinary place rules.
+- The operand of `lock` MUST be a shared binding (`E0407`), as must an argument passed to a `shared` parameter.
+- `lock` is an expression: its value is the value of the block, so a section both mutates and produces. The lock is released when the block finishes — normally, or by `return`.
+- Locks are not reentrant: acquiring a lock the current task already holds is a runtime failure (lock misuse, above).
+
+```js
+struct AppState { total_online: Int, names: List<String> }
+
+fn join(state: shared AppState, name: String) {
+  lock state {
+    state.total_online = state.total_online + 1
+    state.names = state.names + [name]
+  }
+}
+
+fn report(state: shared AppState): Int {
+  lock state { state.total_online }
+}
+
+async fn main() {
+  let state = shared AppState(total_online: 0, names: [])
+  let one = spawn async { join(state, "Ada") }
+  let two = spawn async { join(state, "Lin") }
+  await one
+  await two
+  print(report(state))      // 2
+}
+```
+
+Sections should be short, and a task that needs several locks SHOULD acquire them in a consistent order; tasks that wait on one another's locks make no further progress.
+
+## Memory visibility and atomics
+
+Xulo exposes no atomic types, no fences, and no memory-order parameters. Nothing of the kind is needed: the checker confines every access to shared storage inside a `lock` on that binding (`E0406`, `E0407`), spawn blocks capture by `move` or `copy` rather than by reference, and service messages are deep-copied in transit — so a shared region guarded by its lock is the only storage two tasks can both reach, and every access to it is already ordered by construction.
+
+An implementation MAY use atomics, fences, operating-system locks, or a single thread internally; none of that is observable. What it MUST preserve is the ordering the language does state:
+
+- **Within a task**, operations are sequenced: operands, arguments, and literal elements evaluate left-to-right, statements run in source order, and module-level initializers run in declaration order before `main`.
+- **Across a lock**, critical sections on one shared binding are ordered: the writes performed inside a `lock state { … }` are visible to every critical section on `state` that begins after it finishes, whichever task performs it.
+- **By value**, everywhere else: the result of `await`, a settled task's result, and a message are values carried between tasks, not shared storage.
+
+Data-race freedom is therefore a consequence of the static rules, not an obligation the programmer carries.
+
+## Services
+
+A **service** is an actor: a struct with an `on_message` method, running in its own process, reached only by sending messages.
+
+```js
+struct Tally { total: Int }
+
+impl Tally {
+  fn on_message(mut self, cmd: Int) {
+    self.total = self.total + cmd
+    reply(self.total)
+  }
+}
+
+async fn main() {
+  let worker = spawn.process Tally { total: 0 }
+  let sum = await worker.send(41)
+  print(sum)                        // 41
+}
+```
+
+- `spawn.process Type { field: expr, … }` starts a service of the struct type `Type`. The field list initializes the service's state; it is evaluated left-to-right, and the constructed value is deep-copied into the new service, so the service never shares storage with its spawner.
+- `Type` MUST declare `on_message` in an `impl` block; a service type without one is a compile-time error (`E0409`). The method takes a receiver (`self` or `mut self`) and exactly one message parameter; it MAY be declared `async`.
+- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R> }`.
+- `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected.
+- A service handles one message at a time, in arrival order: `on_message` runs to completion — through every `await`, if it is `async` — before the next message begins.
+- `reply(e)` may be called only inside `on_message`. The reply type `R` is the common type of the `reply` operands in the method, or `Unit` when the method never calls `reply`. The send's task settles when `on_message` returns, carrying the reply value — or, when the executed path performed no `reply` although the method contains `reply` calls, settling as cancelled.
+- Cancelling a send task does not withdraw a message already queued.
+
+Messages are the only channel: there is no shared state between a service and its clients, so a service never needs `shared` or `lock`.
+
+## Scheduling, determinism, and undefined behavior
+
+Nothing about scheduling is language-visible. Programs MUST NOT depend on which ready task runs next, which of several racing tasks settles first, how many run concurrently, how long a suspension lasts, the iteration order of `Set<T>`, or when storage is reclaimed.
+
+What this model does fix, for every conforming program:
+
+- **Evaluation order** — left-to-right for operands, arguments, and literal elements; source order for statements; declaration order for module initializers.
+- **Scope completion** — a block finishes only after the tasks spawned inside it have settled.
+- **Collection order** — `Map` entries iterate in insertion order, and `Task.all` yields results in argument order.
+- **Termination of the structural operations** — `==` and `copy` halt on cyclic values.
+
+Programs are deterministic when they do not depend on the unspecified items — that is, when they do not race.
+
+**This model defines no undefined behavior.** For every program that passes the static checks, evaluation order and results are the ones fixed above, and every condition that can stop a computation at run time is one of the runtime failures in the tables on this page — a specified failure with a specified cause, after which the computation has ended. Three choices are implementation-defined and MUST be documented: the recursion and live-task limits, how exhaustion of resources the language does not model (available memory above all) is detected and reported, and how a runtime failure is presented to its environment — message text, stream, exit status — since the language itself has no I/O.
+
+See also: [Memory and Runtime](/en/docs/spec/memory-and-runtime/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/) in the specification, and [Async & Tasks](/en/docs/reference/architecture/async-and-tasks/) for `async`, `await`, and `Task` utilities.

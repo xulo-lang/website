@@ -3,189 +3,206 @@ title: Variables & State
 description: Variable bindings, reactive state, and effects in XULO.
 ---
 
-XULO has two kinds of bindings: plain variables (`let` / `let mut`) and reactive state (`@State` / `@Store` / `@Environment` / `@Effect`).
+XULO has two kinds of bindings: ordinary bindings (`let` / `let mut` / `const`) and component state (`@State` / `@Store` / `@Environment` / `@Effect`).
 
 ## Variable Bindings
 
 ```js
-let count = 0                 // Immutable by default
-let mut x = 10                // Explicitly mutable
-let name: string = "Alice"    // With type annotation
-let maybe: string? = null     // Optional type
+let count = 0                 // immutable
+let mut x = 10                // mutable
+let name: String = "Alice"    // annotated
+let maybe: String? = null     // optional type
+let total := 0                // sugar for: let mut total = 0
+const APP_NAME = "Xulo"       // compile-time constant
 ```
 
 **Rules:**
 
-- `let` = immutable binding by default
-- `let mut` = explicitly mutable binding
-- Type annotation comes after the name, separated by `:`
-- Types can be inferred; annotations are optional
-- Assignment `x = x + 1` requires `let mut`; assigning to `let` is an error
+- `let` is immutable; assigning to it is an error (`E0401`). `let mut` is mutable, and `let x := expr` desugars to `let mut x = expr`.
+- The annotation is written after the name with `:`. Without it the type is inferred from the initializer; when the initializer does not determine the type — an empty list literal — the annotation is required (`E0216`).
+- **Initialization is required**: there is no uninitialized binding, and every `let` is initialized in its own statement.
+- `const` takes a constant expression — a literal, another `const`, or arithmetic/comparison over them. A function call is not a constant expression.
+- There is no compound assignment: no `+=`, `-=`, or `++`. Write `n = n + 1`.
 
-### Mutability Comparison
+| Form | Mutable | Use |
+|------|---------|-----|
+| `let x = 1` | no | values that never change |
+| `let mut x = 1` | yes | values that are reassigned |
+| `let x := 1` | yes (sugar for `let mut`) | short mutable binding |
+| `const K = 1` | no | compile-time constants |
 
-| Syntax | Mutable | Use case |
-|--------|---------|----------|
-| `let x = 1` | No | Local values that won't change |
-| `let mut x = 1` | Yes | Values that will be reassigned |
+## Destructuring
+
+```js
+struct Person { name: String, age: Int }
+
+let person = Person(name: "Alice", age: 30)
+let { name, age } = person         // struct fields
+
+let p = (10, "ten")
+let (n, label) = p                 // tuple positions
+let (first, _) = p                 // _ discards an element
+```
+
+- Struct destructuring binds one level of fields, each as an immutable binding of the same name; there is no rename form. A missing field is an error (`E0206`).
+- Tuple destructuring requires the name count to match the arity (`E0219`); there is no `let mut (a, b)` form.
+- Map, list, and enum values are not deconstructed with `let` — use subscripts and `match`.
+
+## Assignment
+
+```js
+let mut x = 10
+x = x + 1
+
+let mut xs = [1, 2, 3]
+xs[0] = 9
+```
+
+- The target must be a place expression backed by a `mut` binding (or a field/subscript reached through one); anything else is `E0401`.
+- The right-hand side is evaluated first, then the place's receiver and index, then the write happens. The result of an assignment is `Unit`.
+- Assignment is a **statement** — it produces no value to use.
+
+## Scopes
+
+| Scope | Introduced by | Names visible |
+|-------|---------------|---------------|
+| Module (file) | the file itself | top-level declarations plus every `import` and `pub use` |
+| Function | a `fn` header | parameters, then the body |
+| Generic parameter | `<T>` or `where T: …` | in the signature, return type, and body |
+| Block | every `{ … }` | declarations made inside that block |
+| Closure | `fn() { … }` or `=> …` | its parameters plus everything captured at creation |
+| Pattern | a `match` arm pattern | bindings of that arm only |
+
+**Declaration order decides visibility:**
+
+- Locals are **not hoisted**: a binding is in scope from the end of its declaration to the end of the enclosing block, so reading it earlier is `E0101`.
+- Module-level `fn`, `struct`, `enum`, `trait`, `type`, and `impl` are in scope throughout the whole file, in any order — forward references and mutual recursion are legal.
+- Module-level `let`, `let mut`, and `const` must be declared before use; their initializers run in declaration order.
+
+```js
+fn main() {
+  let a = helper()   // legal: module-level fn may be declared later
+  print(a)
+}
+fn helper(): Int { 42 }
+```
+
+## Shadowing and `_`
+
+- A declaration in an **inner** block may shadow an outer name; two declarations of the same name in the *same* block are a duplicate error (`E0103`).
+- Shadowing never re-points a name a closure already captured — a captured binding keeps its original value.
+- `_` is the wildcard: it matches anything, binds nothing, and cannot be assigned or read. It is not an identifier.
+- A binding that is never read is reported as `W0101`; a `pub` declaration, a `const`, a parameter, and `_` are never reported.
+
+```js
+let x = 1
+let read = fn(): Int { x }   // captures the outer x
+if true {
+  let x = 2                  // shadows only inside this block
+  print(str(x))              // 2
+}
+print(str(read()))           // still 1
+```
+
+Naming conventions (recommended, not enforced): UpperCamelCase for types and components, lowerCamelCase for functions and variables, `UPPER_SNAKE_CASE` for constants, single letters for type parameters.
 
 ## Local State `@State`
 
 ```js
-@State let count: number = 0
-@State let name: string = ""
-@State let isActive: boolean = true
+fn Counter(): View {
+  @State let count: Int = 0
+
+  VStack {
+    Text(`count = ${count}`)
+    Button("More", onClick: fn() { count = count + 1 })
+  }
+}
 ```
 
-- `@State` can only be declared at the top level of a UI component (a function returning `View`)
-- Triggers UI re-render
-- Compiles to a reactive signal: read via `.get()`, write via `.set()`
+- Declared only at the top level of a component body — a `fn` whose declared return type is `View` — and nowhere else (`E0701`).
+- **Implicitly mutable**: assignment needs no `mut`, and each assignment schedules the component to re-run. There is no `@State let mut`.
+- The initializer runs when the instance is created, not on every run; the value is retained across re-runs and is per instance — two `Counter()`s never share a `count`.
 
 ## Global State `@Store`
 
-### Defining a Store
-
 ```js
-// stores/app.xulo
-import { createStore } from "@xulo/store"
-
-type AppState = {
-  user: User?
-  theme: Theme
-  notifications: list<string>
-  loading: boolean
-}
-
-fn setUser(state: AppState, user: User?): AppState {
-  ({ ...state, user: user })
-}
-
-fn setTheme(state: AppState, theme: Theme): AppState {
-  ({ ...state, theme: theme })
-}
-
-pub fn useAppStore() = createStore(
-  {
-    user: null,
-    theme: Theme.Light,
-    notifications: [],
-    loading: false
-  },
-  {
-    setUser: setUser,
-    setTheme: setTheme
-  }
-)
-```
-
-### Using a Store
-
-```js
-import { useAppStore } from "../stores/app"
-
 fn Home(): View {
-  @Store let { user, theme, loading } = useAppStore()
+  @Store let { user, theme } = useAppStore()
   @Store let { setTheme } = useAppStore()
 
   VStack {
-    Text("User: " + user?.name)
-    Button(onClick: () => setTheme(Theme.Dark)) {
-      Text("Dark mode")
-    }
+    Text(`signed in as ${user?.name ?? "guest"}`)
+    Button("Toggle theme", onClick: fn() { setTheme(Theme::Dark) })
   }
 }
 ```
 
-- `@Store` destructures values (`{ user }`) and functions (`{ setUser }`)
-- Dependency tracking and re-rendering are handled by the external store runtime
+- A `@Store` declaration destructures a shared store; the names inside `{ … }` behave exactly like `@State` bindings.
+- Store values are program-wide: an update re-runs every component that declared `@Store` for that store, while their own `@State` cells are untouched.
+- The initializer is an ordinary expression (`useAppStore()` above is a library function, not a language intrinsic).
 
-## Environment Injection `@Environment`
+## Environment `@Environment`
 
 ```js
-@Environment let router: Router
-router.push("/about")
+fn Nav(): View {
+  @Environment let router: Router
+
+  Button("About", onClick: fn() { router.push("/about") })
+}
 ```
 
-- Injects a value from the external runtime (compiles to `__env("Router")`)
-- Only available at the top level of `View` component functions
+- The form is `@Environment let name: T` with **no initializer** — the value is provided from outside the program.
+- The type annotation is **required** (`E0710`); nothing else in the declaration supplies it.
+- The nearest enclosing provision wins; reading a key that was never provided is a runtime failure.
 
 ## Side Effects `@Effect`
 
 ```js
-@Effect () => {
-  // Runs when component mounts
-  fetchUser(id)
-}
+fn Counter(): View {
+  @State let count: Int = 0
 
-@Effect () => {
-  // Re-runs when dependencies change
-  fetchUser(id)
-}, [id]
+  @Effect fn() { print("mounted") }            // every re-run
+  @Effect fn() { fetch(id) }, [id]             // on mount and when `id` changes
 
-@Effect () => {
-  // Cleanup function
-  setupSubscription()
-  return () => {
-    cleanupSubscription()
-  }
+  Text(str(count))
 }
 ```
 
-- `@Effect` runs when the component mounts
-- Supports dependency array `[id]`
-- Supports returning a cleanup function
+- The form is `@Effect fn() { … }` — an unnamed closure of type `fn(): Unit` (`E0709` for any other return type), optionally followed by `, [deps]`.
+- The dependency list must be a **list literal** (`E0708`); with it, the effect runs on mount and whenever a listed value changes, not otherwise.
+- An effect body may `return fn() { … }` to register a cleanup function of type `fn(): Unit`; every other returned value is discarded.
+- Effects run after the run completes, never contribute children, and `await` is not allowed in an effect body (`E0706`).
 
 ## Two-Way Binding `$`
 
 ```js
-// Two-way binding (use $ prefix)
-Input(value: $name)
+Input(value: $name)          // passes a binding, not a copy
 Checkbox(checked: $isActive)
-
-// Equivalent to
-Input(value: name, onInput: (e) => {
-  name = e.value
-})
 ```
 
-- `$` prefix enables two-way binding
-- Only works with `@State` or `@Store` variables
-- Compiles to `{ value, onChange }`
+- `$name` is legal **only in an argument position of a component invocation** (`E0703` elsewhere), and the name must be an `@State` binding or a `@Store` binding of the enclosing component (`E0711` for a plain function, `E0712` for an ordinary `let`).
+- It is not an expression: it cannot be stored, passed to a function, or used as a value.
+- The receiver gets the current value plus a write-back channel; writing through it updates the source and schedules the source component to re-run.
 
-## Usage Restrictions
+## Where State Declarations Are Legal
 
-`@State`, `@Store`, `@Effect`, and `@Environment` can **only** be used at the top level of functions whose return type is `View`.
-
-### Correct (inside UI components)
-
-```js
-fn UserProfile(): View {
-  @Store let { user, loading } = useAppStore()
-  @State let editing: boolean = false
-  @Effect () => { fetchUser(id) }
-
-  VStack { ... }
-}
-```
-
-### Incorrect (in plain functions / async functions / nested blocks)
+| Location | `@State` / `@Store` / `@Environment` / `@Effect` |
+|----------|----------------|
+| Top level of `fn …(): View` | allowed |
+| Plain function, `async` function | error (`E0701`) |
+| Nested block, loop body inside a component | error (`E0701`) |
 
 ```js
-fn helperFunction() {
-  @Store let { user } = useAppStore()  // Error
-  @State let count = 0                 // Error
+fn helper() {
+  @State let count = 0        // error: not a component body
 }
 
-fn main(): View {
+fn Panel(): View {
   if true {
-    @State let x = 0                     // Error (nested block)
+    @State let hidden = false // error: nested block
   }
+  Text("panel")
 }
 ```
 
-| Syntax | Allowed | Prohibited |
-|--------|---------|------------|
-| `@State` | Top level of `fn ...(): View` only | Plain functions, async functions, nested blocks |
-| `@Store` | Top level of `fn ...(): View` only | Plain functions, async functions, nested blocks |
-| `@Effect` | Top level of `fn ...(): View` only | Plain functions, async functions, nested blocks |
-| `@Environment` | Top level of `fn ...(): View` only | Plain functions, async functions, nested blocks |
+Two state declarations with the same name in one component body are an error (`E0103`) — `@State`, `@Store`, and `@Environment` draw from one name pool per body.

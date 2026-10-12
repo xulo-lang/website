@@ -1,167 +1,146 @@
 ---
 title: Error Handling
-description: The try / catch / finally error handling mechanism in XULO.
+description: The Result type, the ? propagation operator, and panic for error handling in XULO.
 ---
 
 ## Overview
 
-XULO uniformly uses `try / catch / throw` for runtime and recoverable exceptions. The `finally` block is used for cleanup code that must execute regardless of whether an exception occurs.
+Xulo separates three situations. A **missing value** — an optional that holds `null` — is not an error: it is ordinary data, and beyond it the language has no `Option` type. A **failed operation** carries a reason: it returns the built-in `Result<T, E>`, which a caller inspects with `match` or propagates upward with the postfix `?`. An **unrecoverable condition** stops the program: the program's own `panic(...)` call and the implementation's runtime failures are the same event, and neither has a handler.
 
-## Basic Syntax
+There is **no `try` / `catch` / `finally` and no `throw`** in Xulo. Failure is data, not control flow: nothing jumps anywhere until the caller propagates an `Err` with `?` or matches it.
+
+See the formal specification: [Error Handling](/en/docs/spec/error-handling/).
+
+## `Result<T, E>`
+
+- **`Result` is a built-in generic type**, part of the prelude: no import introduces it, and the name is reserved, so a program cannot declare its own `Result`. It has exactly two variants, written with `::`:
 
 ```js
-try {
-    // Code that may throw exceptions
-} catch err: SpecificError {
-    // Catch specific exception type
-} catch err {
-    // Catch all other exceptions
-} finally {
-    // Cleanup code that always executes
+Result::Ok(value)    // the operation succeeded
+Result::Err(error)   // the operation failed
+```
+
+- A function that can fail returns a `Result` instead of raising anything:
+
+```js
+fn half(n: Int): Result<Int, String> {
+  if n % 2 == 0 { Result::Ok(n / 2) } else { Result::Err("odd input") }
+}
+
+fn doubled_half(n: Int): Int {
+  match half(n) {
+    Result::Ok(v) => v * 2
+    Result::Err(reason) => { print(reason); 0 }
+  }
 }
 ```
 
-## Core Execution Guarantee of `finally`
-
-The code inside the `finally` block is **guaranteed to execute 100%** in any of the following scenarios:
-
-1. The `try` block completes successfully without throwing any exceptions
-2. The `try` block throws an exception that is successfully caught and handled by a `catch` block
-3. The `try` block throws an exception that is **not caught by any `catch`** (the exception continues to propagate upward after `finally` completes)
-4. The `try` or `catch` block uses a `return` statement early (`finally` executes before the function actually exits)
-
-## Complete Example
+- **Exhaustiveness applies.** A `match` over a `Result` MUST cover both variants or have a wildcard or binding arm; an uncovered `Err` (or `Ok`) is `E0301`.
+- **`Error` is the built-in base error type.** It is constructed by calling it with a message string — `Error("timed out")` — and carries one field, `message` of type `String`. `Result<T, Error>` is the conventional shape for system-level failures: file not found, connection refused, malformed input.
+- **Domain failures are the program's own enums.** `Error` has no subtypes and Xulo has no inheritance, so a failure with structure is carried as an ordinary `enum` in the `E` slot and matched by name.
 
 ```js
-// Classic scenario: resource cleanup and state reset
-fn load_user_avatar(path: string) {
-    let file = File.open(path, mode: FileMode.Read)
-    show_loading_spinner()
+enum LoadError { Missing(String), Denied(String) }
 
-    try {
-        let content = file.read_all_string()
-        let user = JSON.parse<User>(content)
-        render_avatar(user.avatar_url)
-    } catch err: JSONError {
-        print("JSON parsing failed: " + err.to_string())
-    } catch err: FsError {
-        print("File read failed: " + err.to_string())
-    } catch err {
-        print("Unknown error: " + err.to_string())
-    } finally {
-        // Guarantee file is closed and loading is hidden regardless of success or failure
-        file.close()
-        hide_loading_spinner()
-    }
+fn read_config(path: String): Result<String, LoadError> {
+  if path == "" { return Result::Err(LoadError::Missing(path)) }
+  load(path)
 }
 ```
 
-## Combination Patterns
+- **Absence and failure are orthogonal.** `T?` says the value may be absent; `Result<T, E>` says the operation may fail for a reason. When both are possible, use `Result<T?, E>`: `Err` is why it failed, `Ok(null)` is that it succeeded but found nothing.
 
-XULO supports the following three standard `try` combination structures:
+## The `?` Operator
 
-### 1. `try { ... } catch { ... }`
+`?` is a postfix operator: `expr?` evaluates `expr` once and either yields its **success value** or leaves the enclosing function through an **early return** — the failure value, returned up one call.
 
-Regular exception catching without cleanup code.
+| Operand type | Success value | On failure |
+|--------------|---------------|------------|
+| `T?` | the `T`, when the operand is not `null` | the enclosing function returns `null` |
+| `Result<T, E>` | the `T` inside `Result::Ok` | the enclosing function returns the whole `Result::Err` value |
+
+Rules:
+
+- The enclosing function MUST have a declared return type `R`, and the failure value MUST be assignable to `R`: `null` for an optional operand (so `R` is an optional type), and the whole `Result<T, E>` for a `Result` operand. A `?` that does not fit is `E0217`.
+- The operand MUST be `T?` or `Result<T, E>` — a plain `Int`, a `Task<T>`, or an `Error` is `E0217`.
+- Inside an `async` body, `await` and `?` combine with parentheses: `(await t)?`. Because `await` is prefix and `?` postfix, `await t?` would propagate the *task* and is `E0217`.
+- `?` composes with optional chaining: `user?.profile?` propagates a missing profile out of a function returning an optional.
 
 ```js
-try {
-    let data = JSON.parse<Config>(config_str)
-    apply_config(data)
-} catch err: JSONError {
-    print("Config parsing failed: " + err.to_string())
+fn quarter(n: Int): Result<Int, String> {
+  let h = half(n)?     // Err("odd input") leaves `quarter` as-is
+  half(h)              // the trailing expression, itself a Result
+}
+
+fn fetch_name(id: Int): String? {
+  let u = find_user(id)?   // null propagates: `fetch_name` returns null
+  u.name
 }
 ```
 
-### 2. `try { ... } finally { ... }`
+## `panic`
 
-Resource cleanup only, no exception catching (exceptions continue to propagate).
+`panic(message)` is an expression that stops the program where it is written.
+
+- The operand MUST be a `String` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
+- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, division by zero, arithmetic overflow — is the same event, raised by the implementation.
+- The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `Unit`.
 
 ```js
-fn process_data(data: Data) {
-    let lock = acquire_lock()
+let label = if n > 0 { "positive" } else { panic("n must be positive") }
 
-    try {
-        let result = heavy_computation(data)
-        return result
-    } finally {
-        // Guarantee lock is released even if heavy_computation throws
-        lock.release()
-    }
+fn double_or_stop(n: Int): Int {
+  if n < 0 { panic("negative input") }
+  n * 2
 }
 ```
 
-### 3. `try { ... } catch { ... } finally { ... }`
+- **Use `Result` for outcomes, `panic` for conditions.** A missing key or a rejected connection returns `Err` — the caller may handle it. A broken invariant or a violated precondition panics — handling it is meaningless.
 
-Full mode: catching + cleanup.
+## Error Types
+
+| Type | Where it comes from | Shape |
+|------|---------------------|-------|
+| `Result<T, E>` | built-in, in the prelude | `Result::Ok(T)` or `Result::Err(E)` |
+| `Error` | built-in, in the prelude | `Error("…")` with one `message: String` field; no subtypes |
+| program enums | the program's own `enum` declarations | e.g. `LoadError::Missing(String)` |
+| library types | standard-library modules | e.g. `JSONError` (an enum), `RegexError` — carried in the `E` slot like any other value |
+
+Compile-time diagnostics are a separate matter: they are assigned in the specification's [error table](/en/docs/spec/type-system/errors/), and no program sees them at run time.
+
+## Use Cases
+
+- **Propagate** a failure you cannot handle: `let data: Config = parse(raw)?`
+- **Match** at a boundary where the reason changes what happens: log it, retry, fall back
+- **Represent absence** with `T?` and read it with `??`, `?.`, a null test, or `?` — no error value
+- **Stop** on a broken invariant with `panic`, never on an outcome a caller could handle
+
+## Examples
 
 ```js
-fn fetch_and_save(url: string, path: string) {
-    let response = http.fetch(url)
+// Propagation up a call chain
+fn load_and_double(path: String): Result<Int, LoadError> {
+  let text = read_config(path)?
+  Result::Ok(parse_int(text)? * 2)
+}
 
-    try {
-        let data = response.body()
-        File.write(path, data)
-    } catch err: NetworkError {
-        print("Network error: " + err.to_string())
-    } catch err: FsError {
-        print("File write failed: " + err.to_string())
-    } finally {
-        response.close()
-    }
+// In async code: await first, then propagate — with parentheses
+async fn fetch_user(id: Int): Result<User, LoadError> {
+  let raw = (await get_json(`/users/${id}`))?   // Err propagates out
+  decode_user(raw)
+}
+
+// The first task to settle decides; a cancelled task stops this body
+// without producing any error value
+async fn first_wins(a: Task<Int>, b: Task<Int>): Int {
+  await Task.race([a, b])
 }
 ```
 
-## Syntax Rules
+## Design Notes
 
-1. The `finally` block must immediately follow the last `catch` block, or directly follow the `try` block (no `catch` mode)
-2. **Control Flow Guarantee**: Regardless of whether `try` / `catch` scope ends normally, throws an exception, or exits early via `return` / `break`, the code in the `finally` block executes before the current scope is destroyed
-3. **Prohibited Control Flow Escape**: Using `return`, `break`, or `throw` inside a `finally` block is **prohibited** (to avoid overwriting/swallowing the original return value or exception from `try` / `catch`)
-
-## Exception Types
-
-XULO includes the following built-in exception types:
-
-| Exception Type | Description |
-|----------------|-------------|
-| `JSONError` | JSON parsing errors, with variants including `SyntaxError`, `TypeMismatch`, `UnexpectedEof` |
-| `FsError` | File system errors |
-| `NetworkError` | Network communication errors |
-| `Error` | Base class for all exceptions |
-
-## Custom Exceptions
-
-Define custom exception types using `enum`:
-
-```js
-enum ValidationError {
-    FieldRequired(field: string),
-    InvalidFormat(field: string, expected: string),
-    OutOfRange(field: string, min: number, max: number)
-}
-
-fn validate_age(age: number): number {
-    if age < 0 || age > 150 {
-        throw ValidationError.OutOfRange("age", 0, 150)
-    }
-    return age
-}
-
-try {
-    let valid_age = validate_age(-5)
-} catch err: ValidationError {
-    match err {
-        ValidationError.OutOfRange(field, min, max) => {
-            print(field + " must be between " + min.to_string() + " and " + max.to_string())
-        },
-        _ => print("Validation error")
-    }
-}
-```
-
-## Best Practices
-
-1. **Precise Catching**: Catch specific exception types whenever possible instead of using generic `catch err`
-2. **Resource Cleanup**: Always release file handles, network connections, etc. in `finally` blocks
-3. **Avoid Swallowing Exceptions**: Don't do nothing in `catch` blocks; at least log the error
-4. **Prohibited Control Flow in finally**: Don't use `return`, `break`, or `throw` in `finally`
+- **Failure is data.** An `Err` is an ordinary return value: returned, bound, passed, and compared like any other. Exhaustiveness (`E0301`) keeps every `match` honest about it.
+- **No exceptions anywhere.** Standard-library modules follow the same model: fallible calls return `Result<T, E>` — see [JSON](/en/docs/reference/stdlib/json/) and [Regular Expressions](/en/docs/reference/stdlib/regular-expressions/).
+- **Async does not change the model.** `async fn f(): Result<T, E>` evaluates to `Task<Result<T, E>>`; an `Err` is data, not a failed task, and a `panic` in an async body stops the whole program. Cancellation carries no error at all.
+- **`?` is not `unwrap`.** It propagates or returns `null`; it never discards a failure and never throws.
+- Further reading: [Error Handling (spec)](/en/docs/spec/error-handling/), [Prelude](/en/docs/spec/builtins/prelude/), [Control Flow](/en/docs/spec/expressions/control-flow/).

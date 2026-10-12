@@ -1,26 +1,31 @@
 ---
 title: Standard Library
-description: The module structure and design principles of the XULO standard library (std).
+description: The structure of the XULO standard library (std) and how it differs from the language built-ins in XULO.
 ---
 
 ## Overview
 
-The XULO standard library (`std`) provides high-order data structures, I/O, networking, async runtime, and other core capabilities. Language built-in primitives (such as `spawn`, `lock`, `shared`, `list`, `map`, `set`, `JSON`) are not included in this directory; `std::*` modules are only imported explicitly when needed.
+The XULO standard library (`std`) provides high-order data structures, file system and network I/O, async runtime control, and other core capabilities.
+
+The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, and `str`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without an import. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be imported explicitly.
 
 ## Design Principles
 
-1. **Zero Contamination & Cross-Platform**: `std::*` core library guarantees consistent behavior across all targets (including Native OS, embedded, and WebAssembly) without platform-specific rendering logic
-2. **Separation of Primitives and std**: `spawn`, `lock`, `shared`, and `list` / `map` / `set` / `JSON` are language built-in primitives, not included in this directory
+1. **Zero Contamination & Cross-Platform**: `std/*` guarantees consistent behavior across all targets (native OS, embedded, WebAssembly) without platform-specific logic in the source.
+2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are imported alongside them and never replace them.
 
 ## Module Directory
 
 ```
 std/
 ├── collections.xulo      // High-order data structures
-│   ├── HashMap<K, V>     // Custom Hasher & memory layout
+│   ├── HashMap<K, V>     // Custom hasher & memory layout
 │   ├── BTreeMap<K, V>    // Ordered key-value mapping
 │   ├── HashSet<T>        // Unique value collection
 │   └── Deque<T>          // Double-ended queue / concurrent queue
+│
+├── json.xulo             // JSON serialization
+│   └── JSON              // namespace: JSON.stringify, JSON.parse
 │
 ├── fs.xulo               // File system & I/O (async/sync)
 │   ├── File              // File handle, read / write API
@@ -36,7 +41,7 @@ std/
 ├── async.xulo            // Async & coroutine runtime control
 │   ├── sleep(ms)         // Async sleep
 │   ├── interval(ms)      // Timer
-│   ├── Task              // Task handle control, cancel, join
+│   ├── handle            // Task handle control: cancel, join
 │   └── channel           // Async MPSC / Broadcast channels
 │
 ├── thread.xulo           // Low-level OS physical thread control
@@ -53,63 +58,90 @@ std/
 │   ├── Command           // External system command execution & sandbox dispatch
 │   └── env.args()        // Environment variable reading & command-line argument parsing
 │
-├── math.xulo             // Advanced math (basic functions built into Math namespace)
+├── math.xulo             // Advanced math (the Math namespace is built in)
 │   ├── Random            // Pseudo-random number generator (with seed support)
 │   ├── Matrix            // Matrix operations
 │   ├── Vector            // Vector operations
 │   └── Complex           // Complex number operations
 │
-└── time.xulo             // Advanced time features (basic time primitives built into Time namespace)
+└── time.xulo             // Advanced time features (the Time namespace is built in)
     ├── Instant           // High-precision monotonic timestamp
     ├── Duration          // Duration
     └── DateTime          // Formatting & parsing
 ```
 
+Regexps live in `std/regex` ([Regular Expressions](/en/docs/reference/stdlib/regular-expressions/)).
+
 ## Usage Examples
 
 ```js
-// Import standard library modules
+// Import standard-library modules
 import { HashMap, BTreeMap, HashSet, Deque } from "std/collections"
-import { File, Path } from "std/fs"
-import { http } from "std/net"
+import { File, Path, FileMode, FsError } from "std/fs"
+import { http, NetworkError } from "std/net"
 import { sleep, interval } from "std/async"
 import { AtomicI64 } from "std/sync"
+import * as JSON from "std/json"
+import { JSONError } from "std/json"
 
-// Use HashMap (high-order data structure, distinct from built-in map primitive)
-let users = HashMap<string, User>.new()
-users.insert("alice", User { name: "Alice" })
+// High-order map — distinct from the built-in Map<K, V>
+let mut users: HashMap<String, User> = HashMap.new()
+users.insert("alice", User(name: "Alice"))
 
-// JSON serialization (built-in primitive, no import needed)
+// JSON is a standard-library module, not a built-in
 let data = { name: "Alice", age: 30 }
 let json_str = JSON.stringify(data)
-let parsed = JSON.parse<User>(json_str)
+let parsed: Result<User, JSONError> = JSON.parse(json_str)
 
-// File I/O
-let file = File.open("data.txt", mode: Write)
-file.write("Hello, XULO!")
-file.close()
+// File I/O: fallible calls return a Result
+fn save(path: String, text: String): Result<String, FsError> {
+  let file = File.open(path, mode: FileMode::Write)?
+  file.write(text)?
+  file.close()
+  Result::Ok(path)
+}
 
 // HTTP request
-let response = http.fetch("https://api.example.com/data")
-let body = response.body()
+fn fetch_body(url: String): Result<String, NetworkError> {
+  let response = http.fetch(url)?
+  Result::Ok(response.body())
+}
 
 // Async timer
 spawn async {
-    sleep(1000)
-    print("1 second later")
+  await sleep(1000)
+  print("1 second later")
 }
 ```
 
-## Built-in Primitives vs Standard Library
+## Error Handling
 
-| Category | Built-in Primitives | Standard Library Extensions |
+Standard-library code follows the language model — there are no exceptions to import.
+
+- A fallible call returns `Result<T, E>`: `Result<String, FsError>`, `Result<Response, NetworkError>`, `Result<T, JSONError>`. Propagate with `?` or inspect with `match`.
+- Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test.
+- `panic` is reserved for broken invariants; no library outcome should stop the program.
+
+See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specification's [Error Handling](/en/docs/spec/error-handling/) chapter.
+
+## Built-ins vs Standard Library
+
+| Category | Language built-ins (no import) | Standard library (`import` required) |
 | --- | --- | --- |
-| **Collections** | `list<T>`, `map<K, V>`, `set<T>` | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
-| **Concurrency** | `spawn`, `shared`, `lock` | `async/task`, `sync/atomic`, `sync/semaphore` |
-| **I/O** | - | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
-| **Data** | `JSON.stringify`, `JSON.parse` | - |
-| **System** | - | `process/command`, `process/env` |
-| **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, etc. | `Random`, `Matrix`, `Vector`, `Complex` |
+| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`map_size`, `set_insert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
+| **Output & conversion** | `print`, `println`, `str` | — |
+| **Concurrency** | `spawn`, `lock`, `shared`, `Task.all` / `Task.race` / `Task.resolve` | `async/sleep`, `async/interval`, `sync/atomic`, `sync/semaphore` |
+| **I/O** | — | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
+| **Data** | — | `JSON.stringify`, `JSON.parse` |
+| **System** | — | `process/command`, `process/env` |
+| **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, … | `Random`, `Matrix`, `Vector`, `Complex` |
 | **Time** | `Time.now`, `Time.monotonic`, `Time.sleep` | `Instant`, `Duration`, `DateTime` |
 
-Built-in primitives are directly supported by the compiler without import; standard library modules require explicit `import` to use.
+The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `import`.
+
+## Design Notes
+
+- **Namespaces vs members.** Built-in members are reached only through their namespace (`Math.max`, `Time.now`, `Task.all`); the bare names (`max`, `now`, `all`) are in scope nowhere. Library namespaces are created with `import * as JSON from "std/json"` and behave the same way.
+- **Reserved names are absolute.** `print`, `str`, `List`, `Map`, `Set`, `Task`, `Result`, `Error`, `Math`, `Time`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
+- **Sync shapes.** Examples above show synchronous `File` and `http` calls with `?`; whether a given `std` function is `async` is a property of its own signature — an `async fn` returns a `Task<T>` and is awaited.
+- Further reading: [Prelude](/en/docs/spec/builtins/prelude/), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Import & Export](/en/docs/spec/modules/import-export/), [Error Handling](/en/docs/spec/error-handling/).

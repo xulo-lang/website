@@ -1,17 +1,24 @@
 ---
 title: JSON
-description: JSON primitive functionality in XULO.
+description: JSON serialization and parsing with the standard-library JSON module in XULO.
 ---
 
 ## Overview
 
-JSON is a language built-in primitive that provides serialization and deserialization capabilities, available without import.
+JSON is a standard-library API, not a language built-in. The specification places JSON (with regular expressions and I/O) outside the language: nothing named `JSON` is part of the prelude or of the intrinsics, so a module that imports nothing has no `JSON` in scope. Import the module as a namespace:
+
+```js
+import * as JSON from "std/json"        // the namespace: JSON.stringify, JSON.parse
+import { JSONError } from "std/json"    // the error type, where an annotation names it
+```
+
+Parsing never throws. `JSON.parse` returns a `Result<T, JSONError>`, which the caller inspects with `match` or propagates with `?`. The type argument `T` is inferred at the call site from the expected type — there is no `JSON.parse<User>(…)` form: explicit type arguments at a call site are not part of the language.
 
 ## Methods
 
-### `JSON.stringify(data)`
+### `JSON.stringify<T>(value: T): String`
 
-Serializes data into a JSON string.
+Serializes a value into a JSON string.
 
 ```js
 let data = { name: "Alice", age: 30, active: true }
@@ -23,93 +30,103 @@ let json_list = JSON.stringify(list)
 // '[1,2,3]'
 ```
 
-### `JSON.parse<T>(str)`
+### `JSON.parse<T>(input: String): Result<T, JSONError>`
 
-Deserializes a JSON string into the specified type.
+Deserializes a JSON string. `T` is inferred from the expected type: annotate the binding, or let the enclosing function's declared return type supply it.
 
 ```js
-let json_str = '{"name":"Alice","age":30}'
-let user = JSON.parse<User>(json_str)
-// user.name = "Alice", user.age = 30
+let raw = '{"name":"Alice","age":30}'
 
-let json_list = '[1, 2, 3]'
-let numbers = JSON.parse<list<number>>(json_list)
-// numbers = [1, 2, 3]
+// T from the annotation on the binding
+let outcome: Result<User, JSONError> = JSON.parse(raw)
+
+// T from the declared return type
+fn load_user(raw: String): Result<User, JSONError> {
+  JSON.parse(raw)
+}
 ```
 
-### `JSON.parse_async<T>(str)`
+### `JSON.parse_async<T>(input: String): Task<Result<T, JSONError>>`
 
-Async version of JSON parsing, throws `JSONError` in the calling coroutine on failure.
+Async variant of `parse`. The call yields a `Task`; `await` it to reach the `Result`. Combine `await` and `?` with parentheses: `(await …)?`.
 
 ```js
-let json_str = '{"name":"Alice","age":30}'
-let user = await JSON.parse_async<User>(json_str)
+async fn load_user_async(raw: String): Result<User, JSONError> {
+  let user: User = (await JSON.parse_async(raw))?
+  Result::Ok(user)
+}
 ```
 
 ## Error Handling
 
-JSON parsing throws `JSONError` on failure, with the following variants:
+Failures are values. There is no `throw` and no `try` / `catch`: a malformed document arrives as `Result::Err(JSONError)`.
 
-- `JSONError.SyntaxError(msg, line, col)` - JSON syntax error
-- `JSONError.TypeMismatch(expected, actual)` - Type mismatch
-- `JSONError.UnexpectedEof` - Input unexpectedly ended
+`JSONError` is the JSON module's own error enum — a domain failure carried in the `E` slot, exactly as a program's own enums are:
+
+| Variant | Meaning |
+|---------|---------|
+| `JSONError::SyntaxError(msg, line, col)` | the document is not well-formed JSON |
+| `JSONError::TypeMismatch(expected, actual)` | a value does not fit the requested type |
+| `JSONError::UnexpectedEof` | the input ended unexpectedly |
 
 ```js
-let raw_json = "{\"age\": \"invalid_number\"}"
+let outcome: Result<User, JSONError> = JSON.parse(raw)
 
-try {
-    let user = JSON.parse<User>(raw_json)
-    print("Welcome, " + user.name)
-} catch err: JSONError {
-    match err {
-        JSONError.TypeMismatch(expected, actual) => {
-            print("Type mismatch: expected " + expected + ", got " + actual)
-        },
-        JSONError.SyntaxError(msg, line, col) => {
-            print("JSON syntax error: " + msg + " (line " + line.to_string() + ", col " + col.to_string() + ")")
-        },
-        _ => print("Other JSON parsing error")
-    }
-} catch err {
-    print("Unknown error: " + err.to_string())
+match outcome {
+  Result::Ok(user) => print("Welcome, " + user.name)
+  Result::Err(reason) => match reason {
+    JSONError::SyntaxError(msg, line, col) => print(`JSON error at ${line}:${col}: ${msg}`)
+    JSONError::TypeMismatch(expected, actual) => print("expected " + expected + ", got " + actual)
+    JSONError::UnexpectedEof => print("input ended unexpectedly")
+  }
+}
+```
+
+Inside a function that already returns a `Result`, propagate instead of matching:
+
+```js
+fn user_name(raw: String): Result<String, JSONError> {
+  let user: User = JSON.parse(raw)?
+  Result::Ok(user.name)
 }
 ```
 
 ## Use Cases
 
-- **Data Exchange**: Serialize/deserialize data when communicating with external APIs
-- **Persistence**: Save objects as JSON files
-- **Configuration Parsing**: Read JSON format configuration files
-- **Debugging**: Convert objects to readable strings
+- **Data Exchange**: serialize and deserialize data when communicating with external APIs
+- **Persistence**: save values as JSON files
+- **Configuration Parsing**: read JSON-format configuration files
+- **Debugging**: render values as readable strings
 
 ## Examples
 
 ```js
-// Serialize object
+import * as JSON from "std/json"
+import { JSONError } from "std/json"
+import { File } from "std/fs"
+
+// Serialize
 fn save_user(user: User) {
   let json_str = JSON.stringify(user)
   File.write("user.json", json_str)
 }
 
-// Deserialize object
-fn load_user(): User {
-  let json_str = File.read("user.json")
-  return JSON.parse<User>(json_str)
+// Deserialize: the Err case travels up untouched
+fn load_user(raw: String): Result<User, JSONError> {
+  JSON.parse(raw)
 }
 
-// Interact with HTTP API
-fn fetch_data() {
-  let response = http.fetch("https://api.example.com/data")
-  let json_str = response.body()
-  let data = JSON.parse<ApiResponse>(json_str)
-  return data
+// Interact with an HTTP API: propagate with `?`
+fn fetch_data(raw: String): Result<ApiResponse, JSONError> {
+  let data: ApiResponse = JSON.parse(raw)?
+  Result::Ok(data)
 }
 ```
 
 ## Design Notes
 
-1. **Error Mechanism**: XULO uniformly uses `try / catch / throw` for runtime and recoverable exceptions
-2. **Built-in JSONError**: `JSONError` is a built-in standard exception type (inheriting from the language root `Error` / enum type), with variants including `SyntaxError`, `TypeMismatch`, `UnexpectedEof`
-3. **Sync / Async Parsing Signatures**:
-   * `JSON.parse<T>(input: string): T` (throws `JSONError` on failure)
-   * `JSON.parse_async<T>(input: string): T async` (throws `JSONError` in calling coroutine on failure)
+- **Errors are data.** `JSON.parse` returns `Result<T, JSONError>`; Xulo has no exceptions, so nothing is thrown and nothing is caught ([Error Handling](/en/docs/spec/error-handling/)).
+- **`JSONError` is a library enum.** The only built-in error type is `Error` — constructed as `Error("…")`, carrying one `message: String` field, with no subtypes and no inheritance. `Result<T, Error>` is the conventional shape for system-level failures; a failure with structure is an ordinary enum.
+- **Type arguments are inferred.** `parse<T>` is written `T` in the signature only; at the call site the expected type supplies it (`let outcome: Result<User, JSONError> = JSON.parse(raw)`).
+- **Import required.** `JSON` is neither a prelude name nor an intrinsic; see [Prelude](/en/docs/spec/builtins/prelude/) and the specification's [scope statement](/en/docs/spec/introduction/).
+- Further reading: [Error Handling](/en/docs/spec/error-handling/), [Calls](/en/docs/spec/expressions/calls/), [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/).

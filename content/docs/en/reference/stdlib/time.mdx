@@ -1,181 +1,183 @@
 ---
 title: Time
-description: XULO built-in time namespace providing high-precision timestamps and async sleep.
+description: The built-in Time namespace of clocks and async sleep in XULO.
 ---
 
 ## Overview
 
-`Time` is a built-in namespace providing high-precision timestamp retrieval and async sleep functionality. No import required. All methods return scalar values (`u64`) without introducing complex structs or string objects.
+`Time` is a built-in namespace of timestamps and async sleep. No import is required: `Time` is in scope in every module, and members are selected with `.` — `Time.now()`, `await Time.sleep(ms)`. Its functions return scalars only: `U64` for the clocks and a `Task<Unit>` for the delay.
+
+`Time` is a reserved name: a module-scope declaration may not bear it (compile-time error `E0106`). Each member has exactly one signature — no overloading, no default or named arguments.
+
+See the [intrinsic `Time` chapter](/en/docs/spec/builtins/intrinsic-functions/#time-namespace) of the formal specification.
 
 ## Methods
 
-### `Time.now()`
+### `Time.now(): U64`
 
-Get current Unix timestamp (milliseconds since 1970-01-01 00:00:00 UTC).
-
-**Return Type**: `u64`
-
-**Use Case**: Business logging, simple timestamp recording, data persistence.
+Current Unix time in **milliseconds** since 1970-01-01 00:00:00 UTC. This reads the wall clock: right for timestamps and data persistence, wrong for measuring how long something took.
 
 ```js
 let timestamp = Time.now()
-print("Current time: " + str(timestamp))
+print(timestamp)   // milliseconds since the Unix epoch
 ```
 
-### `Time.now_nanos()`
+### `Time.now_nanos(): U64`
 
-Get nanosecond-precision Unix timestamp.
-
-**Return Type**: `u64`
-
-**Use Case**: High-precision event tracking, unique ID generation.
+Current Unix time in **nanoseconds** since the epoch. Same wall clock as `Time.now`, at higher resolution.
 
 ```js
 let nanos = Time.now_nanos()
-print("Nanosecond timestamp: " + str(nanos))
+print(nanos)       // nanoseconds since the Unix epoch
 ```
 
-### `Time.monotonic()`
+### `Time.monotonic(): U64`
 
-Get system monotonic timestamp (milliseconds). Not affected by user time changes or NTP clock adjustments.
-
-**Return Type**: `u64`
-
-**Use Case**: UI animation frame intervals, timers, debounce/throttle.
+Current reading of the monotonic clock in **milliseconds**. The clock never runs backwards and is unaffected by wall-clock changes; only the difference between two readings is meaningful — use it for elapsed time, debounce windows, and frame intervals.
 
 ```js
 let start = Time.monotonic()
-// ... execute operation ...
+// ... work ...
 let elapsed = Time.monotonic() - start
-print("Elapsed: " + str(elapsed) + "ms")
+print(elapsed)     // milliseconds elapsed
 ```
 
-### `Time.monotonic_nanos()`
+### `Time.monotonic_nanos(): U64`
 
-Get nanosecond-precision monotonic timestamp.
-
-**Return Type**: `u64`
-
-**Use Case**: Code performance benchmarks, microsecond/nanosecond profiling.
+Current reading of the monotonic clock in **nanoseconds**. The right clock for benchmarks and profiling.
 
 ```js
 let start = Time.monotonic_nanos()
 // ... execute code ...
 let elapsed = Time.monotonic_nanos() - start
-print("Elapsed: " + str(elapsed) + "ns")
+print(elapsed)     // nanoseconds elapsed
 ```
 
-### `Time.sleep(ms: u64): Task<void>`
+### `Time.sleep(ms: U64): Task<Unit>`
 
-Non-blocking sleep for the current `async` coroutine/task. Blocks the current thread in synchronous contexts.
-
-**Parameters**:
-- `ms: u64` - Sleep duration in milliseconds
-
-**Return Type**: `Task<void>`
-
-**Use Case**: Async waiting, scheduled tasks, retry mechanisms.
+Delays for at least `ms` milliseconds. The call produces a `Task<Unit>` and **must be awaited**: `await Time.sleep(ms)` suspends the enclosing async body until the delay has elapsed and yields `Unit`. `await` is legal only inside an `async` body — an `async fn` or a `spawn async { … }` block.
 
 ```js
-// Async sleep
-spawn async {
-    await Time.sleep(1000)           // Sleep for 1 second
-    print("1 second later")
+async fn later() {
+  await Time.sleep(1000)     // suspends this body for at least 1 second
+  println("1 second later")
 }
 
-// Retry mechanism
-fn fetch_with_retry(url: string): Task<Response> {
-    let attempts = 0
-    while attempts < 3 {
-        try {
-            return await http.fetch(url)
-        } catch {
-            attempts += 1
-            await Time.sleep(100 * attempts)  // Incremental delay
-        }
-    }
-    throw Error("Max retries exceeded")
+spawn async {
+  await Time.sleep(250)
+  print("after a quarter second")
 }
 ```
+
+## Error Handling
+
+The clocks and the sleep never fail: none of them returns a `Result`, and none of them panics.
+
+- `await Time.sleep(ms)` MUST appear inside an `async` body; awaiting it elsewhere is a compile-time error. The value it produces is `Unit`, not a `Result`.
+- The propagation operator `?` accepts only `T?` or `Result<T, E>` — writing `?` on a `Task<T>` is `E0217`. Failures around a sleep travel in a result instead, propagated after the `await`.
+
+```js
+async fn wait_for(fetch: fn(): Result<Int, Error>): Result<Int, Error> {
+  let mut attempt: U64 = 0
+  let mut outcome = fetch()
+  while attempt < 2 {
+    match outcome {
+      Result::Ok(value) => return Result::Ok(value)
+      Result::Err(_) => {
+        attempt += 1
+        await Time.sleep(100 * attempt)   // backoff: U64 milliseconds
+        outcome = fetch()
+      }
+    }
+  }
+  outcome                                  // the last attempt speaks for itself
+}
+```
+
+A `panic` inside an async body stops the whole program, not only the task; use `Result` for outcomes a caller may handle and `panic` for broken invariants ([Error Handling](/en/docs/spec/error-handling/)).
 
 ## Use Cases
 
 ### Performance Measurement
 
 ```js
-// Precise timing
 let start = Time.monotonic_nanos()
 for i in 0..<1000000 {
-    // Execute loop
+  // Execute loop
 }
 let elapsed = Time.monotonic_nanos() - start
-print("Loop took " + str(elapsed / 1000) + "μs")
+print(elapsed / 1000)   // microseconds (U64 division)
 ```
 
-### Debounce/Throttle
+### Debounce / Throttle
 
 ```js
-let last_click = Time.monotonic()
+let mut last_click = Time.monotonic()
 
 fn handle_click() {
-    let now = Time.monotonic()
-    if now - last_click > 300 {  // 300ms debounce
-        // Execute action
-        last_click = now
-    }
+  let now = Time.monotonic()
+  if now - last_click > 300 {      // 300 ms window
+    last_click = now
+    // ... run the click action ...
+  }
 }
 ```
 
-### Animation Frame Intervals
+### Frame Intervals
 
 ```js
-let last_frame = Time.monotonic()
+let mut position: U64 = 0
+let distance_per_second: U64 = 120   // whole units per second
+let mut last_frame = Time.monotonic()
 
 fn animate() {
-    let now = Time.monotonic()
-    let delta = now - last_frame  // milliseconds
-    last_frame = now
-    
-    // Update animation based on delta
-    position += velocity * delta / 1000.0
+  let now = Time.monotonic()
+  let delta = now - last_frame       // U64: milliseconds since the previous frame
+  last_frame = now
+  position = position + distance_per_second * delta / 1000
 }
 ```
 
 ### Unique ID Generation
 
 ```js
-fn generate_id(): u64 {
-    let timestamp = Time.now_nanos()
-    let random_part = Math.floor(Math.random() * 1000)
-    return timestamp * 1000 + random_part
+fn generate_id(counter: U64): U64 {
+  Time.now_nanos() * 1000 + counter
 }
 ```
 
-## Compiler Optimizations
+## Examples
 
-### Hardware Instruction Mapping
+```js
+// Elapsed time on the monotonic clock
+let start = Time.monotonic_nanos()
+for i in 0..<1000 {
+  // ... work ...
+}
+let elapsed = Time.monotonic_nanos() - start
+print(elapsed)     // print accepts a U64: it renders any value
 
-`Time` methods can be directly mapped to OS kernel APIs:
+// A timestamp on the wall clock
+let saved_at = Time.now()
 
-| Platform | Implementation |
-|----------|----------------|
-| Native (POSIX) | `clock_gettime(CLOCK_MONOTONIC, ...)` |
-| Native (Windows) | `QueryPerformanceCounter(...)` |
-| WASM | `clock_time_get(...)` |
+async fn poll(fetch: fn(): Result<Int, Error>): Result<Int, Error> {
+  let mut attempt: U64 = 0
+  while attempt < 3 {
+    await Time.sleep(50 * attempt + 50)
+    let outcome = fetch()
+    match outcome {
+      Result::Ok(value) => return Result::Ok(value)
+      Result::Err(_) => attempt += 1,
+    }
+  }
+  Result::Err(Error("gave up"))
+}
+```
 
-### Zero-Overhead Abstraction
+## Design Notes
 
-- No function call overhead
-- No heap memory allocation
-- No garbage collection pressure
-- Direct mapping to hardware instructions
-
-### Constant Folding (Testing Scenarios)
-
-In test or compile-time evaluable scenarios, the compiler can fold `Time.now()` to a constant.
-
-## See Also
-
-- [Numeric Type System](/en/docs/spec/types/primitive-types#numeric-types)
-- [Standard Library Time Module](/en/reference/stdlib/standard-library-net-fs) (advanced time features)
-- [Async & Coroutines](/en/reference/stdlib/standard-library-net-fs) (async sleep)
+- **`U64`, not `Int`.** Every clock returns `U64`; arithmetic stays in `U64` (`Time.monotonic() - start`), and integer literals adapt to it in a call argument or comparison. A `U64` value does not convert to `Float` (`E0201`) — a fixed-bit type is not the user-facing numeric layer.
+- **Two clocks, two jobs.** `Time.now` / `Time.now_nanos` read the wall clock — timestamps, logs, persistence. `Time.monotonic` / `Time.monotonic_nanos` measure elapsed time — benchmarks, debounce, frame deltas.
+- **Sleep is a task.** `Time.sleep(ms)` is `fn(ms: U64): Task<Unit>`; the `await` is part of the call's contract, not an option.
+- **No random member.** Pseudo-random numbers come from the standard library's `Random` ([Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/)).
+- Further reading: [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Async Expressions](/en/docs/spec/expressions/async-expressions/), [Error Handling](/en/docs/spec/error-handling/).

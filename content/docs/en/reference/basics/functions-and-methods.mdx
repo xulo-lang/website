@@ -1,159 +1,176 @@
 ---
 title: Functions
-description: Function definitions, parameters, generics, and closures in XULO.
+description: Function definitions, parameters, closures, and methods in XULO.
 ---
 
-## Function Definition
+## Definition
 
 ```js
-// No return value
-fn log(message: string) {
+// no return value: the type is Unit
+fn log(message: String) {
   print(message)
 }
 
-// With return value (implicit return)
-fn add(a: int, b: int): int {
+// implicit return: the trailing expression
+fn add(a: Int, b: Int): Int {
   a + b
 }
 
-// Explicit return
-fn subtract(a: int, b: int): int {
+// explicit return
+fn subtract(a: Int, b: Int): Int {
   return a - b
 }
 ```
 
 **Rules:**
 
-- Use the `fn` keyword
-- Parameter types use `:`
-- Return types use `:`
-- Last expression without semicolon = implicit return; **when a return type is declared, the trailing expression must match it**
-- `return` for explicit return is also supported
-- Omit the return type when there is no return value
+- The form is `fn name(p: T, q: U): R { … }`. Every parameter is annotated; parameter types are never inferred from arguments.
+- An omitted return type means `Unit`; writing `: Unit` is equivalent. When a return type is declared, the trailing expression (or every `return` operand) must match it (`E0203`).
+- `return` without a value is legal only when the declared return type is `Unit`; `return` outside a function or closure body is `E0214`.
+- A trailing `;` discards the block's value — `fn g(): Int { 42; }` is an error.
+- Functions are not overloaded: a second declaration of the same name in one scope is a duplicate-declaration error.
+
+```js
+fn show(x: Int) { print(x) }
+fn show(x: String) { print(x) }   // error: duplicate name
+```
+
+## Scope, Recursion, Forward References
+
+- Module-level `fn`, `struct`, `enum`, `trait`, `type`, and `impl` are in scope throughout the file: a function may call one declared later, and mutual recursion needs no ordering.
+- Module-level `let`/`const` are the exception — they must be declared before use.
+- A nested `fn` is local to its block: it may recurse on itself, but two nested functions do not forward-reference each other, and `pub` does not apply to them.
+- Recursion has no static depth limit; exhausting the stack or task limit is a runtime failure.
 
 ## Parameters
 
-### Optional Parameters (`?`)
-
 ```js
-fn greet(name: string?): string {
-  if name != null {
-    "Hello, " + name
-  } else {
-    "Hello, stranger"
-  }
-}
+fn greet(name: String = "stranger"): String { "Hello, " + name }
+fn maybe(id: String?): String { id ?? "none" }
+fn render(text: String, size: Int, bold: Boolean): View { Text(text) }
 
-greet()      // OK, name = null
-greet("A")   // OK
-```
-
-### Default Parameter Values (`=`)
-
-```js
-fn greet(name: string = "stranger"): string {
-  "Hello, " + name
+fn main() {
+  render("Hi", bold: true, size: 14)   // positional, then named
+  render(text: "Hi", 14, bold: true)   // error: positional after named
+  render("Hi")                         // error: required parameter missing
 }
 ```
 
-### Named Parameters
+- Parameters are required unless they declare a default with `=` or have an optional type `T?`. An omitted optional parameter binds to `null`.
+- A default is evaluated at each call that omits it, and the parameter's type must admit the default (`E0228`).
+- **Named arguments** write `label: expression`. Positional arguments come first — once a named argument appears, every following argument must be named. Named arguments may be reordered; an unknown or repeated label, or a positional argument after a named one, is `E0208`, and a wrong argument count is `E0207`.
+- Calls through a function **value** (`fn(…)`) accept positional arguments only, with an exact count.
+
+## Closures
+
+There are two closure forms; both are expressions of function type `fn(A): R`.
 
 ```js
-fn Button(label: string, variant: string = "primary"): View
+// function expressions reuse the declaration shape without a name
+let double = fn(x: Int): Int { x * 2 }
 
-Button(variant: "outline", label: "Submit")  // Named args, can be out of order
+// arrow closures: parameters, optional result, =>, body
+let add = (x: Int, y: Int) => x + y
+let addTyped: fn(Int, Int): Int = (x, y) => x + y   // types from the expected type
+let one = x => x * 2                                // single parameter: parens optional
+let nothing = () => print("hi")                     // empty list must be written ()
+let classify = (n: Int): String => {                // block body
+  if n > 0 { "positive" } else { "not positive" }
+}
 ```
 
-- Call-site named arguments `greet(name: "X")` are supported; once named arguments are used, all arguments must be named, and they can be out of order
-- String literal union types (`type Status = "active" | "inactive"`) accept the corresponding literals at call sites
+- Parameter annotations may be omitted only when an **expected type** supplies them — as a call argument, a typed binding initializer, or a typed `return`. Without one, annotations are required.
+- The result annotation `: R` is optional; when present it must agree with the body.
+- Capture is **by reference** and implicit: no capture list exists, and there is no `move` modifier in a parameter list. A closure may assign to a captured binding only if it was declared `let mut` (`E0401`).
+- A closure body must not refer to the closure being defined — recursion needs a named `fn`.
+- An immediately-invoked closure is parenthesized: `((x: Int): Int => x + 1)(41)`.
+
+```js
+fn makeAdder(n: Int): fn(Int): Int {
+  (v: Int) => v + n            // read capture of n
+}
+
+fn main() {
+  let add5 = makeAdder(5)
+  print(str(add5(10)))         // 15
+  print(apply(x => x * 3, 7))  // expected type supplies x
+}
+```
+
+## Async Functions
+
+```js
+async fn doubleAsync(n: Int): Int {
+  await Task.resolve(n * 2)
+}
+async fn main() { print(await doubleAsync(21)) }   // 42
+```
+
+- `async fn` declares its **result** type; the function's evaluated type is `fn(…): Task<T>` — not `Promise`.
+- Calling it starts the body immediately; `await` unwraps `Task<T>` to `T` and is legal only inside `async` bodies.
+- Inside the body, the trailing expression and every `return` operand have type `T`, not `Task<T>` — wrapping is automatic.
+- Async closures are written `async (x: Int): Int => …` or `async fn(x: Int): Int { … }`; calling them returns `Task<T>`.
+
+## Inference Boundary
+
+- **Named declarations are fully annotated**: every parameter type, and the return type whenever the function produces a value. Only an omitted return type (`Unit`) may be missing.
+- Local `let` bindings infer from their initializer.
+- **Closure parameters** may omit annotations only where an expected function type provides them.
+
+```js
+fn apply(f: fn(Int): Int, x: Int): Int { f(x) }
+let double = (x: Int): Int => x * 2          // annotation required
+print(str(apply(x => x * 3, 7)))             // optional: the parameter type is known
+```
+
+## Methods and `self`
+
+```js
+struct Counter { value: Int }
+
+impl Counter {
+  fn increment(mut self) { self.value = self.value + 1 }
+  fn get(self): Int { self.value }
+}
+
+fn main() {
+  let mut c = Counter(value: 0)
+  c.increment()
+  print(str(c.get()))            // 1
+  let maybe: Counter? = null
+  print(maybe?.get())               // null: the call is not evaluated
+}
+```
+
+- Methods live in an `impl` block. The first parameter is the receiver, written `self` (immutable borrow) or `mut self`; a method that assigns to `self` or a field must declare `mut self`.
+- At the call site the receiver is not written as an argument: `c.increment()` supplies `c`.
+- **Resolution order:** `value.method(…)` resolves first to an inherent method of the receiver's type, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait.method(receiver)`.
+- A receiver that may be `null` uses optional chaining: `receiver?.method()` evaluates to `null` instead of calling.
+
+## Trait Methods
+
+```js
+trait Greet {
+  fn greeting(self): String;
+  fn farewell(self): String
+}
+```
+
+Trait methods are signature-only, separated by `;`, and **must** declare a return type (an omitted one is not `Unit` here). An `impl Trait for Type` must provide every declared method with mutually assignable signatures, and may not add extras. See [Generics & Traits](/en/docs/reference/basics/generics-and-traits/).
 
 ## Generic Functions
 
 ```js
-fn first<T>(list: list<T>): T {
-  list[0]
-}
-
-// Type argument inferred at call site: first([1, 2, 3]) binds T to int
-let n: int = first([1, 2, 3])
-let s: string = first(["a"])      // OK, T = string
-let bad: string = first([1, 2])   // Error, T inferred as int
-```
-
-> Explicit type arguments (`first<number>(...)`) are **not** supported. Generic type parameters are always inferred at the call site.
-
-## Closures
-
-Closures are anonymous functions written with `=>`. They capture outer scope variables automatically (equivalent to JS closures). Use `fn` only for named declarations.
-
-```js
-fn apply(f: fn(int): int, x: int): int {
-  f(x)
-}
-
-fn makeAdder(n: int): fn(int): int {
-  (v: int): int => v + n   // Captures n
-}
+fn first<T>(xs: List<T>): T { xs[0] }
+fn areaOf<T: Area>(shape: T): Float { Area.area(shape) }
+fn perimeterOf<T>(shape: T): Float where T: Area { shape.perimeter() }
 
 fn main() {
-  let double = (x: int): int => x * 2
-
-  let add5 = makeAdder(5)
-  print(apply(double, 3))   // 6
-  print(add5(10))           // 15
-
-  // Async closure
-  let work = async () => 42
-  let v = await work()      // 42
+  let n = first([1, 2, 3])        // T = Int
+  let s = first(["a", "b"])       // T = String
 }
 ```
 
-### Syntax Forms
+Type arguments are always inferred — `first<Int>(…)` is not part of the language — and every inferred argument must satisfy the parameter's bounds. Inline `<T: …>` and `where T: …` are equivalent; multiple bounds are joined with `+`.
 
-#### Single-line Expression Closures (Type Inferred)
-
-```js
-let add = (a, b) => a + b
-let numbers = list.map([1, 2, 3], (x) => x * 2)
-```
-
-#### Multi-line Block Closures (With Explicit Types and Return Type)
-
-```js
-let handler = (event: MouseEvent): boolean => {
-    if event.is_valid {
-        return true
-    }
-    false
-}
-```
-
-#### Closure Type Descriptors (For Function Parameter Type Annotations)
-
-`fn(InputType): OutputType`
-
-```js
-pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
-    // ...
-}
-```
-
-### EBNF Formal Rules
-
-```text
-ClosureExpr      = [ 'async' ] ClosureParams [ ':' Type ] '=>' ( Expression | Block ) ;
-ClosureParams    = Identifier
-                 | '(' [ ClosureParam ( ',' ClosureParam )* ','? ] ')' ;
-ClosureParam     = Identifier [ ':' Type ] ;
-
-ClosureType      = [ 'async' ] 'fn' '(' [ TypeList ] ')' [ ':' Type ] ;
-```
-
-### Rules
-
-- `fn` is reserved for named function/method declarations; `=>` is for anonymous closures
-- Closure type is `fn(param types): return type`, assignable to parameters/variables with that type
-- Automatically accesses outer local variables through capture; mutable captures can modify outer `let` bindings directly
-- Function values are called with positional arguments only; the count must match exactly; named arguments are not supported
-- Function values can be called from any expression: `xs[0](10)`, `getFn()(x)`, `(f)(5)`
-- Async closures are written as `async () => ...`, return a Promise when called, and can be `await`ed
+Full rules for generics, traits, and dispatch are in [Generics & Traits](/en/docs/reference/basics/generics-and-traits/); the declaration and parameter forms are specified in the [functions spec](/en/docs/spec/functions/).

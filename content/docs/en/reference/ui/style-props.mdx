@@ -3,35 +3,42 @@ title: Style Props
 description: Quick reference for style and layout attributes in XULO.
 ---
 
-XULO uses **short** style attribute names, avoiding verbose naming.
+XULO uses **short** style attribute names, avoiding verbose naming. Attributes are ordinary named arguments in `( )`; which attributes a component accepts is that component's contract — a component that does not declare an attribute cannot receive it.
 
 ## Quick Reference
 
 | Attribute | Type | Description | Example |
 |-----------|------|-------------|---------|
-| `color` | `string` | Text color | `color: "#ff0000"` |
-| `bg` | `string` | Background color | `bg: "#1a1a2e"` |
-| `bgImage` | `string` | Background image URL | `bgImage: "/img/hero.png"` |
-| `border` | `string` | Border color | `border: "#4a90d9"` |
-| `size` | `number` | Font size (px) | `size: 16` |
-| `weight` | `string` | Font weight | `weight: "bold"` |
-| `padding` | `number` | Inner spacing | `padding: 8` |
-| `margin` | `number` | Outer spacing | `margin: 4` |
-| `width` | `number` | Width | `width: 200` |
-| `height` | `number` | Height | `height: 24` |
-| `radius` | `number` | Border radius | `radius: 4` |
-| `opacity` | `number` | Opacity (0.0–1.0) | `opacity: 0.8` |
-| `alignment` | `string` | Cross-axis alignment | `alignment: "center"` |
-| `justify` | `string` | Main-axis distribution | `justify: "space-between"` |
+| `color` | `String` | Text color | `color: "#ff0000"` |
+| `bg` | `String` | Background color | `bg: "#1a1a2e"` |
+| `bgImage` | `String` | Background image URL | `bgImage: "/img/hero.png"` |
+| `border` | `String` | Border color | `border: "#4a90d9"` |
+| `size` | `Number` | Text size (logical pixels) | `size: 16` |
+| `weight` | `String` | Text weight, e.g. `"bold"` | `weight: "bold"` |
+| `radius` | `Number` | Corner radius | `radius: 4` |
+| `opacity` | `Number` | Opacity (0.0–1.0) | `opacity: 0.8` |
+| `alignment` | `String` | Cross-axis alignment of children | `alignment: "center"` |
+| `justify` | `String` | Main-axis distribution of children | `justify: "space-between"` |
+| `width`, `height` | `Number` or `String` | Size | `width: 200` |
+| `padding` | `Number` | Inner spacing | `padding: 8` |
+| `margin` | `Number` | Outer spacing | `margin: 4` |
 
-> **Backward Compatibility**: Long names (`backgroundColor`, `fontSize`, `fontWeight`, `borderRadius`, `borderColor`) still work, but new code should use the short names.
+- `size`, `weight`, and `color` apply to text; `bg`, `border`, `radius`, and `opacity` apply to the node itself.
+- Numeric sizes and spacing are **logical pixels** — device-independent, so the same source lays out the same way on every target.
 
-## Layout Size Literals
+## Layout Size Properties
 
-In layout attributes (`width`, `height`, `maxWidth`, etc.), besides numbers (logical pixels) and quoted percentage strings (`"100%"`), the following **reserved keywords** are available as string literals:
+`width` and `height` accept a number or one of the size literals:
 
-- `"fill"` — Fills the remaining space in the parent's main axis. Equivalent to using the `Fill` component (`flex: 1`).
-- `"auto"` — Sizes to the content.
+| Form | Example | Meaning |
+|------|---------|---------|
+| Number | `width: 200` | An exact size, in logical pixels |
+| `"auto"` | `height: "auto"` | The content's size: the node is sized by what it contains |
+| `"fill"` | `height: "fill"` | Take the remaining space offered along that axis |
+| Percentage | `width: "100%"` | That share of the parent's size along that axis |
+
+- `"fill"` is the flexible size — the equivalent of growing to share the leftover space (flex `1`). Leftover space is split **equally** among `"fill"` siblings of the same container.
+- The recommended library component `Fill` is this size spelled as a container (see [Components](/en/docs/reference/ui/components-and-templates/)).
 
 ```js
 // Correct usage
@@ -52,14 +59,39 @@ VStack(height: fill)   // Error: missing quotes
 VStack(width: 100%)    // Error: percentage needs quotes
 ```
 
+## Spacing and Alignment
+
+| Attribute | Applies to | Meaning |
+|-----------|-----------|---------|
+| `padding` | any node | Inner spacing: room between the node's own edge and its content |
+| `margin` | any node | Outer spacing: room outside the node, between it and its neighbors |
+| `spacing` | stack containers | Gap between adjacent children along the main axis |
+| `alignment` | stack containers | Cross-axis placement of children (`start`, `center`, `end`) |
+| `justify` | stack containers | Main-axis distribution (`start`, `center`, `end`, `space-between`) |
+
+`spacing` fixes the gap between neighbors; `justify` distributes the space that is left over after the children have their sizes.
+
+```js
+VStack(spacing: 8, padding: 4, alignment: "center") {
+  Text("Title")
+  Text("Subtitle")
+}
+
+HStack(justify: "space-between", padding: 4) {
+  Text("Left")
+  Text("Center")
+  Text("Right")
+}
+```
+
 ## `bg` vs `bgImage`
 
-**`bg` (color) and `bgImage` (image) are strictly separated.**
+**`bg` (color) and `bgImage` (image) are strictly separated.** An image URL written as `bg`, or a color written as `bgImage`, is a compile-time error (`E0202`) when the argument is a string literal — the two are never interchangeable.
 
 | Field | Accepts | Rejects |
 |-------|---------|---------|
-| `bg` | HEX (`#fff`), RGB (`rgb(255,0,0)`), theme ref (`$theme.surface`) | Image URLs, `url(...)` |
-| `bgImage` | Image URL (`"/img/hero.png"`) | Color values, theme refs |
+| `bg` | Colors — HEX (`#fff`), RGB (`rgb(255,0,0)`) | Image URLs, `url(...)` |
+| `bgImage` | Image URL (`"/img/hero.png"`) | Color values |
 
 ```js
 // Correct: color and image separated
@@ -68,12 +100,14 @@ VStack(bg: "#1a1a2e", bgImage: "/img/hero.png") {
 }
 
 // Incorrect: image URL cannot be assigned to bg
-VStack(bg: "/img/hero.png") {   // Compile error
+VStack(bg: "/img/hero.png") {   // Compile error (E0202)
   Text("Hello")
 }
 
 // Correct: pure color
-VStack(bg: "$theme.surface") {
+VStack(bg: "#101018") {
   Text("Hello")
 }
 ```
+
+See also: [Layout](/en/docs/spec/components/layout/) in the specification.

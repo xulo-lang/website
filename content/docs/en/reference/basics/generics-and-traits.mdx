@@ -3,96 +3,173 @@ title: Generics & Traits
 description: Generic types, trait bounds, and trait implementations in XULO.
 ---
 
-## Generics & Parameterized Types
+## Type Parameters
 
-XULO adopts the intuitive, modern angle-bracket `<T>` syntax, and requires **unified use of dot `.` for generic method and variant access** (completely prohibiting `::`).
-
-### Syntax Forms
-
-#### Structs & Enums with Generics
+A generic declaration writes `<…>` immediately after its name. Functions, `struct`s, `enum`s, `type` aliases, and `impl` blocks may all be parameterized.
 
 ```js
-pub struct Container<T> {
-    pub value: T,
-}
+fn first<T>(xs: List<T>): T { xs[0] }
+struct Pair<K, V> { key: K, value: V }
+enum Either<L, R> { Left(L), Right(R) }
+type Wrapper<T> = List<T>
 
-pub enum Option<T> {
-    Some(T),
-    None
+struct Holder<T> { value: T }
+impl<T> Holder<T> {
+  fn get(self): T { self.value }
 }
 ```
 
-#### Functions & Methods with Generics
+**Rules:**
+
+- One parameter list per declaration, comma-separated with distinct names — `<T, T>` is ill-formed.
+- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position.
+- Naming convention: a single letter (`T`, `U`, `K`, `V`) or an UpperCamelCase descriptive name.
+- Generic method and variant access use ordinary spelling: `x.method()` with `.`, variants with `::` (`Either::Left(1)`).
+
+### Nested Angle Brackets
+
+`>>` is one token (right shift), so two closing angle brackets must never touch — write a space:
 
 ```js
-pub fn map<T, U>(item: T, transform: fn(T): U): U {
-    transform(item)
-}
+let nested: List<Map<String, List<Int> > > = []
 ```
 
-#### Trait Bounds
+| Form | Well-formed |
+|------|-------------|
+| `List<List<T> >` | yes |
+| `List<List<T>>` | no — `>>` reads as the shift operator |
 
-Use colon `:` to specify bounds, and `+` to combine multiple bounds.
+## Bounds
 
 ```js
-pub fn print_item<T: Display + Serialize>(item: T) {
-    // ...
-}
+fn area_of<T: Area>(shape: T): Float { Area.area(shape) }
+fn perimeter_of<T>(shape: T): Float where T: Area { shape.perimeter() }
+fn render<T: Area + Scalable>(shape: T): Float { … }
 ```
 
-### EBNF Formal Rules
+- `<T: Trait>` and `where T: Trait` are equivalent; a parameter must not be bounded in both places. A `where` clause follows the return type and precedes the body.
+- Multiple bounds are joined with `+`, never with `&` — `&` builds an intersection *type* a value has, while `: A + B` restricts what may be substituted for a parameter.
+- A bound must name a trait visible at the declaration site (`E0806`); a bound is a constraint, not subtyping.
 
-```text
-GenericParams ::= '<' GenericParam (',' GenericParam)* ','? '>' ;
-GenericParam  ::= Identifier (':' TraitBound)? ;
-TraitBound    ::= TypeName ('+' TypeName)* ;
+## Inference
 
-GenericArgs   ::= '<' Type (',' Type)* ','? '>' ;
+Type arguments are **never written at a call site**: `first<Int>(…)` and `Map<String, Int>(…)` are not part of the language. Arguments are inferred by unification against the declared parameter types, and an expected type may supply what the arguments leave open.
+
+```js
+let n = first([1, 2, 3])        // T = Int
+let s = first(["a", "b"])       // T = String
+// let bad: String = first([1, 2])   // error: T is already Int
+
+fn empty<T>(): List<T> { [] }
+let ys: List<Int> = empty()     // OK: T from the expected type
+let xs = empty()                // error: T not determined (E0216)
 ```
+
+- Every inferred argument must satisfy the parameter's bounds; a type that implements nothing required is `E0801`.
+- Each distinct assignment of type arguments is a separate instantiation: the program behaves **as if** a non-generic copy were written for each, and no operation observes a type argument at runtime.
 
 ## Traits
 
-A `trait` declares a set of method signatures as a "capability" contract; `impl Trait for Type` provides implementations for a named type. `self` (reserved word) is the receiver, marking a method as an "instance method".
-
 ```js
 trait Area {
-    fn area(self): number
-    fn perimeter(self): number
+  fn area(self): Float;
+  fn perimeter(self): Float
 }
 
-type Rectangle = { w: number, h: number }
+struct Rectangle { w: Float, h: Float }
 
 impl Area for Rectangle {
-    fn area(self): number { self.w * self.h }
-    fn perimeter(self): number { 2 * (self.w + self.h) }
+  fn area(self): Float { self.w * self.h }
+  fn perimeter(self): Float { 2.0 * (self.w + self.h) }
 }
 ```
 
-### Explicit Dispatch
+**Declaration:**
 
-Calls use **explicit dispatch** `Trait.method(receiver, ...)` — the compiler resolves this to a static call on the `impl` method, with zero runtime overhead:
+- Method signatures are separated by `;` (a trailing `;` is optional).
+- A trait method is signature-only — **no default implementations**, and every method must declare a return type.
+- The receiver is `self` or `mut self`; an implementation must use the same form, and remaining parameters must be annotated.
+- `pub trait` exports the trait; importers use `import type { Area } from "…"` and implement it locally.
+
+**Implementation:**
+
+- Every declared method must be present (`E0802`) with mutually assignable signatures (`E0803`), and no extra methods may be declared (`E0804`) — extra behavior belongs in an inherent `impl`.
+- Two implementations of the same trait for the same type in the same module are `E0805`.
+- An `impl` applies within the module that contains it: **importing a type or trait never imports an `impl`**.
+
+## Dispatch
 
 ```js
 fn main() {
-    let r: Rectangle = { w: 3, h: 4 }
-    print(str(Area.area(r)))        // 12
-    print(str(Area.perimeter(r)))   // 14
+  let r = Rectangle(w: 3.0, h: 4.0)
+  print(str(Area.area(r)))      // explicit dispatch
+  print(str(r.area()))          // member call
 }
 ```
 
-### Generic Constraints
+- **Explicit dispatch** `Trait.method(receiver)` resolves directly to the implementation of `Trait` for the receiver's static type; if none is visible, that is `E0801`.
+- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait.method(receiver)`.
+- All dispatch is static. There is no dynamic dispatch on a value's runtime type and no reflection over type arguments.
 
-Type parameters can be constrained with `T: Trait` (inline) or `where T: Trait`. Constrained parameters are refined to the trait's structural shape for member access; multiple traits are joined with `+`:
+### Inside a Bound
 
 ```js
-fn describe<T: Area>(t: T): number {
-    Area.area(t)
+fn describe<T: Area>(shape: T): Float {
+  shape.area() + Area.area(shape)   // both forms, one target
 }
 ```
 
-### Rules
+- A member call on a type parameter resolves **through a bound** — the bound is its only source of members. An unbounded parameter has no members: `t.area()` inside `fn f<T>(t: T)` is `E0102`.
+- Both `x.method()` and `Trait.method(x)` are legal wherever `T: Trait` is written, and both denote the same static call.
+- The implementation a bound uses is the one visible at the point that **selects the type argument**; it travels with the bound into the generic body. Two instantiations at call sites in different modules may therefore use two different implementations — that is specified behavior, not an ambiguity.
 
-- Dispatch receivers must be **static named types**: `Trait.method(recv)` requires the receiver to resolve to a concrete named type with a registered `impl`, otherwise a "does not implement trait" error is reported
-- `impl` methods must implement all methods declared in the trait, with signatures (including `self`) that are bidirectionally assignable
-- Generic parameter values are erased at runtime, so dispatch calls are not possible under `T: Trait` constraints — only named type instances can be dispatched
-- `trait` is an exportable module member (`pub trait`), importable via `import type` and then implemented locally
+## Structural vs Nominal
+
+- A type satisfies a trait **only through an `impl`**. Matching field shapes never implies satisfaction.
+- A `type` alias is transparent: it never causes a type to implement a trait, and no `impl` may be declared *for an alias* — implementations attach to the type it expands to.
+- `ToString` is built in: interpolating a value in a template requires a base type (`Int`, `Float`, `Boolean`, `String`) or `impl ToString` (`E0212`).
+
+```js
+struct User { name: String, age: Int }
+
+impl ToString for User {
+  fn to_string(self): String {
+    `${self.name} (${self.age})`
+  }
+}
+```
+
+## Example
+
+```js
+trait Area {
+  fn area(self): Float;
+  fn perimeter(self): Float
+}
+
+struct Rectangle { w: Float, h: Float }
+struct Circle { r: Float }
+
+impl Area for Rectangle {
+  fn area(self): Float { self.w * self.h }
+  fn perimeter(self): Float { 2.0 * (self.w + self.h) }
+}
+
+impl Area for Circle {
+  fn area(self): Float { 3.14159 * self.r * self.r }
+  fn perimeter(self): Float { 2.0 * 3.14159 * self.r }
+}
+
+fn area_of<T: Area>(shape: T): Float { Area.area(shape) }
+
+fn main() {
+  let r = Rectangle(w: 3.0, h: 4.0)
+  let c = Circle(r: 2.0)
+  print(str(area_of(r)))       // 12
+  print(str(area_of(c)))       // ~12.57
+}
+```
+
+`area_of` is checked once per instantiation against `Area`; `Rectangle` and `Circle` satisfy the bound through their `impl`s.
+
+Bounds, inference, and monomorphization are specified in the [generics spec](/en/docs/spec/types/generics/), and dispatch in the [traits spec](/en/docs/spec/types/traits/).

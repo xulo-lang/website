@@ -17,7 +17,91 @@ if condition {
 }
 ```
 
-When used as an expression, the trailing expression types in both branches must be compatible (otherwise an "incompatible types" error occurs).
+- The condition must be `Boolean`; there is no truthiness (`if 0 { … }` is `E0201`).
+- `else if` is just an `if` used as the `else` branch and may be chained without limit.
+- With an `else` branch, both branches must have a common type (`E0211`); without one, the `if` has type `Unit` and the then-branch value is discarded.
+- In statement position the value is discarded, so branches may have unrelated types (see the statement-value rule in [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/)).
+- The condition is evaluated once; exactly one branch runs.
+
+### Type narrowing with `is`
+
+```js
+fn step(data: String | Int) {
+  if data is Int {
+    print(str(data + 1))    // data is Int here
+  } else {
+    print(data)             // data is String here
+  }
+}
+```
+
+When the condition (directly, or parenthesized) is `x is T` or `x is not T`, where `x` is an identifier and `T` is a testable type assignable to `x`'s type, the branches check with `x` narrowed. Narrowing belongs to the `if` condition alone — in `?:`, `while`, or under `!`, `is` is an ordinary `Boolean` test.
+
+## `match`
+
+```js
+let label = match x {
+  0 => "zero"
+  1 => "one"
+  _ => "many"
+}
+```
+
+- The scrutinee is evaluated exactly once, before any arm is tested.
+- Arms are tested in source order; the first matching arm wins and later arms are skipped.
+- An arm is `pattern => expression` or `pattern => { block }`; arms are separated by newlines or optional commas.
+- In expression position all arm bodies must have a common type (`E0211`); as a statement the values are discarded.
+
+### Patterns
+
+| Pattern | Form | Matches |
+|---------|------|---------|
+| Literal | `0`, `3.5`, `"ok"`, `true`, `null` | values equal to the literal |
+| Wildcard | `_` | anything; binds nothing |
+| Binding | `x` | anything; binds it for the arm body |
+| Variant | `Enum::Variant` | a payload-less variant |
+| Variant with payload | `Enum::Variant(p1, …)` | that variant, one sub-pattern per slot, in declaration order |
+| Struct deconstruction | `Type(p1, …)` | a value of that struct, one sub-pattern per field |
+| Type | `String s`, `Unknown _`, `String \| Int v` | a value of that type, binding the name |
+| Range | `a..<b`, `a...b` | numeric values inside the range |
+
+- Variants use `::` in patterns and expressions — `Shape::Circle(r)`, never `Shape.Circle`.
+- Sub-patterns nest: `Shape::Dot(Point(x, y))`. A slot that is not bound must be written `_`.
+- Range operands must be numeric literals of the same type as the scrutinee; `0...9` includes both ends, `0..<10` excludes the upper bound.
+- The written type of a type pattern must be **testable**: a base type, a non-generic struct/enum, `Unknown`, or an optional/union of testable types. `List<Int>`, `Map<…>`, function types, and type parameters are not testable (`E0303`).
+- There are **no guards** and no or-patterns: an arm is selected by its pattern alone.
+
+```js
+enum Shape {
+  Dot(Point)
+  Rect(Int, Int)
+}
+
+fn describe(s: Shape): String {
+  match s {
+    Shape::Dot(Point(x, y)) => `point ${x},${y}`
+    Shape::Rect(w, h) => `${w}x${h}`
+  }
+}
+```
+
+### Exhaustiveness and Reachability
+
+- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`.
+- An arm that can never be selected is an error (`E0302`): anything after a wildcard or binding arm, a repeated literal, or a type already covered by an earlier arm.
+
+```js
+let grade = match score {
+  90...100 => "A"
+  80..<90  => "B"
+  _        => "F"
+}
+
+match n {
+  _   => "any"
+  0   => "zero"    // error: unreachable arm (E0302)
+}
+```
 
 ## `for` Loops
 
@@ -26,56 +110,92 @@ for item in items {
   print(item)
 }
 
-for i in 0..<10 {     // Range (left-closed, right-open)
+for i in 0..<10 {
   print(i)
 }
 ```
 
+- The iterable expression is evaluated exactly once, before the first iteration; later changes to the source do not affect the loop in progress.
+- Only these types are iterable — anything else is `E0213`:
+
+| Iterable | Loop binding | Order |
+|----------|--------------|-------|
+| `List<T>` | `T` | index order |
+| `Map<K, V>` | `K` (keys; read values with `m[k]`) | insertion order |
+| `Set<T>` | `T` | unspecified — do not depend on it |
+| `Range<T>` | `T` | ascending from `start` |
+
+- The loop variable is a fresh **immutable** binding per iteration: it may shadow an outer name, must not be assigned, and is gone after the loop. To accumulate, use a `let mut` outside the loop.
+- The value of a `for` loop is `Unit`.
+
+## Ranges
+
+```js
+for i in 0..<3 { }   // 0, 1, 2
+for i in 0...3 { }   // 0, 1, 2, 3
+```
+
+- `..<` is half-open, `...` is closed. Both operands must have the same numeric type (`E0201` for `0..<x` with `x: Float` — write `0.0..<x`).
+- A range whose start is greater than its end iterates zero times; there is no reverse iteration.
+- `Range<T>` is a value: it may be bound, passed, and used as a range pattern in `match`.
+
 ## `while` Loops
 
 ```js
-let count = 0
+let mut count = 0
 while count < 10 {
   count = count + 1
 }
 ```
 
-## `match`
+The condition is evaluated before every iteration and must be `Boolean`; the body runs zero or more times and the loop has type `Unit`.
+
+## `break` and `continue`
 
 ```js
-match value {
-  0 => "zero"
-  1 => "one"
-  _ => "other"
-}
-```
-
-- The trailing expression types across all arms must be mutually compatible (same rule as `if` branches); incompatible types cause a static error
-- Branches are separated by optional commas or newlines; both work
-- Generic enum payloads (`Operation { Success(data: number) ... }`) are erased to `any` inside arms, allowing safe type merging with other branches
-- Supports enum member and payload binding:
-
-```js
-let op = Operation.Success(42)
-match op {
-  Operation.Success(value) => print("Got: " + value)
-  Operation.Error(msg) => print("Error: " + msg)
-}
-```
-
-## Error Handling: `throw` / `try` / `catch`
-
-```js
-async fn fetchUser(id: string): User {
-  try {
-    let response = await fetch("/api/users/" + id)
-    return await response.json()
-  } catch (e) {
-    print("Error: " + e.message)
-    return null
+for row in 0..<3 {
+  for col in 0..<3 {
+    if col == 1 { continue }   // next element of the inner loop
+    if row == 2 { break }      // leaves the inner loop only
+    print(`${row},${col}`)
   }
 }
 ```
 
-- `throw <expr>` throws an exception
-- `try { ... } catch (e) { ... }` catches an exception
+- Both are **statements**, valid inside a `for` or `while` body (including inside nested `if`/`match` arms).
+- `break` ends the innermost enclosing loop; `continue` starts the next iteration. `break` carries no value: there is no `loop` expression and no loop labels.
+- Either one outside a loop — or inside a function/closure nested in a loop — is `E0214`.
+
+## Block Scoping
+
+Every branch, arm, and loop body opens a block scope: a binding declared inside is invisible after the block, and shadowing an outer name inside a block is allowed.
+
+```js
+if true {
+  let note = "inside"
+  print(note)
+}
+print(note)    // error: not in scope
+```
+
+## Error Handling
+
+XULO has **no exceptions** — no `throw`, `try`, or `catch`. Failures are values:
+
+```js
+fn half(n: Int): Result<Int, String> {
+  if n % 2 == 0 { Result::Ok(n / 2) } else { Result::Err("odd input") }
+}
+
+fn quarter(n: Int): Result<Int, String> {
+  let h = half(n)?      // propagates Err upward
+  half(h)
+}
+```
+
+- A missing value is ordinary data: `T?`, read with `??`, `?.`, a null test, or `?`.
+- A failed operation returns the built-in `Result<T, E>` — `Result::Ok(v)` or `Result::Err(e)` — inspected with `match` (exhaustiveness applies) or propagated with the postfix `?`.
+- `e?` yields the success value or returns the failure from the enclosing function; the operand must be `T?` or `Result<T, E>` and the enclosing function must declare a return type the failure fits (`E0217`).
+- `panic(message)` stops the program where it is written; the operand is a `String` and there is no handler. Use `Result` for outcomes a caller may handle, `panic` for broken invariants.
+
+See the [error handling spec](/en/docs/spec/error-handling/) for the full model, and [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/) for evaluation order and the statement-value rule.

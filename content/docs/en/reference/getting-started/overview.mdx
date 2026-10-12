@@ -1,20 +1,20 @@
 ---
 title: Overview
-description: An overview of the XULO language.
+description: An overview of syntax, types, and components in XULO.
 ---
 
-XULO is a general-purpose programming language designed for optimal human/AI reading. It covers everything from terminal scripts to cross-platform UI layout — with a single, consistent syntax.
+Xulo is a UI-first, statically typed language: a single `.xulo` file carries both the logic of a program and the interface it presents. Types are checked before the program runs, local type inference covers the interior of function bodies, and there is one syntax for logic and layout.
 
 ## Two Modes
 
-XULO programs come in two forms:
+XULO programs come in two forms, decided by the signature of the entry point:
 
 **Terminal** — plain logic, no UI:
 
 ```js
 fn main() {
   let name = "World"
-  println("Hello, " + name)
+  println(`Hello, ${name}`)
 }
 ```
 
@@ -30,36 +30,35 @@ fn main(): View {
 }
 ```
 
-The entry point is always `fn main()`. When the return type is `View`, the compiler renders the component tree into a UI interface.
+A plain `fn main()` runs **headlessly**: the body executes and nothing is painted. `fn main(): View` is a **renderable program** — the host invokes `main`, lays out and paints the tree it returns, and invokes it again for every later pass.
 
 ## Core Syntax
 
 ### Functions
 
 ```js
-fn add(a: number, b: number): number {
+fn add(a: Int, b: Int): Int {
   a + b
 }
 ```
 
-Use `fn` to declare functions. Parameters are typed with `:`. The last expression is the implicit return value.
+Use `fn` to declare functions. Parameters are typed with `:`; every parameter type is annotated. The trailing expression is the implicit return value — no `return` needed.
 
 ### Variables
 
 ```js
-let x = 10
-const PI = 3.14
+let x = 10               // Immutable by default
+let mut y = 20           // Assignable
+const PI = 3.14          // Compile-time constant
+let name: String = "Alice"
 ```
 
-`let` for mutable bindings, `const` for constants.
+`let` introduces an **immutable** binding — assigning to it is an error. `let mut` opts into mutation, `const` names a compile-time constant, and a type annotation, when present, follows the name separated by `:`.
 
 ### Structs & Enums
 
 ```js
-struct Point {
-  x: number
-  y: number
-}
+struct Point { x: Int, y: Int }
 
 enum Direction {
   Up
@@ -68,6 +67,8 @@ enum Direction {
   Right
 }
 ```
+
+`Point(x: 0, y: 0)` constructs a struct value. `Direction::Up` names a variant — `::` separates a variant from its enum, while `.` is used only for fields, methods, and namespace members.
 
 ### Control Flow
 
@@ -78,50 +79,57 @@ if x > 0 {
   println("non-positive")
 }
 
-for i in 0..10 {
+for i in 0..<10 {
   println(str(i))
 }
 
 match direction {
-  Direction.Up => move_up()
+  Direction::Up => move_up()
   _ => {}
 }
 ```
 
+- `if` and `match` are expressions: an `if` with an `else` and a `match` take the common type of their branches/arms.
+- Conditions must have type `Boolean` — there is no truthiness.
+- `0..<10` is a half-open range, `0...10` is closed; `for` also iterates `List`, `Map` (its keys), and `Set`.
+- A `match` must account for every case of the value it destructures.
+
 ## UI Components
 
-When writing UI, XUTO uses a component tree syntax. Components are PascalCase identifiers; attributes are `key: value` pairs in `(...)`:
+A **component** is a function whose declared return type is `View` — that return type, never the spelling of the name, marks it as one:
 
 ```js
-Screen {
-  Header {
-    Text("Dashboard")
-  }
-  Body {
-    VStack(spacing: 16) {
-      Card(title: "Stats", radius: "lg") {
-        Text("3,214 accounts")
+fn Dashboard(): View {
+  Screen {
+    Header {
+      Text("Dashboard")
+    }
+    Body {
+      VStack(spacing: 16) {
+        Card(title: "Stats", radius: "lg") {
+          Text("3,214 accounts")
+        }
+        Button("View All", variant: "outline")
       }
-      Button("View All", variant: "outline")
     }
   }
 }
 ```
 
-- Uppercase names are components
-- lower camelCase names are attributes and named values
-- No closing tags, no angle brackets — structure comes from the `{` block
+- Components are conventionally UpperCamelCase; attributes are `key: value` pairs in `( )`.
+- Structure comes from `{ … }` blocks: no closing tags, no angle brackets.
+- A block's children are component invocations, strings, `if`, `for`, and expressions of type `View` or `List<View>` — never declarations or assignments.
+- `@State`, `@Store`, `@Effect`, and `@Environment` appear at the top level of a component body and give it memory, work, and access to its surroundings.
 
 ## Values
 
-- **String** — `"..."` or `'...'`
-- **Number** — `400`, `1.5`, `16`
+- **String** — `"..."` or `'...'`; only a template literal in backticks interpolates
+- **Number** — `Int` (`400`), `Float` (`1.5`); conversions are explicit with `str(x)`, because `+` never mixes strings and numbers
 - **Boolean** — `true` / `false`
-- **Identifier** — a named value or token, e.g. `primary` or `lg`
 
 ## Comments
 
-`//` starts a line comment, up to the end of the line. Comments are stripped before rendering.
+`//` starts a line comment, up to the end of the line; `/* … */` is a block comment. Comments carry no meaning to the language.
 
 ```js
 // This is a comment
