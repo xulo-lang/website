@@ -14,6 +14,8 @@ node_modules
 /blob-report/
 /playwright/.cache/
 .tanstack
+# Auto-generated files
+/content/docs/en/spec/
 
 .source
 .wrangler
