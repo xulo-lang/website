@@ -114,7 +114,7 @@ async fn concurrent(): Int {
 }
 ```
 
-`Task.all` and `Task.race` combine several tasks into one. Starting work independently of the current task — detached work, work on another execution resource — is done with `spawn`.
+`Task.all`, `Task.race`, and `Task.timeout` combine several tasks into one. Starting work independently of the current task — detached work, work on another execution resource — is done with `spawn`.
 
 ## The `Task` utilities
 
@@ -124,6 +124,7 @@ async fn concurrent(): Int {
 |--------|-----------|---------|
 | `Task.all` | `all<T>(tasks: List<Task<T>>): Task<List<T>>` | completes when every task has completed; results in argument order |
 | `Task.race` | `race<T>(tasks: List<Task<T>>): Task<T>` | completes with the first task to complete |
+| `Task.timeout` | `timeout<T>(t: Task<T>, ms: U64): Task<Result<T, Error>>` | settles with `t`'s result within `ms`, or cancels `t` and fails with `Error("timed out")` |
 | `Task.resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
 
 ```js
@@ -131,6 +132,10 @@ async fn fetchAll(): List<User> {
   let a = fetchUser(1)
   let b = fetchUser(2)
   await Task.all([a, b])
+}
+
+async fn poll_with_deadline(): Result<Int, Error> {
+  await Task.timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
 }
 ```
 
@@ -162,6 +167,7 @@ The combinators combine results and cancellation the way the operations they des
 - `Task.all` waits until every task of the list has settled, then completes with the results in argument order; if any of them settled as cancelled, the combined task settles as cancelled.
 - `Task.race` settles as soon as the first task of the list settles: with that task's result when it completed, as cancelled when it was cancelled.
 - Neither combinator cancels the tasks it combines: the others run on and their results are discarded when they are not the ones selected.
+- `Task.timeout` puts one task under a deadline: within `ms` milliseconds it settles with that task's result wrapped in `Result::Ok` (a body that is itself fallible nests as `Ok(Ok(…))` / `Ok(Err(…))`); on expiry it **cancels the wrapped task** — unlike `Task.all` and `Task.race` — and settles immediately with `Result::Err(Error("timed out"))`, without waiting for it to stop. A wrapped task that settles as cancelled before the deadline settles the combined task as cancelled; cancelling the combined task cancels the wrapped one.
 
 ## Where `await` is forbidden
 

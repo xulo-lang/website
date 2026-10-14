@@ -39,7 +39,7 @@ match RegExp.compile("^[a-z0-9]+$") {
 
 ### `find(input: String): RegexMatch?`
 
-First match in `input`, or `null` when there is none. The optional is read with a null test (which narrows the binding) or with `??` — there is no `if let` and no `!` operator.
+First match in `input`, or `null` when there is none. The optional is read with a null test (which narrows the binding) or with `??` — there is no `if let` and no non-null assertion (`!` is logical negation, not an unwrap).
 
 ```js
 fn first_group(re: RegExp, input: String): String? {

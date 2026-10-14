@@ -13,6 +13,7 @@ XULO is expression-oriented but not purely so: a small set of constructs is a st
 | `place = value` | statement |
 | `return e`, `return` | statement |
 | `break`, `continue` | statement |
+| `defer e`, `defer { … }` | statement |
 | `for … in … { … }`, `while … { … }` | statement |
 | bare expression in statement position | statement |
 | `if` / `else`, `match`, block `{ … }` | expression |
@@ -21,13 +22,14 @@ XULO is expression-oriented but not purely so: a small set of constructs is a st
 
 **Statement termination.** The grammar is newline-insensitive: a statement ends when the next token cannot continue it, and `;` is an optional terminator — this is not automatic semicolon insertion. Several statements on one line are separated with `;`.
 
-**The statement-value rule.** An expression statement that is not `Unit` is an error (`E0218`), **except** when it is a control-flow construct (`if`, `match`, `for`, `while`) whose value is discarded.
+**The statement-value rule.** An expression statement that is not `Unit` is an error (`E0218`), **except** when it is a control-flow construct (`if`, `match`, `for`, `while`) whose value is discarded, or a `Task` returned by `send` on a service handle — a fire-and-forget message whose reply goes unread.
 
 ```js
 print("hi")                              // legal: Unit call
 total + 1                                // error: value discarded (E0218)
 if total > 0 { print("yes") }            // legal: control-flow exception
 total > 0 ? a() : b()                    // error: ternary is not control flow
+worker.send(cmd)                         // legal: a service send's Task may be discarded
 let sum = a + b                          // legal: expression position uses the value
 ```
 
@@ -163,6 +165,21 @@ let x = {
 
 A block's type is its final expression's type, or `Unit` when there is none. The final expression must not be followed by `;` if its value is wanted.
 
+## `defer`
+
+```js
+fn handle(path: String) {
+  let f = open(path)
+  defer close(f)          // runs when this block exits
+  process(f)
+}
+```
+
+- `defer e` (or `defer { … }`) **registers** the operand; it is evaluated when control leaves the enclosing block, and its value is discarded. Several defers in one block run in reverse order of registration.
+- Control leaves a block at its end, on `return`, the early return of `?`, `break`/`continue` out of it, and when the task stops as cancelled at an `await`. `panic` runs no defers.
+- `return`, `break`, `continue`, and `?` must not appear in a defer operand (`E0229`).
+- A block's defers run after its value is determined and after the tasks spawned in the block have settled, so cleanup can no longer change the result. Use `defer` (or cleanup written on each path) instead of a destructor: the language has none.
+
 ## Evaluation Order
 
 | Construct | Evaluated | Skipped |
@@ -171,7 +188,7 @@ A block's type is its final expression's type, or `Unit` when there is none. The
 | `c ? x : y` | `c`, then one branch | the other branch |
 | `a ?? b` | `a`; `b` only when `a` is `null` | `b` otherwise |
 | `if c { A } else { B }` | `c` once, then the selected branch | the other branch |
-| `match e { … }` | `e` once, then arms in order | every later arm |
+| `match e { … }` | `e` once, then each pattern, its guard, then the body | every later arm |
 | `for x in it { B }` | `it` once, then one binding and `B` per element | the body when empty |
 | `while c { B }` | `c` before each iteration | the body when `c` is false |
 

@@ -39,6 +39,7 @@ let p = (10, "ten")               // (Int, String)
 - `Map<K, V>` is insertion-ordered; keys must be hashable (`String`, `Int`, `Float`, `Boolean`, payload-free enums). A brace literal `{ k: v }` is a **map**, not an anonymous struct.
 - `Set<T>` has no literal form — construct it with the prelude — and no specified iteration order.
 - Tuples have at least two elements, are read with `p.0`, and destructure with `let (a, b) = p`. They cannot be iterated (`E0213`) and have no `match` pattern form.
+- Beyond `+`, subscripts, and iteration, collections are manipulated with prelude operations: `list_size`, `list_push`, `list_remove` (out-of-range yields `null`), and `enumerate` on lists; `map_size`, `map_has_key`, `map_get` (a lookup that answers `null` instead of failing), `map_remove`, and entry conversions on maps; `set_from_list`, `set_insert`, `set_remove`, `set_contains`, and `set_size` on sets.
 
 ## Optionals, Unions, Intersections
 

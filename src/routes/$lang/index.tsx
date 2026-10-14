@@ -16,20 +16,20 @@ const FEATURES_ZH = [
     badge: 'OOP & 封装',
     desc: '支持数据结构与方法实现，显式 pub 可见性控制，消除过度隐式继承。',
     fileName: 'user.xulo',
-    code: `export struct User {
-    pub name: string
-    pub age: number
+    code: `pub struct User {
+    pub name: String
+    pub age: Int
     role: Role
 }
 
 impl User {
     // 构造函数
-    pub fn new(name: string, age: number): User {
-        User(name: name, age: age, role: Role.Member)
+    pub fn new(name: String, age: Int): User {
+        User(name: name, age: age, role: Role::Member)
     }
 
     // 实例方法（使用 pub 暴露）
-    pub fn get_name(self): string {
+    pub fn get_name(self): String {
         self.name
     }
 }`,
@@ -38,63 +38,55 @@ impl User {
     id: 'enum-match',
     title: 'enum + match',
     badge: '代数数据类型',
-    desc: '代数数据类型与穷尽模式匹配。全语言统一使用点号 (.) 访问枚举变体，禁用双冒号 (::)。',
+    desc: '代数数据类型与穷尽模式匹配。变体统一用双冒号 (::) 路径访问，点号 (.) 保留给字段与方法。',
     fileName: 'role.xulo',
-    code: `export enum Role {
-    Admin
-    Member
-    Guest(permissions: list<string>)
+    code: `pub enum Role {
+    Admin,
+    Member,
+    Guest(permission: String),
 }
 
-pub fn check_access(role: Role): boolean {
+pub fn check_access(role: Role): Boolean {
     match role {
-        Role.Admin => true,
-        Role.Guest(perms) => perms.len() > 0,
-        Role.Member => false
+        Role::Admin => true,
+        Role::Guest(p) => p == "read",
+        Role::Member => false,
     }
 }`,
   },
   {
     id: 'json-async',
     title: 'JSON & async/await',
-    badge: '内置原语',
-    desc: 'JSON 为全局原生原语无需 import。提供开箱即用的 JSON.parse_async 与异步任务协程。',
+    badge: 'Result & Task',
+    desc: 'JSON 来自 std/json 并返回 Result。async fn 产生 Task<T>，await 解包，失败用 ? 向上传播。',
     fileName: 'api.xulo',
-    code: `import { fetch } from "std/net"
+    code: `import * as JSON from "std/json"
+import { fetch } from "std/net"
 
-export async fn fetch_profile(id: string): User {
-    try {
-        let resp = await fetch("/api/users/" + id)
-        // 异步解析 JSON 为强类型 User 结构体
-        return await JSON.parse_async<User>(resp.body)
-    } catch err: JSONError {
-        print("JSON parse error: " + err.to_string())
-        throw err
-    }
+pub async fn fetch_profile(id: String): Result<User, JSONError> {
+    let resp = await fetch("/api/users/" + id)
+    // 解析失败会经由 ? 提前返回整个 Result::Err
+    let user = JSON.parse(resp.body)?
+    Result::Ok(user)
 }`,
   },
   {
-    id: 'try-catch',
-    title: 'Typed try / catch / finally',
+    id: 'result-error-handling',
+    title: 'Result & ? 错误处理',
     badge: '零歧义错误模型',
-    desc: '类型化多重 catch 捕获与 finally 资源清理，放弃复杂的 Result 包装，回归极佳 DX。',
+    desc: '没有异常：失败是普通的 Result 值，用 match 检查或用 ? 传播；panic 停止程序且没有处理器。',
     fileName: 'storage.xulo',
-    code: `import { fs } from "std/fs"
+    code: `enum LoadError { NotFound(path: String), Denied(user: String) }
 
-pub fn load_config(path: string): Config {
-    let file = fs.open(path)
-    try {
-        let content = file.read_all()
-        return JSON.parse<Config>(content)
-    } catch err: JSONError {
-        print("Config syntax error: " + err.to_string())
-        return Config.default()
-    } catch err: FsError {
-        print("File read error: " + err.to_string())
-        return Config.default()
-    } finally {
-        file.close() // 100% 保证清理执行
-    }
+fn read(path: String): Result<String, LoadError> {
+    if path == "" { return Result::Err(LoadError::NotFound(path)) }
+    Result::Ok("{}")
+}
+
+// ? 传播 Err，主路径保持线性
+pub fn load(path: String): Result<String, LoadError> {
+    let raw = read(path)?
+    Result::Ok(raw)
 }`,
   },
 ];
@@ -106,20 +98,20 @@ const FEATURES_EN = [
     badge: 'OOP & Encapsulation',
     desc: 'Data structures with method implementations, explicit pub visibility, and no implicit inheritance.',
     fileName: 'user.xulo',
-    code: `export struct User {
-    pub name: string
-    pub age: number
+    code: `pub struct User {
+    pub name: String
+    pub age: Int
     role: Role
 }
 
 impl User {
     // Constructor
-    pub fn new(name: string, age: number): User {
-        User(name: name, age: age, role: Role.Member)
+    pub fn new(name: String, age: Int): User {
+        User(name: name, age: age, role: Role::Member)
     }
 
     // Instance method (exposed with pub)
-    pub fn get_name(self): string {
+    pub fn get_name(self): String {
         self.name
     }
 }`,
@@ -128,63 +120,55 @@ impl User {
     id: 'enum-match',
     title: 'enum + match',
     badge: 'Algebraic Data Types',
-    desc: 'Algebraic data types with exhaustive pattern matching. Uniform dot-notation (.) for enum variants, double colons (::) banned.',
+    desc: 'Algebraic data types with exhaustive pattern matching. Variants are paths with ::; the dot (.) is reserved for fields and methods.',
     fileName: 'role.xulo',
-    code: `export enum Role {
-    Admin
-    Member
-    Guest(permissions: list<string>)
+    code: `pub enum Role {
+    Admin,
+    Member,
+    Guest(permission: String),
 }
 
-pub fn check_access(role: Role): boolean {
+pub fn check_access(role: Role): Boolean {
     match role {
-        Role.Admin => true,
-        Role.Guest(perms) => perms.len() > 0,
-        Role.Member => false
+        Role::Admin => true,
+        Role::Guest(p) => p == "read",
+        Role::Member => false,
     }
 }`,
   },
   {
     id: 'json-async',
     title: 'JSON & async/await',
-    badge: 'Built-in Primitives',
-    desc: 'JSON is a global primitive — no import needed. Built-in JSON.parse_async with async task coroutines.',
+    badge: 'Result & Task',
+    desc: 'JSON comes from std/json and returns a Result. async fn produces a Task<T> you await — failures travel up with ?.',
     fileName: 'api.xulo',
-    code: `import { fetch } from "std/net"
+    code: `import * as JSON from "std/json"
+import { fetch } from "std/net"
 
-export async fn fetch_profile(id: string): User {
-    try {
-        let resp = await fetch("/api/users/" + id)
-        // Async parse JSON into strongly-typed User struct
-        return await JSON.parse_async<User>(resp.body)
-    } catch err: JSONError {
-        print("JSON parse error: " + err.to_string())
-        throw err
-    }
+pub async fn fetch_profile(id: String): Result<User, JSONError> {
+    let resp = await fetch("/api/users/" + id)
+    // A parse failure early-returns the whole Result::Err via ?
+    let user = JSON.parse(resp.body)?
+    Result::Ok(user)
 }`,
   },
   {
-    id: 'try-catch',
-    title: 'Typed try / catch / finally',
+    id: 'result-error-handling',
+    title: 'Result & ? Error Handling',
     badge: 'Zero-Ambiguity Error Model',
-    desc: 'Typed multi-catch and finally resource cleanup. Abandon complex Result wrappers for superior DX.',
+    desc: 'No exceptions: failures are ordinary Result values you inspect with match or propagate with ?. panic stops the program — there is no handler.',
     fileName: 'storage.xulo',
-    code: `import { fs } from "std/fs"
+    code: `enum LoadError { NotFound(path: String), Denied(user: String) }
 
-pub fn load_config(path: string): Config {
-    let file = fs.open(path)
-    try {
-        let content = file.read_all()
-        return JSON.parse<Config>(content)
-    } catch err: JSONError {
-        print("Config syntax error: " + err.to_string())
-        return Config.default()
-    } catch err: FsError {
-        print("File read error: " + err.to_string())
-        return Config.default()
-    } finally {
-        file.close() // 100% guaranteed cleanup
-    }
+fn read(path: String): Result<String, LoadError> {
+    if path == "" { return Result::Err(LoadError::NotFound(path)) }
+    Result::Ok("{}")
+}
+
+// ? propagates the Err; the happy path stays linear
+pub fn load(path: String): Result<String, LoadError> {
+    let raw = read(path)?
+    Result::Ok(raw)
 }`,
   },
 ];
@@ -204,12 +188,12 @@ function Home() {
         {
           icon: Zap,
           title: '简洁语法',
-          description: '统一的 ESM 字符串导入、全点号访问、零歧义语法设计，零摩擦。',
+          description: '统一的 ESM 字符串导入，字段与方法用点号 (.)、变体用双冒号 (::)，零歧义语法设计，零摩擦。',
         },
         {
           icon: ShieldCheck,
-          title: '类型安全与类型化 Catch',
-          description: '静态类型、类型推断、struct pub 可见性、结构化 try/catch 错误处理。',
+          title: '类型安全与 Result 错误模型',
+          description: '静态类型、类型推断、pub 可见性；失败以 Result 承载，用 match 检查或用 ? 传播。',
         },
         {
           icon: Sparkles,
@@ -226,12 +210,12 @@ function Home() {
         {
           icon: Zap,
           title: 'Clean Syntax',
-          description: 'Unified ESM string imports, dot-notation everywhere, and zero-ambiguity syntax designed for zero friction.',
+          description: 'Unified ESM string imports, one access rule — `.` for members, `::` for variants — and zero-ambiguity syntax designed for zero friction.',
         },
         {
           icon: ShieldCheck,
-          title: 'Type-Safe & Typed Catch',
-          description: 'Static typing with type inference, struct pub visibility, and structured try/catch error handling.',
+          title: 'Type-Safe & Result Errors',
+          description: 'Static typing with type inference, `pub` visibility, and failures carried as `Result` values propagated with `?`.',
         },
         {
           icon: Sparkles,
@@ -262,13 +246,11 @@ function Home() {
           </h1>
 
           <h2 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-6 tracking-tight">
-            {isZh ? '现代开发体验，原生思维模式' : 'Modern DX, Native Mind.'}
+            {isZh ? '逻辑与界面，同一份源码' : 'Logic and interface, one file'}
           </h2>
 
-          <p className="max-w-2xl text-fd-muted-foreground text-base md:text-lg leading-relaxed mb-10">
-            {isZh
-              ? '面向开发者友好和 AI 优化的系统语言。TypeScript 级人体工学，零 GC 原生性能。'
-              : 'A developer-friendly and AI-optimized systems language. TypeScript-level ergonomics paired with zero-GC native performance.'}
+          <p className="text-xl md:text-2xl font-semibold text-fd-foreground/80 tracking-tight mb-10">
+            {isZh ? '可靠、可读、无数据竞争。' : 'Reliable, readable, and race-free.'}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-12">
@@ -406,7 +388,7 @@ function Home() {
               {/* IDE Footer */}
               <div className="px-6 py-2.5 bg-white/[0.02] border-t border-white/5 text-[11px] text-gray-500 font-mono flex items-center justify-between">
                 <span>Language: XULO v0.1</span>
-                <span>Zero GC • ESM Ready</span>
+                <span>{isZh ? '静态类型 • 规范驱动' : 'Statically Typed • Spec-Driven'}</span>
               </div>
             </div>
           </div>
@@ -427,12 +409,12 @@ function Home() {
             <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
               <div className="text-purple-400 font-mono text-sm mb-2">VS TypeScript</div>
               <h3 className="text-lg font-bold text-fd-foreground mb-3">
-                {isZh ? '原生 & 零 GC' : 'Native & Zero-GC'}
+                {isZh ? '安全默认值' : 'Safe Defaults'}
               </h3>
               <p className="text-xs text-fd-muted-foreground leading-relaxed">
                 {isZh
-                  ? '消除 Node/V8 运行时开销和非确定性 GC 暂停，同时保持你喜爱的简洁 TypeScript 风格语法。'
-                  : 'Eliminate Node/V8 runtime overhead and non-deterministic GC pauses while keeping the clean TypeScript-like syntax you already love.'}
+                  ? '`let` 默认不可变、`match` 必须穷尽、无隐式类型转换——危险的选择都需要显式声明。'
+                  : '`let` bindings are immutable by default, every `match` must be exhaustive, and nothing is coerced silently — the risky choices are the ones you opt into.'}
               </p>
             </div>
 
@@ -443,8 +425,8 @@ function Home() {
               </h3>
               <p className="text-xs text-fd-muted-foreground leading-relaxed">
                 {isZh
-                  ? '无需复杂生命周期标注或宏困惑。清晰的 try/catch 模型和统一的点号访问。'
-                  : 'No complex lifetime annotations or macro confusion. Clear try/catch models and uniform dot-notation access.'}
+                  ? '无需学习生命周期标注或宏。错误是普通的 Result 值，成员与变体共用一套访问规则。'
+                  : 'No lifetime annotations and no macros to learn. Errors are ordinary `Result` values, and one access rule covers members and variants alike.'}
               </p>
             </div>
 

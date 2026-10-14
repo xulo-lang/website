@@ -154,7 +154,8 @@ Storage is managed automatically. Memory becomes eligible for reclamation when i
 
 - A value reachable from anywhere is kept: a returned closure keeps its captures alive, a suspended task keeps its frame alive, and a shared region lives while any binding or task names it.
 - There is no explicit deallocation, no destructor, and no operation that frees memory early; a program cannot observe reclamation, and no program behavior depends on when it happens.
-- Deterministic *release of a resource* — a file, a connection — is a library concern expressed with ordinary control flow: cleanup is written on each path that needs it, because the language provides no destructor and no `finally` clause. The language itself manages only storage.
+- How an implementation reclaims — tracing, reference counting with cycle collection, region-based bulk reclamation — is not fixed; only the guarantee above is.
+- Deterministic *release of a resource* — a file, a connection — is a library concern expressed with ordinary control flow: cleanup is written on each path that needs it or registered once with `defer`, because the language provides no destructor. The language itself manages only storage.
 
 ## Runtime failures
 
@@ -342,18 +343,29 @@ async fn main() {
   let worker = spawn.process Tally { total: 0 }
   let sum = await worker.send(41)
   print(sum)                        // 41
+  worker.stop()
 }
 ```
 
 - `spawn.process Type { field: expr, … }` starts a service of the struct type `Type`. The field list initializes the service's state; it is evaluated left-to-right, and the constructed value is deep-copied into the new service, so the service never shares storage with its spawner.
 - `Type` MUST declare `on_message` in an `impl` block; a service type without one is a compile-time error (`E0409`). The method takes a receiver (`self` or `mut self`) and exactly one message parameter; it MAY be declared `async`.
-- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R> }`.
-- `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected.
+- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R>, stop: fn(): Unit }`.
+- `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected; `send(move x)` transfers ownership instead, and any later use of `x` is a compile-time error (`E0403`). The returned task may be discarded — a fire-and-forget message whose reply goes unread.
 - A service handles one message at a time, in arrival order: `on_message` runs to completion — through every `await`, if it is `async` — before the next message begins.
 - `reply(e)` may be called only inside `on_message`. The reply type `R` is the common type of the `reply` operands in the method, or `Unit` when the method never calls `reply`. The send's task settles when `on_message` returns, carrying the reply value — or, when the executed path performed no `reply` although the method contains `reply` calls, settling as cancelled.
 - Cancelling a send task does not withdraw a message already queued.
 
 Messages are the only channel: there is no shared state between a service and its clients, so a service never needs `shared` or `lock`.
+
+### Service lifetime and `stop`
+
+A service is not bound to the block that started it. It runs until it is stopped through its handle or until the program ends:
+
+- Completing the block that evaluated the `spawn.process` expression does not stop the service. The handle may be stored, passed, and used after that block has finished — including from a later iteration of a loop whose body started the service.
+- `handle.stop()` requests that the service stop. Stopping is cooperative, following the same rule as a cancelled task: the service finishes its current synchronous run and stops at its next `await`. A body that never awaits again runs to completion, and the service has stopped when `on_message` returns.
+- When a service stops, every message still queued is discarded, and each discarded message's send task settles as cancelled. A `reply` performed by the path that was executing is unaffected.
+- `stop` is idempotent: calling it on a service that has already stopped — or from several holders of the handle — has no further effect.
+- When the program ends, every service that has not stopped is stopped and its queued messages are discarded.
 
 ## Scheduling, determinism, and undefined behavior
 
@@ -362,7 +374,7 @@ Nothing about scheduling is language-visible. Programs MUST NOT depend on which 
 What this model does fix, for every conforming program:
 
 - **Evaluation order** — left-to-right for operands, arguments, and literal elements; source order for statements; declaration order for module initializers.
-- **Scope completion** — a block finishes only after the tasks spawned inside it have settled.
+- **Scope completion** — a block finishes only after the tasks spawned inside it have settled and its defers have run.
 - **Collection order** — `Map` entries iterate in insertion order, and `Task.all` yields results in argument order.
 - **Termination of the structural operations** — `==` and `copy` halt on cyclic values.
 

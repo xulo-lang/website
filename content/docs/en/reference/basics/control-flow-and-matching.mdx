@@ -35,7 +35,7 @@ fn step(data: String | Int) {
 }
 ```
 
-When the condition (directly, or parenthesized) is `x is T` or `x is not T`, where `x` is an identifier and `T` is a testable type assignable to `x`'s type, the branches check with `x` narrowed. Narrowing belongs to the `if` condition alone — in `?:`, `while`, or under `!`, `is` is an ordinary `Boolean` test.
+When the condition (directly, or parenthesized) is `x is T` or `x is not T`, where `x` is an identifier and `T` is a testable type assignable to `x`'s type, the branches check with `x` narrowed. Narrowing belongs to the `if` condition alone — in `?:`, `while`, a `match` guard, or under `!`, `is` is an ordinary `Boolean` test.
 
 ## `match`
 
@@ -48,8 +48,9 @@ let label = match x {
 ```
 
 - The scrutinee is evaluated exactly once, before any arm is tested.
-- Arms are tested in source order; the first matching arm wins and later arms are skipped.
-- An arm is `pattern => expression` or `pattern => { block }`; arms are separated by newlines or optional commas.
+- Arms are tested in source order; the first arm whose pattern matches — and whose guard, when there is one, is `true` — wins; later arms are skipped.
+- An arm is `pattern [if condition] => expression` or `pattern => { block }`; arms are separated by newlines or optional commas.
+- A **guard** is an `if condition` between the pattern and `=>`. It runs only once the pattern has matched: a `false` guard skips the arm and testing continues with the next. The condition must be `Boolean` (`E0201`), and it sees the bindings the pattern made.
 - In expression position all arm bodies must have a common type (`E0211`); as a statement the values are discarded.
 
 ### Patterns
@@ -69,7 +70,7 @@ let label = match x {
 - Sub-patterns nest: `Shape::Dot(Point(x, y))`. A slot that is not bound must be written `_`.
 - Range operands must be numeric literals of the same type as the scrutinee; `0...9` includes both ends, `0..<10` excludes the upper bound.
 - The written type of a type pattern must be **testable**: a base type, a non-generic struct/enum, `Unknown`, or an optional/union of testable types. `List<Int>`, `Map<…>`, function types, and type parameters are not testable (`E0303`).
-- There are **no guards** and no or-patterns: an arm is selected by its pattern alone.
+- An **or-pattern** lists alternatives separated by `|` — `0 | 1`, `true | false`, `Result::Ok(v) | Result::Err(v)` — and the arm matches when any alternative does. Every alternative must bind the same names at the same type (`E0304` otherwise), so the guard and the body read one set of bindings. The union type pattern keeps `|` when a binder follows the designators: `String | Int v` is one type pattern; write `(A) | B c` when parentheses are needed to make alternatives.
 
 ```js
 enum Shape {
@@ -83,12 +84,23 @@ fn describe(s: Shape): String {
     Shape::Rect(w, h) => `${w}x${h}`
   }
 }
+
+fn bucket(n: Int): String {
+  match n {
+    v if v < 0 => "negative"    // guard: the pattern alone matches everything
+    0 | 1 => "zero or one"      // or-pattern: two alternatives, one arm
+    v if v % 2 == 0 => "even"
+    _ => "odd"
+  }
+}
+// bucket(-3) => "negative"; bucket(1) => "zero or one";
+// bucket(4) => "even"; bucket(7) => "odd"
 ```
 
 ### Exhaustiveness and Reachability
 
-- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`.
-- An arm that can never be selected is an error (`E0302`): anything after a wildcard or binding arm, a repeated literal, or a type already covered by an earlier arm.
+- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`. Or-pattern alternatives cover together (`true | false` covers `Boolean`); a **guarded arm never covers**, because its guard may be false.
+- An arm that can never be selected is an error (`E0302`): anything after an unguarded wildcard or binding arm, a repeated literal, or a type already covered by earlier unguarded arms. A guarded arm never makes a later arm unreachable — its guard may fail.
 
 ```js
 let grade = match score {
@@ -164,7 +176,7 @@ for row in 0..<3 {
 
 - Both are **statements**, valid inside a `for` or `while` body (including inside nested `if`/`match` arms).
 - `break` ends the innermost enclosing loop; `continue` starts the next iteration. `break` carries no value: there is no `loop` expression and no loop labels.
-- Either one outside a loop — or inside a function/closure nested in a loop — is `E0214`.
+- Either one outside a loop — or inside a function/closure nested in a loop — is `E0214`. Neither may appear in a `defer` operand, even inside a loop: that is `E0229`.
 
 ## Block Scoping
 

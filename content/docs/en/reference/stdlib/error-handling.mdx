@@ -65,6 +65,7 @@ Rules:
 - The operand MUST be `T?` or `Result<T, E>` — a plain `Int`, a `Task<T>`, or an `Error` is `E0217`.
 - Inside an `async` body, `await` and `?` combine with parentheses: `(await t)?`. Because `await` is prefix and `?` postfix, `await t?` would propagate the *task* and is `E0217`.
 - `?` composes with optional chaining: `user?.profile?` propagates a missing profile out of a function returning an optional.
+- A `?` must not appear in a `defer` operand: control is already leaving a block when the defer runs, so there is nothing to return from (`E0229`).
 
 ```js
 fn quarter(n: Int): Result<Int, String> {
