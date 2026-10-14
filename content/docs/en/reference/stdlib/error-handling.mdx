@@ -144,4 +144,5 @@ async fn first_wins(a: Task<Int>, b: Task<Int>): Int {
 - **No exceptions anywhere.** Standard-library modules follow the same model: fallible calls return `Result<T, E>` — see [JSON](/en/docs/reference/stdlib/json/) and [Regular Expressions](/en/docs/reference/stdlib/regular-expressions/).
 - **Async does not change the model.** `async fn f(): Result<T, E>` evaluates to `Task<Result<T, E>>`; an `Err` is data, not a failed task, and a `panic` in an async body stops the whole program. Cancellation carries no error at all.
 - **`?` is not `unwrap`.** It propagates or returns `null`; it never discards a failure and never throws.
-- Further reading: [Error Handling (spec)](/en/docs/spec/error-handling/), [Prelude](/en/docs/spec/builtins/prelude/), [Control Flow](/en/docs/spec/expressions/control-flow/).
+- **`assert` ends in `panic`.** The assertion intrinsic stops the program with `panic(message)` when its condition is `false` — see [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/).
+- Further reading: [Error Handling (spec)](/en/docs/spec/error-handling/), [Prelude](/en/docs/spec/builtins/prelude/), [Control Flow](/en/docs/spec/expressions/control-flow/), [Testing (spec)](/en/docs/spec/testing/).
