@@ -7,7 +7,7 @@ description: The structure of the XULO standard library (std) and how it differs
 
 The XULO standard library (`std`) provides high-order data structures, file system and network I/O, async runtime control, and other core capabilities.
 
-The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, and `str`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without an import. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be imported explicitly.
+The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, `str`, and `assert`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without an import. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be imported explicitly.
 
 ## Design Principles
 
@@ -128,20 +128,30 @@ See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specific
 
 | Category | Language built-ins (no import) | Standard library (`import` required) |
 | --- | --- | --- |
-| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`map_size`, `set_insert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
-| **Output & conversion** | `print`, `println`, `str` | — |
-| **Concurrency** | `spawn`, `lock`, `shared`, `Task.all` / `Task.race` / `Task.resolve` | `async/sleep`, `async/interval`, `sync/atomic`, `sync/semaphore` |
+| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`map_size`, `map_get`, `list_push`, `set_insert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
+| **Output & assertion** | `print`, `println`, `str`, `assert` | — |
+| **Concurrency** | `spawn`, `lock`, `shared`, `Task.all` / `Task.race` / `Task.resolve` / `Task.timeout` | `async/sleep`, `async/interval`, `sync/atomic`, `sync/semaphore` |
 | **I/O** | — | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
 | **Data** | — | `JSON.stringify`, `JSON.parse` |
 | **System** | — | `process/command`, `process/env` |
 | **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, … | `Random`, `Matrix`, `Vector`, `Complex` |
 | **Time** | `Time.now`, `Time.monotonic`, `Time.sleep` | `Instant`, `Duration`, `DateTime` |
 
+The prelude operations are unqualified functions in scope in every module, called like any other function:
+
+| Group | Operations |
+| --- | --- |
+| `Map<K, V>` | `map_size`, `map_has_key`, `map_get`, `map_remove`, `map_to_entries`, `map_from_entries` |
+| `Set<T>` | `set_from_list`, `set_insert`, `set_remove`, `set_contains`, `set_size` |
+| `List<T>` | `list_size`, `list_push`, `list_remove`, `enumerate` |
+
+Iteration, subscripts, and `+` on the collections are core syntax, not prelude calls. The lookups that cannot fail are the prelude's: `map_get(m, k)` answers `null` for an absent key where `m[k]` is a runtime failure, and `list_remove(xs, i)` answers `null` for an out-of-range index where `xs[i]` panics. `list_push` and `list_remove` (like `map_remove` and `set_insert`) mutate their first argument, which must be a mutable place.
+
 The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `import`.
 
 ## Design Notes
 
 - **Namespaces vs members.** Built-in members are reached only through their namespace (`Math.max`, `Time.now`, `Task.all`); the bare names (`max`, `now`, `all`) are in scope nowhere. Library namespaces are created with `import * as JSON from "std/json"` and behave the same way.
-- **Reserved names are absolute.** `print`, `str`, `List`, `Map`, `Set`, `Task`, `Result`, `Error`, `Math`, `Time`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
+- **Reserved names are absolute.** `print`, `str`, `assert`, `List`, `Map`, `Set`, `Task`, `Result`, `Error`, `Math`, `Time`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
 - **Sync shapes.** Examples above show synchronous `File` and `http` calls with `?`; whether a given `std` function is `async` is a property of its own signature — an `async fn` returns a `Task<T>` and is awaited.
 - Further reading: [Prelude](/en/docs/spec/builtins/prelude/), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Import & Export](/en/docs/spec/modules/import-export/), [Error Handling](/en/docs/spec/error-handling/).

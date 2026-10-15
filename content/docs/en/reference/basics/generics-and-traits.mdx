@@ -5,7 +5,7 @@ description: Generic types, trait bounds, and trait implementations in XULO.
 
 ## Type Parameters
 
-A generic declaration writes `<…>` immediately after its name. Functions, `struct`s, `enum`s, `type` aliases, and `impl` blocks may all be parameterized.
+A generic declaration writes `<…>` immediately after its name. Functions, `struct`s, `enum`s, `type` aliases, and `impl` blocks may all be parameterized; a `trait` never is (see [Traits](#traits)).
 
 ```js
 fn first<T>(xs: List<T>): T { xs[0] }
@@ -22,7 +22,8 @@ impl<T> Holder<T> {
 **Rules:**
 
 - One parameter list per declaration, comma-separated with distinct names — `<T, T>` is ill-formed.
-- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position.
+- A parameter list has **no default type arguments**: every argument of an application is written or inferred; there is no `T = Int` form.
+- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position — and never a constructor: applying a type parameter, `T<Int>`, is ill-formed (`E0230`).
 - Naming convention: a single letter (`T`, `U`, `K`, `V`) or an UpperCamelCase descriptive name.
 - Generic method and variant access use ordinary spelling: `x.method()` with `.`, variants with `::` (`Either::Left(1)`).
 
@@ -39,6 +40,23 @@ let nested: List<Map<String, List<Int> > > = []
 | `List<List<T> >` | yes |
 | `List<List<T>>` | no — `>>` reads as the shift operator |
 
+### Type Applications
+
+A type application `Name<Args>` may be written wherever a type is expected — an annotation, a field, a payload, an alias, a parameter or return type, a pattern's type. Four rules make it well-formed; all violations are `E0230`:
+
+- The argument count must equal the declaration's parameter count: `Map<String>` and `Pair<Int, String, Int>` are ill-formed.
+- A generic name never appears without its arguments: `let xs: List = []` is ill-formed, not shorthand for anything.
+- A non-generic name takes no arguments: `Int<String>` is ill-formed.
+- A type parameter is never applied: `T<Int>` stands for a proper type, not a family of them.
+
+```js
+let ok: Map<String, Int> = {}         // well-formed
+// let bad: Map<String> = {}          // error: `Map` expects 2 type arguments, found 1 (E0230)
+// let bare: List = []                // error: `List` expects 1 type argument, found 0 (E0230)
+```
+
+Type arguments are never written at a call site (see [Inference](#inference)); written arguments differ from inferred ones only in syntax — they are unified and bound-checked exactly the same way.
+
 ## Bounds
 
 ```js
@@ -47,9 +65,21 @@ fn perimeter_of<T>(shape: T): Float where T: Area { shape.perimeter() }
 fn render<T: Area + Scalable>(shape: T): Float { … }
 ```
 
-- `<T: Trait>` and `where T: Trait` are equivalent; a parameter must not be bounded in both places. A `where` clause follows the return type and precedes the body.
+- `<T: Trait>` and `where T: Trait` are equivalent; a parameter must not be bounded in both places. A `where` clause follows the return type and precedes the body — and may follow only a **function** signature: `struct`, `enum`, `trait`, `type`, and `impl` declarations use the inline `<T: …>` form.
 - Multiple bounds are joined with `+`, never with `&` — `&` builds an intersection *type* a value has, while `: A + B` restricts what may be substituted for a parameter.
-- A bound must name a trait visible at the declaration site (`E0806`); a bound is a constraint, not subtyping.
+- A bound must name a trait visible at the declaration site (`E0806`), and it names a trait, never an application of one: `<T: Convert<String>>` is `E0811` — a trait is not a type constructor.
+- A bound is a constraint, not subtyping: a `T: Area` value is not an `Area`; inside the body it exposes the members the bound declares.
+- **Bound checking.** Every type argument — inferred at a call or written in a type application, for a function, `struct`, `enum`, alias, or `impl` — must satisfy every bound of its parameter (`E0801`), even when the argument was inferred rather than written:
+
+```js
+trait Area { fn area(self): Float }
+struct Palette<T: Area> { shape: T }
+
+let ok = Palette(shape: rect)       // T = Rect, and Rect: Area
+// let bad: Palette<Int> = …        // error: `Int` does not implement `Area` (E0801)
+```
+
+- A type satisfies a bound exactly when a visible `impl` for the bound's trait **applies** to it — including that impl's own bounds holding in turn (see [Traits](#traits)). There is no structural fallback and no second source of evidence.
 
 ## Inference
 
@@ -65,7 +95,14 @@ let ys: List<Int> = empty()     // OK: T from the expected type
 let xs = empty()                // error: T not determined (E0216)
 ```
 
-- Every inferred argument must satisfy the parameter's bounds; a type that implements nothing required is `E0801`.
+- Every type argument must satisfy the parameter's bounds (`E0801`), whether it was inferred at a call or written in an annotation.
+- A parameter occurring twice in a signature receives one solution; when two constraints demand different types, the later argument is reported as a mismatch against the type the earlier one fixed (`E0202`):
+
+```js
+fn both<T>(a: List<T>, b: List<T>): T { a[0] }
+let t = both([1], ["x"])   // error: T is Int from `a`; `List<String>` does not match `List<Int>` (E0202)
+```
+
 - Each distinct assignment of type arguments is a separate instantiation: the program behaves **as if** a non-generic copy were written for each, and no operation observes a type argument at runtime.
 
 ## Traits
@@ -86,6 +123,7 @@ impl Area for Rectangle {
 
 **Declaration:**
 
+- A trait declares **no type parameters**: `trait Convert<T> { … }` is a compile-time error (`E0810`), and a trait's method signatures therefore never mention type parameters. A type that should convert to several targets implements one trait per target, not one parameterized trait.
 - Method signatures are separated by `;` (a trailing `;` is optional).
 - A trait method is signature-only — **no default implementations**, and every method must declare a return type.
 - The receiver is `self` or `mut self`; an implementation must use the same form, and remaining parameters must be annotated.
@@ -96,6 +134,27 @@ impl Area for Rectangle {
 - Every declared method must be present (`E0802`) with mutually assignable signatures (`E0803`), and no extra methods may be declared (`E0804`) — extra behavior belongs in an inherent `impl`.
 - Two implementations of the same trait for the same type in the same module are `E0805`.
 - An `impl` applies within the module that contains it: **importing a type or trait never imports an `impl`**.
+- **A generic `impl` applies to a type** only when its parameters can be instantiated so the implemented type equals that type **and** its bounds are satisfied by that same instantiation — recursively, an impl whose bounds name other traits applies only when those bounds hold in turn. An impl that does not apply contributes **nothing**: no members through member lookup (a lookup left with only it is `E0102`) and no trait implementation for explicit dispatch or bound checking (`E0801`).
+
+```js
+struct Palette<T> { shape: T }
+struct Rect { w: Float, h: Float }
+struct Dot { r: Float }
+
+impl Area for Rect {
+  fn area(self): Float { self.w * self.h }
+}
+
+impl<T: Area> Palette<T> {
+  fn render(self): Float { Area.area(self.shape) }
+}
+
+let ok = Palette(shape: Rect(w: 3.0, h: 4.0))
+print(str(ok.render()))          // works: Rect: Area, so the impl applies
+
+// Palette(shape: Dot(r: 1.0)).render()
+// error: no member `render` on `Palette<Dot>` (E0102) — `T: Area` is not satisfied
+```
 
 ## Dispatch
 
@@ -121,7 +180,7 @@ fn describe<T: Area>(shape: T): Float {
 
 - A member call on a type parameter resolves **through a bound** — the bound is its only source of members. An unbounded parameter has no members: `t.area()` inside `fn f<T>(t: T)` is `E0102`.
 - Both `x.method()` and `Trait.method(x)` are legal wherever `T: Trait` is written, and both denote the same static call.
-- The implementation a bound uses is the one visible at the point that **selects the type argument**; it travels with the bound into the generic body. Two instantiations at call sites in different modules may therefore use two different implementations — that is specified behavior, not an ambiguity.
+- The implementation a bound uses is the one visible at the point that **selects the type argument** — a call that infers it or a type application that writes it; it travels with the bound into the generic body. Two instantiations at call sites in different modules may therefore use two different implementations — that is specified behavior, not an ambiguity.
 
 ## Structural vs Nominal
 

@@ -61,7 +61,7 @@ async fn main() {
 - The operand is evaluated exactly once, before the suspension it causes.
 - `await` is legal only inside the body of an `async` function or an `async` closure; elsewhere it is a compile-time error (`E0501`).
 - `await` is a prefix operator at the unary level of the precedence table: it binds tighter than any binary operator and looser than postfix operators such as calls, indexing, and member access.
-- Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables.
+- Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables — with one exception: the body of a `lock` expression contains no suspension point, and `await` inside it is a compile-time error (`E0410`; see [Shared state and `lock`](/en/docs/reference/architecture/memory-and-concurrency-model/#shared-state-and-lock)).
 
 ```js
 async fn greet(id: Int): String {
@@ -179,7 +179,22 @@ The combinators combine results and cancellation the way the operations they des
 - outside any function or closure body;
 - on a value whose type is not `Task<T>` (`E0502`).
 
-Inside an `async` body no further restriction applies:
+Inside an `async` body one further restriction applies: a `lock` body contains no suspension point, so `await` inside it is a compile-time error (`E0410`). A critical section runs from entry to exit without yielding, which also makes lock acquisition a bounded thread wait rather than a suspension point; the `await` belongs outside the section:
+
+```js
+async fn refresh_bad(state: shared AppState) {
+  lock state {
+    state.total_online = await fetch_count()   // error: no await inside lock (E0410)
+  }
+}
+
+async fn refresh_ok(state: shared AppState) {
+  let fresh = await fetch_count()              // ok: the await is outside the lock
+  lock state { state.total_online = fresh }
+}
+```
+
+Otherwise no further restriction applies:
 
 ```js
 async fn cached(id: Int): User {

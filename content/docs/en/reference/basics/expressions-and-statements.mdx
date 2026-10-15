@@ -30,8 +30,11 @@ total + 1                                // error: value discarded (E0218)
 if total > 0 { print("yes") }            // legal: control-flow exception
 total > 0 ? a() : b()                    // error: ternary is not control flow
 worker.send(cmd)                         // legal: a service send's Task may be discarded
+spawn async { compute() }                // error: spawn's Task may not stand alone (E0218)
 let sum = a + b                          // legal: expression position uses the value
 ```
+
+`send` may stand alone because the message is queued when the call evaluates — only the reply goes unread; a `spawn` must be bound, awaited, or passed on.
 
 Two structural restrictions follow the same rule:
 
@@ -175,9 +178,21 @@ fn handle(path: String) {
 }
 ```
 
-- `defer e` (or `defer { … }`) **registers** the operand; it is evaluated when control leaves the enclosing block, and its value is discarded. Several defers in one block run in reverse order of registration.
-- Control leaves a block at its end, on `return`, the early return of `?`, `break`/`continue` out of it, and when the task stops as cancelled at an `await`. `panic` runs no defers.
-- `return`, `break`, `continue`, and `?` must not appear in a defer operand (`E0229`).
+- `defer e` (or `defer { … }`) **registers** the operand; it is evaluated when control leaves the enclosing block, and its value is discarded. Several defers in one block run in reverse order of registration (LIFO).
+
+```js
+fn two() {
+  defer print("first registered")
+  defer print("second registered")
+  print("body")
+}
+// prints: body, second registered, first registered
+```
+
+- `defer` is a statement of its own, not an expression statement, so the statement-value rule never applies to it — `E0218` cannot fire on a defer.
+- Control leaves a block at its end, on `return`, the early return of `?`, `break`/`continue` out of it, and when the task stops as cancelled at an `await`. `panic` runs no defers — the program stops where it is written and every unstarted defer is abandoned.
+- `return`, `break`, `continue`, and `?` must not appear in a defer operand (`E0229`) — the operand runs while control is already leaving a block. This takes precedence over `E0214` when such a `break`/`continue` is also outside any loop.
+- An `await` inside a defer operand follows the ordinary async rules (`E0501` outside an `async` body); on a normal exit it suspends and resumes as anywhere else.
 - A block's defers run after its value is determined and after the tasks spawned in the block have settled, so cleanup can no longer change the result. Use `defer` (or cleanup written on each path) instead of a destructor: the language has none.
 
 ## Evaluation Order
@@ -191,7 +206,8 @@ fn handle(path: String) {
 | `match e { … }` | `e` once, then each pattern, its guard, then the body | every later arm |
 | `for x in it { B }` | `it` once, then one binding and `B` per element | the body when empty |
 | `while c { B }` | `c` before each iteration | the body when `c` is false |
+| `defer e` | registration only — nothing is evaluated | the operand until the block exits |
 
-Statements in a block are evaluated in source order with no reordering across statement boundaries.
+Statements in a block are evaluated in source order with no reordering across statement boundaries. A `return`, `break`, or `continue` abandons the rest of its path immediately — except that the defers registered in the blocks being left still run, innermost block first, before control passes out of them.
 
 See [Control Flow](/en/docs/reference/basics/control-flow-and-matching/) for `if`/`match`/loops, [Functions](/en/docs/reference/basics/functions-and-methods/) for calls and closures, and the [operators spec](/en/docs/spec/expressions/operators/) for the normative precedence table.

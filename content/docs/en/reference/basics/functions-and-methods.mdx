@@ -81,7 +81,7 @@ let classify = (n: Int): String => {                // block body
 
 - Parameter annotations may be omitted only when an **expected type** supplies them — as a call argument, a typed binding initializer, or a typed `return`. Without one, annotations are required.
 - The result annotation `: R` is optional; when present it must agree with the body.
-- Capture is **by reference** and implicit: no capture list exists, and there is no `move` modifier in a parameter list. A closure may assign to a captured binding only if it was declared `let mut` (`E0401`).
+- Capture is **by reference** and implicit: no capture list exists, and there is no `move` modifier in a parameter list. A closure may assign to a captured binding only if it was declared `let mut` (`E0401`) — a `mut` parameter or `mut self` is assignable directly but **read-only inside a closure**, so a closure cannot mutate the caller's place through a borrowed receiver.
 - A closure body must not refer to the closure being defined — recursion needs a named `fn`.
 - An immediately-invoked closure is parenthesized: `((x: Int): Int => x + 1)(41)`.
 
@@ -94,6 +94,18 @@ fn main() {
   let add5 = makeAdder(5)
   print(str(add5(10)))         // 15
   print(apply(x => x * 3, 7))  // expected type supplies x
+}
+```
+
+```js
+struct Counter { value: Int }
+
+fn broken(p: mut Counter): fn(): Unit {
+  fn(): Unit { p.value = p.value + 1 }   // error: `p` is not declared `let mut` (E0401)
+}
+
+fn ok(p: Counter): fn(): Int {
+  fn(): Int { p.value }                  // ok: read capture
 }
 ```
 

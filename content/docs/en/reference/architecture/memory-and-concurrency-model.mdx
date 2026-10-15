@@ -9,7 +9,7 @@ Xulo's runtime model answers two questions: what a binding denotes, and how task
 
 - **Storage is managed automatically.** A value lives while it is reachable and is reclaimed when nothing can reach it. There is no manual free, no destructor, and no observable reclamation.
 - **Ownership is explicit where it matters.** `move` severs a binding from its value, `copy` produces a deep copy, and every parameter borrows its argument for the duration of the call.
-- **Concurrency is structured.** `async` calls and `spawn` produce `Task<T>` values, every block settles the tasks spawned inside it before it finishes, and the only storage two tasks can both reach is a `shared` region guarded by `lock`.
+- **Concurrency is structured.** `async` calls and `spawn` produce `Task<T>` values, every block settles the tasks started inside it before it finishes, and the only storage two tasks can both reach is a `shared` region guarded by `lock`.
 
 This page is a practical summary; the normative text is [Memory and Runtime](/en/docs/spec/memory-and-runtime/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/). Async syntax and `Task` utilities are covered in [Async & Tasks](/en/docs/reference/architecture/async-and-tasks/).
 
@@ -52,6 +52,7 @@ Consequences:
 `move` transfers ownership: it produces the value of its operand and invalidates the binding it came from. From then on the binding has been **moved out**, and any use of it is a compile-time error (`E0403`).
 
 - The operand MUST be a path naming a binding. `move p.x`, `move xs[0]`, and `move compute()` are errors: a transfer moves a whole binding, never a part of one.
+- The binding MUST be one the current frame owns: a `let`, `let mut`, `const`, loop, or pattern binding. A parameter borrows its argument and owns no storage to transfer, so `move p` where `p` is a parameter is an error (`E0403`).
 - `move` is accepted in exactly three positions: the initializer of a `let`, an argument of a call, and the operand of `return`. In any other position — a condition, a binary operand, a field initializer, a literal element — it is `E0403`.
 - `move` and `copy` are prefix operators at the `unary` precedence level, so `move a + b` groups as `(move a) + b` and the position rule then rejects it.
 - `move` applies to every category. For a value-semantic value the transfer is not observable through other bindings (there are none); for a reference value it is: after the move, no binding of the moving scope denotes that value.
@@ -86,7 +87,7 @@ let bob = copy alice      // an independent deep copy
 
 ## Borrowing
 
-A parameter never receives its argument's storage; it *borrows* it for the duration of the call.
+A parameter never receives its argument's storage; it *borrows* it for the duration of the call — extended past the call's return when the call returns a `Task`, as [Span end](#span-end) defines.
 
 | Form | Meaning |
 |------|---------|
@@ -94,11 +95,13 @@ A parameter never receives its argument's storage; it *borrows* it for the durat
 | `p: mut T` | **mutable borrow** — exclusive write access for the duration of the call |
 | `self` / `mut self` | method receiver, written the same way: `self` borrows immutably, `mut self` mutably |
 
-Borrowing obeys **aliasing XOR mutability**: at any moment a value is either shared by any number of immutable borrows or held by at most one mutable borrow, never both. Three rules make that checkable:
+A parameter is an ordinary binding for every purpose but ownership: it MAY be passed on, where it lends its borrow to the inner call for that call's duration — an immutable parameter lends an immutable borrow, a `mut` parameter a mutable one. Onward lending obeys the same rules as the original call.
+
+Borrowing obeys **aliasing XOR mutability**: at any moment a value is either shared by any number of immutable borrows or held by at most one mutable borrow, never both. Three rules make that checkable; in them, a place is **used** when it is read, written, moved, or passed as an argument.
 
 1. **A mutable borrow needs a mutable place.** An argument passed to a `mut` parameter — or supplied as a `mut self` receiver — MUST be a place backed by a `mut` binding. Passing a literal, a computed value, or an immutable binding is a compile-time error (`E0404`).
-2. **One call borrows without overlap.** Two arguments of one call MUST NOT denote overlapping places when either parameter is `mut`: the same binding, or a field or subscript of a place borrowed by another argument, is borrowed mutably twice (`E0404`).
-3. **A mutable borrow spans suspension.** A mutable borrow begins when the call starts and ends when the callee returns — or, for an `async` callee, when its task settles. While a place is so borrowed, code outside the callee MUST NOT read or write it (`E0405`). The same span applies to a `let mut` binding written by an `async` closure that has suspended.
+2. **One call borrows without overlap.** Two arguments of one call MUST NOT denote overlapping places when either of the two parameters is `mut`; using a place this way is a compile-time error (`E0404`). When two places overlap is defined under [Overlap](#overlap).
+3. **Borrows span suspension.** A borrow begins when the call starts and ends when the callee returns — or, when the call returns a `Task`, when that task settles ([Span end](#span-end)). While a **mutable** borrow of a place is outstanding, code outside the callee MUST NOT use the place at all (`E0405`). While an **immutable** borrow is outstanding, code outside the callee MUST NOT write the place (`E0411`) and MUST NOT start a mutable borrow of it (`E0404`); reads remain unrestricted. The same spans apply to a `let mut` binding written by an `async` closure that has suspended: the binding is borrowed by the running body until the closure's task settles.
 
 ```js
 struct Counter { value: Int }
@@ -114,6 +117,48 @@ fn main() {
 }
 ```
 
+Many immutable borrows may be outstanding at once — reads through them are unrestricted. Ordinary reference sharing between bindings is not a borrow and is always allowed:
+
+```js
+async fn peek(xs: List<Int>) {
+  print(xs[0])
+}
+
+async fn watch(mut xs: List<Int>) {
+  let t = peek(xs)           // immutable borrow of xs, until t settles
+  // xs[0] = 9               // error: written during an immutable borrow (E0411)
+  print(xs[0])               // ok: reads remain unrestricted
+  await t                    // the borrow ends here
+  xs[0] = 9                  // ok
+}
+```
+
+### Overlap
+
+Two places overlap unless, walking their paths from the base, the first position where they differ proves them disjoint:
+
+- different field names — `a.x` and `a.y` — or, in tuples, different positions — `p.0` and `p.1`;
+- the same list subscripted by two distinct integer literals — `xs[0]` and `xs[1]`.
+
+Any pair whose paths do not diverge this way overlaps: the same binding; one path a prefix of the other (`a` and `a.x`); the same field (`a.x` and `a.x.y`); subscripts that are not two distinct literals (`xs[i]` and `xs[j]`, or `xs[i]` and `xs[0]`). Overlap is a static judgment: two non-literal indices are never assumed distinct.
+
+```js
+fn pair(a: mut Int, b: Int): Int { a + b }
+
+fn overlap(mut xs: List<Int>, i: Int) {
+  pair(xs[0], xs[1])         // ok: distinct literal subscripts are disjoint
+  pair(xs[0], xs[0])         // error: the same place, mutably borrowed twice (E0404)
+  pair(xs[0], xs[i])         // error: a non-literal index is never assumed distinct (E0404)
+}
+```
+
+### Span end
+
+A borrow from a call that returns a `Task<U>` — an `async` call, an `async` closure call, or a synchronous call whose result type is `Task<U>` — lasts until the checker can see that task settle. It can see it where control flow reaches a point after an `await` whose operand contains the task's binding: `await t`, `await Task.all([t, u])`, and `await Task.timeout(t, ms)` each wait for `t`. When the scope contains no such `await`, the borrow lasts until the scope ends, by which time the scope's exit has settled the task.
+
+- The synchronous case is conservative: the callee MAY have stored a borrowed place inside the task it returned, so the checker cannot end the borrow at the call even though the callee has returned; with no `await` of the task, the borrow lasts to the scope end.
+- Flow decides: on a path that has not reached such an `await` — the other branch of an `if`, an earlier loop iteration — the borrow is still outstanding.
+
 ```js
 async fn fill(p: mut List<Int>) {
   p[0] = 7
@@ -121,20 +166,19 @@ async fn fill(p: mut List<Int>) {
 
 async fn main() {
   let mut xs = [0]
-  let t = fill(xs)           // exclusive borrow of xs, until t settles
-  // print(xs[0])            // error: `xs` is mutably borrowed (E0405)
-  await t
-  print(xs[0])               // 7: the borrow ended when t settled
+  let t = fill(xs)                    // mutable borrow of xs
+  // xs[0] = 1                        // error: the borrow is outstanding (E0405)
+  await t                             //   until this await is reached
+  xs[0] = 1                           // ok: the borrow has ended
 }
 ```
-
-Immutable borrows impose no such exclusion: a value may be read through any number of them at once. Ordinary reference sharing between bindings is not a borrow and is always allowed.
 
 ## Mutability rules
 
 `mut` belongs to a binding or a parameter, never to a type — and never appears at a call site: `bump(c)`, not `bump(mut c)`.
 
 - A place is **mutable** when the binding at the base of the path is a `let mut`, a `mut` parameter, or the `mut self` receiver of the running call; a field or subscript inherits the mutability of its base. Everything else is immutable, and assigning to it is a compile-time error (`E0401`).
+- A closure may assign through a captured binding only when that binding was declared `let mut`. A `mut` parameter or `mut self` is a mutable place for direct assignment but is not declared `let mut`: assigning to it through a closure capture is a compile-time error (`E0401`), which admits read capture only.
 - Value-semantic storage belongs to one binding, so mutation through a `mut` place changes only that binding's copy. Reference-semantic storage is shared, so a mutation through any mutable place naming it is visible through every binding naming that value.
 - A `const` is immutable and has no mutable form; a shadowing `let mut` of the same name is an ordinary new binding.
 - Across tasks, mutation of one value is permitted only through the shared-state discipline — `shared` bindings and `lock` — below. The borrow rules govern a single running task.
@@ -144,7 +188,7 @@ Immutable borrows impose no such exclusion: a value may be read through any numb
 Xulo has no lifetime annotation; storage outlives every use that can be written. *Lifetime* is used only to say when something is usable:
 
 - A binding's usable life runs from its declaration to the end of its block; using it earlier or after a `move` is a compile-time error (`E0403`).
-- A borrow lives exactly as long as its call — or, when the callee is `async`, until its task settles — and no use outside the callee can name it, because borrows are parameters, not values that can be stored.
+- A borrow lives exactly as long as its call — or, when the call returns a `Task`, until that task settles, as [Span end](#span-end) defines — and no use outside the callee can name it, because borrows are parameters, not values that can be stored.
 - A closure captures by reference: captured bindings become part of the closure's value and their storage remains valid for as long as the closure is reachable, even beyond the frame that created them.
 - Because storage is reclaimed only when it is unreachable, no program can hold a reference to freed memory: dangling references do not exist, and neither use-after-free nor double-free is a possible failure.
 
@@ -154,7 +198,8 @@ Storage is managed automatically. Memory becomes eligible for reclamation when i
 
 - A value reachable from anywhere is kept: a returned closure keeps its captures alive, a suspended task keeps its frame alive, and a shared region lives while any binding or task names it.
 - There is no explicit deallocation, no destructor, and no operation that frees memory early; a program cannot observe reclamation, and no program behavior depends on when it happens.
-- How an implementation reclaims — tracing, reference counting with cycle collection, region-based bulk reclamation — is not fixed; only the guarantee above is.
+- How an implementation reclaims — tracing, reference counting with cycle collection, region-based bulk reclamation, or any combination — is not fixed; only the guarantee above is. A mechanism that never reclaims a value unreachable from every root does not conform.
+- Allocation strategy is likewise free: values no later pass of the program can reach — a replaced computation's tree, the frame of a settled task — MAY be allocated in a region reclaimed in bulk when that boundary is crossed, and an implementation SHOULD keep any single reclamation pause within limits it documents. Neither the strategy nor the pause is observable.
 - Deterministic *release of a resource* — a file, a connection — is a library concern expressed with ordinary control flow: cleanup is written on each path that needs it or registered once with `defer`, because the language provides no destructor. The language itself manages only storage.
 
 ## Runtime failures
@@ -204,7 +249,7 @@ spawn.process Type { FieldInit , … }
 
 - The `async` keyword is required in the block forms, and the block is an `async` context: `await` is legal inside it wherever it is legal inside an `async` function body.
 - The first four forms are expressions of type `Task<T>`, where `T` is the type of the block. The service form evaluates to a service handle.
-- The dispatch mode changes only where the block runs. Capture, scope, and cancellation rules are identical in every mode.
+- The dispatch mode selects the **executor** that runs the block's segments (see [Executors](#executors)). Capture, scope, and cancellation rules are identical in every mode.
 - `spawn` is an ordinary expression: it may appear in a synchronous or an `async` body, in any expression position its type permits.
 - A `spawn` expression is not `Unit`, so — like every non-`Unit` expression — it may not stand alone as an expression statement. Bind it, `await` it, or pass it on.
 
@@ -215,6 +260,16 @@ async fn main() {
   print(await first + await second)   // 7
 }
 ```
+
+### Executors
+
+The dispatch mode selects the executor that runs the block: the default task scheduler, an operating-system thread, a separate process, or a caller-supplied pool. The service form produces no task; its process is governed by [Services](#services). A task's execution is a sequence of **segments**: the body runs until it completes or suspends at an `await`, and each segment is handed to the task's executor when the task becomes ready — once when the `spawn` expression is evaluated, and once more after each `await` in the block completes.
+
+- A segment runs from the task's current position to its next suspension or to settlement. The executor MAY begin the segment before the call that hands it over returns; `spawn` itself yields the `Task` without waiting for any segment to finish.
+- The block's result is carried by the `Task`, never by the executor: the `fn(): Unit` a pool receives runs one segment and returns `Unit`, and the value the block produces is stored in the task when it settles.
+- `spawn.thread` runs each segment on an operating-system thread, which MAY be released when the segment ends and MAY differ from segment to segment. No language rule depends on which thread a segment runs on.
+- `spawn.process async { … }` runs segments on the new process's own scheduler, and the block's result is carried back to the `Task` in the spawning process when the block settles.
+- A task cancelled while its next segment waits in an executor settles as cancelled when that segment runs; the body does not resume.
 
 ## Capture into a `spawn` block
 
@@ -245,26 +300,31 @@ fn upload_files(): Task<Unit> {
 
 ## Scopes and structured concurrency
 
-Every block is a **scope** for the tasks spawned inside it, including a function or closure body and the body of `main`. When a block finishes, it does not simply stop: it settles its tasks first.
+Every block is a **scope** for the tasks started inside it — by `spawn` or by an `async` call — including a function or closure body and the body of `main`. When a block finishes, it does not simply stop: it settles its tasks first, then runs its `defer`s.
 
 1. The block's value, if any, is determined.
-2. Each task spawned in the block that has not settled is cancelled.
+2. Each task started in the block that has not settled is cancelled.
 3. The block waits until every one of those tasks has settled.
 4. Each settled child contributes nothing further: a child that settled as cancelled is absorbed, and a result no longer reachable from the block's value is discarded.
-5. The block's value is produced.
+5. Each `defer` registered in the block runs, in reverse order of registration (LIFO): the last one written runs first.
+6. The block's value is produced.
 
-A task **reachable from the block's value** is exempt from step 2: it is not cancelled, and its ownership passes to the enclosing scope together with the value, where the same rules apply. This is how a function returns a task it spawned.
+A `defer` registers cleanup (`defer close(f)`) that runs when control leaves its block — the block's end, a `return`, a `break` or `continue`, a `?` early return, or a cancellation stop at an `await` — innermost block first, each block's defers in reverse order of registration. A block's defers run after its value has been determined and after its tasks have settled, so cleanup observes a finished block. **A `panic` runs no defers:** the program stops where the `panic` is written, and every defer whose operand has not begun is abandoned.
 
-Two consequences:
+A task **reachable from the block's value** is exempt from step 2: it is not cancelled, and its ownership passes to the enclosing scope together with the value, where the same rules apply. This is how a function returns a task it started — whether by `spawn` or by an `async` call.
+
+Three consequences:
 
 - **Parent cancellation propagates downward.** Cancelling a task cancels the scope inside its body, which cancels that scope's tasks in turn.
 - **The program ends when `main` returns.** `main` may be declared `async`; when it is, the program ends when its task settles — completed or cancelled — by which time its body's scope has already drained. Work that must finish before exit is awaited inside the scope that owns it.
+- **Services outlive the block that started them.** A service is not a task: a block's completion neither cancels nor stops it, and its lifetime is governed by its handle ([Service lifetime and `stop`](#service-lifetime-and-stop)).
 
 ## Cancellation
 
 Cancellation is cooperative and requested only by the language — when a scope exits — and propagates to a cancelled task's own scope.
 
 - A cancelled task stops at its next `await`: the pending `await` produces no value and the task settles as cancelled. A task that is running continues until it suspends.
+- Before it settles, a cancelled task runs the defers registered in its live blocks — innermost block first, each in reverse order of registration. An `await` inside such a defer ends that run where it stands: the remainder of that defer and every defer still waiting are abandoned, and the task settles.
 - Cancellation carries no error value: no expression observes it, nothing raises it, and there is nothing to catch. The body runs as written between the cancellation request and its next `await`.
 - Cancellation is final: a cancelled task settles as cancelled whatever its body does afterwards, and a value the body produces after settling is discarded.
 - `await` of a cancelled task stops the awaiting body at that `await`, which produces no value, and the awaiting task settles as cancelled in turn — the propagation continues outward through every `await` until a scope absorbs it or a cancelled `main` ends the program.
@@ -285,6 +345,8 @@ lock state { Block }             // a critical section
 - Inside `lock state { … }` the contents reached through `state` are mutable places, whether or not the binding is `let mut`; assignment through them follows the ordinary place rules.
 - The operand of `lock` MUST be a shared binding (`E0407`), as must an argument passed to a `shared` parameter.
 - `lock` is an expression: its value is the value of the block, so a section both mutates and produces. The lock is released when the block finishes — normally, or by `return`.
+- A `lock` body contains no suspension point: `await` inside `lock` is a compile-time error (`E0410`). A critical section therefore runs from entry to exit without yielding, and cancellation — which takes effect at a task's next `await` — cannot interrupt one.
+- Acquiring a lock never suspends the acquiring task. On a runtime that runs several tasks on one thread, two tasks on that thread can never contend for one binding's lock; on a runtime that runs tasks in parallel, the executing thread waits — blocked or spinning — until the section in progress finishes. Because that section contains no `await`, the wait is bounded by its duration. Waiting this way is not a suspension point, so `await` remains the only one.
 - Locks are not reentrant: acquiring a lock the current task already holds is a runtime failure (lock misuse, above).
 
 ```js
@@ -349,8 +411,11 @@ async fn main() {
 
 - `spawn.process Type { field: expr, … }` starts a service of the struct type `Type`. The field list initializes the service's state; it is evaluated left-to-right, and the constructed value is deep-copied into the new service, so the service never shares storage with its spawner.
 - `Type` MUST declare `on_message` in an `impl` block; a service type without one is a compile-time error (`E0409`). The method takes a receiver (`self` or `mut self`) and exactly one message parameter; it MAY be declared `async`.
-- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R>, stop: fn(): Unit }`.
-- `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected; `send(move x)` transfers ownership instead, and any later use of `x` is a compile-time error (`E0403`). The returned task may be discarded — a fire-and-forget message whose reply goes unread.
+- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R>, stop: fn(): Unit }`, whose `stop` member ends the service ([Service lifetime and `stop`](#service-lifetime-and-stop)).
+- `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected; `send(move x)` transfers ownership instead — no copy is performed, and any later use of `x` is a compile-time error (`E0403`), exactly as after any other `move`. Because the copy completes before `send` returns, the argument's borrow ends with the call and does not span the returned task.
+- The queue of messages waiting for a service is unbounded: `send` never waits for capacity and never fails because the queue is full. A client that needs backpressure limits how many sends it leaves unanswered.
+- The returned `Task<R>` MAY stand alone as a statement: `handle.send(m)` in statement position is fire-and-forget — the message was queued when the call evaluated, so only the reply goes unread, and the block settles the task on exit.
+- A `send` performed after the service has stopped is discarded immediately and its task settles as cancelled, exactly like a message still queued when the service stopped.
 - A service handles one message at a time, in arrival order: `on_message` runs to completion — through every `await`, if it is `async` — before the next message begins.
 - `reply(e)` may be called only inside `on_message`. The reply type `R` is the common type of the `reply` operands in the method, or `Unit` when the method never calls `reply`. The send's task settles when `on_message` returns, carrying the reply value — or, when the executed path performed no `reply` although the method contains `reply` calls, settling as cancelled.
 - Cancelling a send task does not withdraw a message already queued.
@@ -374,7 +439,7 @@ Nothing about scheduling is language-visible. Programs MUST NOT depend on which 
 What this model does fix, for every conforming program:
 
 - **Evaluation order** — left-to-right for operands, arguments, and literal elements; source order for statements; declaration order for module initializers.
-- **Scope completion** — a block finishes only after the tasks spawned inside it have settled and its defers have run.
+- **Scope completion** — a block finishes only after the tasks started inside it have settled and its defers have run.
 - **Collection order** — `Map` entries iterate in insertion order, and `Task.all` yields results in argument order.
 - **Termination of the structural operations** — `==` and `copy` halt on cyclic values.
 

@@ -49,8 +49,8 @@ let label = match x {
 
 - The scrutinee is evaluated exactly once, before any arm is tested.
 - Arms are tested in source order; the first arm whose pattern matches — and whose guard, when there is one, is `true` — wins; later arms are skipped.
-- An arm is `pattern [if condition] => expression` or `pattern => { block }`; arms are separated by newlines or optional commas.
-- A **guard** is an `if condition` between the pattern and `=>`. It runs only once the pattern has matched: a `false` guard skips the arm and testing continues with the next. The condition must be `Boolean` (`E0201`), and it sees the bindings the pattern made.
+- An arm is `pattern [if condition] => expression` or `pattern [if condition] => { block }`; arms are separated by newlines or optional commas.
+- A **guard** is an `if condition` between the pattern and `=>`. It is evaluated only after the pattern has matched, at most once: a `false` guard skips the arm and testing continues with the next, so one `match` may run several guards in source order. The condition must be `Boolean` (`E0201`) — there is no truthiness — and it sees the bindings the pattern made, exactly as the body will. A guard never narrows: in a guard, `is` is an ordinary `Boolean` test.
 - In expression position all arm bodies must have a common type (`E0211`); as a statement the values are discarded.
 
 ### Patterns
@@ -64,13 +64,14 @@ let label = match x {
 | Variant with payload | `Enum::Variant(p1, …)` | that variant, one sub-pattern per slot, in declaration order |
 | Struct deconstruction | `Type(p1, …)` | a value of that struct, one sub-pattern per field |
 | Type | `String s`, `Unknown _`, `String \| Int v` | a value of that type, binding the name |
+| Or | `p1 \| p2` | a value matched by any alternative; the alternatives bind the same names |
 | Range | `a..<b`, `a...b` | numeric values inside the range |
 
 - Variants use `::` in patterns and expressions — `Shape::Circle(r)`, never `Shape.Circle`.
 - Sub-patterns nest: `Shape::Dot(Point(x, y))`. A slot that is not bound must be written `_`.
 - Range operands must be numeric literals of the same type as the scrutinee; `0...9` includes both ends, `0..<10` excludes the upper bound.
 - The written type of a type pattern must be **testable**: a base type, a non-generic struct/enum, `Unknown`, or an optional/union of testable types. `List<Int>`, `Map<…>`, function types, and type parameters are not testable (`E0303`).
-- An **or-pattern** lists alternatives separated by `|` — `0 | 1`, `true | false`, `Result::Ok(v) | Result::Err(v)` — and the arm matches when any alternative does. Every alternative must bind the same names at the same type (`E0304` otherwise), so the guard and the body read one set of bindings. The union type pattern keeps `|` when a binder follows the designators: `String | Int v` is one type pattern; write `(A) | B c` when parentheses are needed to make alternatives.
+- An **or-pattern** lists alternatives separated by `|` — `0 | 1`, `true | false`, `Result::Ok(v) | Result::Err(v)` — and the arm matches when any alternative does; an alternative may be parenthesized. Every alternative must bind the same names at the same type (`E0304` otherwise), so the guard and the body read one set of bindings. The union type pattern keeps `|` when a binder follows the designators: `String | Int v` is one type pattern; write `(A) | B c` when parentheses are needed to make alternatives.
 
 ```js
 enum Shape {
@@ -95,12 +96,16 @@ fn bucket(n: Int): String {
 }
 // bucket(-3) => "negative"; bucket(1) => "zero or one";
 // bucket(4) => "even"; bucket(7) => "odd"
+
+match value {
+  Int x | String y => print(x)   // error: alternatives bind different names (E0304)
+}
 ```
 
 ### Exhaustiveness and Reachability
 
-- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`. Or-pattern alternatives cover together (`true | false` covers `Boolean`); a **guarded arm never covers**, because its guard may be false.
-- An arm that can never be selected is an error (`E0302`): anything after an unguarded wildcard or binding arm, a repeated literal, or a type already covered by earlier unguarded arms. A guarded arm never makes a later arm unreachable — its guard may fail.
+- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`. Or-pattern alternatives cover together (`true | false` covers `Boolean`, and union members may be split across alternatives); a **guarded arm never covers**, because its guard may be false, so exhaustiveness counts only unguarded arms.
+- An arm that can never be selected is an error (`E0302`): anything after an unguarded wildcard or binding arm, a repeated literal, or a type already covered by earlier unguarded arms. A guarded arm never makes a later arm unreachable — its guard may fail — and an or-pattern does so only when every value its alternatives match was already selected by earlier unguarded arms.
 
 ```js
 let grade = match score {
@@ -210,4 +215,4 @@ fn quarter(n: Int): Result<Int, String> {
 - `e?` yields the success value or returns the failure from the enclosing function; the operand must be `T?` or `Result<T, E>` and the enclosing function must declare a return type the failure fits (`E0217`).
 - `panic(message)` stops the program where it is written; the operand is a `String` and there is no handler. Use `Result` for outcomes a caller may handle, `panic` for broken invariants.
 
-See the [error handling spec](/en/docs/spec/error-handling/) for the full model, and [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/) for evaluation order and the statement-value rule.
+See the [control flow spec](/en/docs/spec/expressions/control-flow/) for the normative pattern, guard, and exhaustiveness rules, the [error handling spec](/en/docs/spec/error-handling/) for the full failure model, and [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/) for evaluation order and the statement-value rule.
