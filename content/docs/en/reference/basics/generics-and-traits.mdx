@@ -55,12 +55,12 @@ let ok: Map<String, Int> = {}         // well-formed
 // let bare: List = []                // error: `List` expects 1 type argument, found 0 (E0230)
 ```
 
-Type arguments are never written at a call site (see [Inference](#inference)); written arguments differ from inferred ones only in syntax — they are unified and bound-checked exactly the same way.
+Type arguments written in a type application differ from inferred ones only in syntax — they are unified and bound-checked exactly the same way. A call site may write its own list; see [Explicit Type Arguments](#explicit-type-arguments).
 
 ## Bounds
 
 ```js
-fn area_of<T: Area>(shape: T): Float { Area.area(shape) }
+fn area_of<T: Area>(shape: T): Float { Area::area(shape) }
 fn perimeter_of<T>(shape: T): Float where T: Area { shape.perimeter() }
 fn render<T: Area + Scalable>(shape: T): Float { … }
 ```
@@ -83,7 +83,7 @@ let ok = Palette(shape: rect)       // T = Rect, and Rect: Area
 
 ## Inference
 
-Type arguments are **never written at a call site**: `first<Int>(…)` and `Map<String, Int>(…)` are not part of the language. Arguments are inferred by unification against the declared parameter types, and an expected type may supply what the arguments leave open.
+A call that writes no type-argument list is checked by inference: arguments are determined by unification against the declared parameter types, and an expected type may supply what the arguments leave open. A call MAY also write the list itself — see [Explicit Type Arguments](#explicit-type-arguments).
 
 ```js
 let n = first([1, 2, 3])        // T = Int
@@ -95,7 +95,7 @@ let ys: List<Int> = empty()     // OK: T from the expected type
 let xs = empty()                // error: T not determined (E0216)
 ```
 
-- Every type argument must satisfy the parameter's bounds (`E0801`), whether it was inferred at a call or written in an annotation.
+- Every type argument must satisfy the parameter's bounds (`E0801`), whether it was inferred at a call or written — in an annotation or a call's type list.
 - A parameter occurring twice in a signature receives one solution; when two constraints demand different types, the later argument is reported as a mismatch against the type the earlier one fixed (`E0202`):
 
 ```js
@@ -103,7 +103,27 @@ fn both<T>(a: List<T>, b: List<T>): T { a[0] }
 let t = both([1], ["x"])   // error: T is Int from `a`; `List<String>` does not match `List<Int>` (E0202)
 ```
 
+- Under-constrained inference is repaired by writing the type list — `empty<Int>()` — or by annotating the context.
 - Each distinct assignment of type arguments is a separate instantiation: the program behaves **as if** a non-generic copy were written for each, and no operation observes a type argument at runtime.
+
+## Explicit Type Arguments
+
+A call MAY write the type arguments of a generic callee explicitly, in a list between the callee and the argument list:
+
+```js
+let n = first<Int>([1, 2, 3])      // T = Int, written at the call
+let m = Map<String, Int>()          // constructor with written arguments
+let all = Task::all<Int>([t1, t2])  // namespace member
+
+// let bad = first<Int, String>([1, 2, 3])  // error: expected 1 type argument, found 2 (E0808)
+// let none = double<Int>(21)               // error: `double` accepts no type arguments (E0807)
+```
+
+- The list is written `<` … `>` immediately before the argument list, and it is **all or nothing**: a call writes every type parameter of its callee or writes none.
+- The number of written arguments must equal the number the callee declares — a longer or shorter list is `E0808`; a list before a callee that declares no type parameters — a function value, a constructor — is `E0807`.
+- Each written argument must satisfy the parameter's bounds (`E0801`).
+- When the list is written, inference is suppressed for those parameters and an expected type cannot override a written argument. Value arguments are checked against the parameter types with the written arguments substituted — a mismatch is the ordinary argument error (`E0202`) — and the call's type is the declared return type so substituted (an assignment mismatch is `E0201`).
+- Whether a `<` after a callee begins such a list is decided by the [calls spec](/en/docs/spec/expressions/calls/): the material to the matching `>` must parse as a comma-separated type list, and the next token must be `(`; otherwise the `<` is a comparison. Nested generics keep the spacing rule: `first<Map<String, Int> >(m)` is well-formed; `first<Map<String, Int>>(m)` is not.
 
 ## Traits
 
@@ -127,13 +147,13 @@ impl Area for Rectangle {
 - Method signatures are separated by `;` (a trailing `;` is optional).
 - A trait method is signature-only — **no default implementations**, and every method must declare a return type.
 - The receiver is `self` or `mut self`; an implementation must use the same form, and remaining parameters must be annotated.
-- `pub trait` exports the trait; importers use `import type { Area } from "…"` and implement it locally.
+- `pub trait` exports the trait; importers bring it in with `use type form::Area;` and implement it locally.
 
 **Implementation:**
 
 - Every declared method must be present (`E0802`) with mutually assignable signatures (`E0803`), and no extra methods may be declared (`E0804`) — extra behavior belongs in an inherent `impl`.
 - Two implementations of the same trait for the same type in the same module are `E0805`.
-- An `impl` applies within the module that contains it: **importing a type or trait never imports an `impl`**.
+- An `impl` applies within the module that contains it: **`use`-ing a type or trait never brings an `impl`**.
 - **A generic `impl` applies to a type** only when its parameters can be instantiated so the implemented type equals that type **and** its bounds are satisfied by that same instantiation — recursively, an impl whose bounds name other traits applies only when those bounds hold in turn. An impl that does not apply contributes **nothing**: no members through member lookup (a lookup left with only it is `E0102`) and no trait implementation for explicit dispatch or bound checking (`E0801`).
 
 ```js
@@ -146,7 +166,7 @@ impl Area for Rect {
 }
 
 impl<T: Area> Palette<T> {
-  fn render(self): Float { Area.area(self.shape) }
+  fn render(self): Float { Area::area(self.shape) }
 }
 
 let ok = Palette(shape: Rect(w: 3.0, h: 4.0))
@@ -161,25 +181,25 @@ print(str(ok.render()))          // works: Rect: Area, so the impl applies
 ```js
 fn main() {
   let r = Rectangle(w: 3.0, h: 4.0)
-  print(str(Area.area(r)))      // explicit dispatch
+  print(str(Area::area(r)))      // explicit dispatch
   print(str(r.area()))          // member call
 }
 ```
 
-- **Explicit dispatch** `Trait.method(receiver)` resolves directly to the implementation of `Trait` for the receiver's static type; if none is visible, that is `E0801`.
-- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait.method(receiver)`.
+- **Explicit dispatch** `Trait::method(receiver)` resolves directly to the implementation of `Trait` for the receiver's static type; if none is visible, that is `E0801`.
+- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait::method(receiver)`.
 - All dispatch is static. There is no dynamic dispatch on a value's runtime type and no reflection over type arguments.
 
 ### Inside a Bound
 
 ```js
 fn describe<T: Area>(shape: T): Float {
-  shape.area() + Area.area(shape)   // both forms, one target
+  shape.area() + Area::area(shape)   // both forms, one target
 }
 ```
 
 - A member call on a type parameter resolves **through a bound** — the bound is its only source of members. An unbounded parameter has no members: `t.area()` inside `fn f<T>(t: T)` is `E0102`.
-- Both `x.method()` and `Trait.method(x)` are legal wherever `T: Trait` is written, and both denote the same static call.
+- Both `x.method()` and `Trait::method(x)` are legal wherever `T: Trait` is written, and both denote the same static call.
 - The implementation a bound uses is the one visible at the point that **selects the type argument** — a call that infers it or a type application that writes it; it travels with the bound into the generic body. Two instantiations at call sites in different modules may therefore use two different implementations — that is specified behavior, not an ambiguity.
 
 ## Structural vs Nominal
@@ -197,6 +217,41 @@ impl ToString for User {
   }
 }
 ```
+
+## Attributes
+
+`#` is the declaration-attribute marker. The form is `#Name`, or `#Name(Arg, …)` where the arguments are identifiers only; the attribute list is written outermost, before `pub` and `async`. An attribute on its own line, directly above the declaration, is **RECOMMENDED**; a shared line — `#Derive(ToString) struct User { … }` — is equally well-formed.
+
+- The registry is **closed**, and every attribute written in source is interpreted by the checker: there are no inert attributes and no macros. An unregistered name is `E0108` (`` attribute `Inline` is not defined ``).
+- Attributes go on exactly five item forms — `fn`, `struct`, `enum`, `trait`, and `impl` — plus the test form `#Test` (see [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/)), and on nothing else: not on `type` aliases, `let`, `const`, trait method signatures, or components.
+- A registered attribute is valid only on the declarations its registry entry allows (`E0109`), and its arguments must fit the shape that entry states (`E0110`).
+
+Exactly two attributes are registered.
+
+### `#Derive`
+
+`#Derive(ToString)`, on a `struct` or an `enum` only, generates the structural `impl ToString`: a struct renders as `S(f1: …, f2: …)` — the fields in declaration order, a fieldless struct as `S()` — and an enum variant as `E::V` or `E::V(p, …)`, with payload slots positional even when the variant names them.
+
+```js
+#Derive(ToString)
+struct User { name: String, age: Int }
+
+#Derive(ToString)
+enum Shape { Circle(Float), Rect(Float, Float) }
+
+let s = User(name: "Alice", age: 30)
+print(str(s))                    // User(name: Alice, age: 30)
+print(`${Shape::Circle(2.5)}`)   // Shape::Circle(2.5)
+```
+
+- A field or payload type with no string form fails the derive at that type with `E0801`.
+- The expansion is an ordinary impl: a hand-written `impl ToString` for the same type, or a second `#Derive(ToString)`, is the conflicting-impl error `E0805`.
+- `#Derive` on a generic type is `E0112` — no bound means "base type or implements `ToString`", so the expansion cannot be written for an open `T`; a generic type keeps its hand-written impl.
+- Derive targets are a closed registry: the only registered target is `ToString`; `Display` and `Debug` are reserved, unregistered names — written as targets they are `E0111`.
+
+### `#Test`
+
+`#Test` marks a function as a test — `#Test [async] fn name() { … }`, no other attributes and no other shape. Its form, checking, and pass/fail criterion are on the [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/) page.
 
 ## Example
 
@@ -219,7 +274,7 @@ impl Area for Circle {
   fn perimeter(self): Float { 2.0 * 3.14159 * self.r }
 }
 
-fn area_of<T: Area>(shape: T): Float { Area.area(shape) }
+fn area_of<T: Area>(shape: T): Float { Area::area(shape) }
 
 fn main() {
   let r = Rectangle(w: 3.0, h: 4.0)
@@ -231,4 +286,4 @@ fn main() {
 
 `area_of` is checked once per instantiation against `Area`; `Rectangle` and `Circle` satisfy the bound through their `impl`s.
 
-Bounds, inference, and monomorphization are specified in the [generics spec](/en/docs/spec/types/generics/), and dispatch in the [traits spec](/en/docs/spec/types/traits/).
+Bounds, inference, and monomorphization are specified in the [generics spec](/en/docs/spec/types/generics/), dispatch in the [traits spec](/en/docs/spec/types/traits/), and the written call form and its disambiguation in the [calls spec](/en/docs/spec/expressions/calls/).

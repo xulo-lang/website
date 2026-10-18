@@ -66,7 +66,7 @@ xs[0] = 9
 
 | Scope | Introduced by | Names visible |
 |-------|---------------|---------------|
-| Module (file) | the file itself | top-level declarations plus every `import` and `pub use` |
+| Module | the module body (file or inline `mod` block) | top-level declarations plus every `mod`, `use`, and `pub use` binding |
 | Function | a `fn` header | parameters, then the body |
 | Generic parameter | `<T>` or `where T: …` | in the signature, return type, and body |
 | Block | every `{ … }` | declarations made inside that block |

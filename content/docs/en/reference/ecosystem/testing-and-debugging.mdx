@@ -1,24 +1,27 @@
 ---
 title: Testing & Debugging
-description: The test function form, the assert intrinsic, and how tests stay out of the running program in XULO.
+description: The `#Test` form, the assert intrinsic, and how tests stay out of the running program in XULO.
 ---
 
 ## Overview
 
-Tests live in the same source files as the code they check. The language contributes exactly two things to testing — the `test fn` form and the `assert` intrinsic — so that a test is checked with the rest of the program and discoverable from the source itself. Everything else — which tests a tool discovers, the order it runs them, what each run is isolated from, and how a failure is reported — belongs to the tool, not to the language. There is no test framework to learn and no assertion library to install.
+Tests live in the same source files as the code they check. The language contributes exactly two things to testing — the `#Test` form and the `assert` intrinsic — so that a test is checked with the rest of the program and discoverable from the source itself. Everything else — which tests a tool discovers, the order it runs them, what each run is isolated from, and how a failure is reported — belongs to the tool, not to the language. There is no test framework to learn and no assertion library to install.
 
 ## Test functions
 
-A test is a function marked with `test`. It appears at file scope, among a module's top-level declarations — it is not a statement and appears nowhere else:
+A test is a function marked with `#Test`. It appears at file scope, among a module's top-level declarations — it is not a statement and appears nowhere else:
 
 ```js
-test fn map_get_answers_null() {
+#Test
+fn map_get_answers_null() {
   let m = { a: 1 }
   assert(map_get(m, "z") == null, "absent key is null")
 }
 ```
 
-A test function has a fixed shape — the marker adds nothing optional beyond `async`:
+The head token is exactly `#Test`, and the optional `async` marker follows it (`#Test async fn`, never `async #Test fn`). The examples write `#Test` on its own line directly above `fn`, and that placement is **RECOMMENDED** — the attribute marks the whole declaration and reads better apart from the signature; `#Test fn name() { … }` on one line is equally well-formed.
+
+A test function has a fixed shape — nothing is optional beyond `async`:
 
 | Slot | Rule |
 |------|------|
@@ -27,13 +30,16 @@ A test function has a fixed shape — the marker adds nothing optional beyond `a
 | `pub` | none: a test is never part of an interface |
 | generics / `where` | none |
 
+The form carries no other attributes — `#Derive #Test fn` is not a test. A `#Test` before an `fn` with parameters, a return type, generics, a `where` clause, or `pub` parses as an ordinary `fn` carrying the attribute and is diagnosed `E0110` (`` attribute `Test` takes the form `#Test [async] fn name() { … }` ``); written on a `struct`, `enum`, `trait`, or `impl` it is `E0109`.
+
 - **Always checked.** The body is checked exactly as a `fn(): Unit` body is checked — types, exhaustiveness, mutability, the statement-value rule — whether or not any tool ever runs it. A file whose tests do not check is rejected like any other file. The body is the body of an implicit nullary function returning `Unit`: `return` alone is accepted, and `return e` checks `e` against `Unit`.
 - **The name binds no value.** The identifier is the test's identity as a tool reports it, not a callable name: any reference to it — a call, a value use, a path — is a compile-time error (`E0107`). A check that would recurse is written as an ordinary helper function that the test calls. Two tests in a module MAY share a name; a tool tells them apart by their positions.
 - **Inert.** No execution of the program evaluates a test body — not the module's initializers, not `main`, not any call: the name binds no value, so nothing can reach it. Statements in a test body run only under a tool.
-- **Same view of the module.** The body sees the file's imports and its module-level declarations under the same scope and forward-reference rules as any function body.
+- **Same view of the module.** The body sees the file's `use` bindings and its module-level declarations under the same scope and forward-reference rules as any function body.
 
 ```js
-test fn reference_is_forbidden() {
+#Test
+fn reference_is_forbidden() {
   assert(true, "runs only under a tool")
 }
 
@@ -44,15 +50,17 @@ fn main() {
 
 ## Async tests
 
-A test whose body suspends is marked `async`; the marker follows `test` (`test async fn`, never `async test fn`) and is spelled exactly as `async` is spelled on a function:
+A test whose body suspends is marked `async`; the marker follows `#Test` (`#Test async fn`, never `async #Test fn`) and is spelled exactly as `async` is spelled on a function:
 
 ```js
-test async fn delayed_task_finishes() {
-  await Time.sleep(1) // ok: an async test body is an async context
+#Test
+async fn delayed_task_finishes() {
+  await Time::sleep(1) // ok: an async test body is an async context
 }
 
-test fn await_needs_the_async_marker() {
-  await Time.sleep(1) // error: `await` outside of an `async` context (E0501)
+#Test
+fn await_needs_the_async_marker() {
+  await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 ```
 
@@ -74,7 +82,7 @@ assert(list_size(xs) == 3, "three items") // ok: no effect
 assert(list_size(xs) == 4, "not four")    // false: stops with panic("not four")
 ```
 
-`assert` is an intrinsic, like `print`, `println`, and `str`: available without import, exactly one signature, and the name is reserved — a module-scope declaration MUST NOT bear it (`E0106`).
+`assert` is how a `#Test` body states a requirement. It is an intrinsic, like `print`, `println`, and `str`: available without `use`, exactly one signature, and the name is reserved — a module-scope declaration MUST NOT bear it (`E0106`).
 
 ## What Counts as Failure
 
@@ -103,15 +111,18 @@ The language guarantees only that a test body is inert until a tool runs it and 
 
 ```js
 // The pair differs only in the marker: rejected at check time vs. accepted
-test fn await_needs_the_async_marker() {
-  await Time.sleep(1) // error: `await` outside of an `async` context (E0501)
+#Test
+fn await_needs_the_async_marker() {
+  await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 
-test async fn await_with_the_async_marker() {
-  await Time.sleep(1) // ok: the test passes when its task completes
+#Test
+async fn await_with_the_async_marker() {
+  await Time::sleep(1) // ok: the test passes when its task completes
 }
 
-test fn reference_is_forbidden() {
+#Test
+fn reference_is_forbidden() {
   assert(true, "runs only under a tool")
 }
 
@@ -123,7 +134,8 @@ fn main() {
 The last test is well-formed on its own; the call in `main` is rejected (`E0107`), and the test body is still checked and still runs only under a tool.
 
 ```js
-test fn list_ops_round_trip() {
+#Test
+fn list_ops_round_trip() {
   let mut xs = ["a", "b"]
   list_push(xs, "c")
   assert(list_size(xs) == 3, "three items")
@@ -131,8 +143,9 @@ test fn list_ops_round_trip() {
   assert(list_size(xs) == 2, "two remain")
 }
 
-test async fn deadline_reports_timeout() {
-  let outcome = await Task.timeout(Time.sleep(5000), 50)
+#Test
+async fn deadline_reports_timeout() {
+  let outcome = await Task::timeout(Time::sleep(5000), 50)
   match outcome {
     Result::Err(e) => assert(e.message == "timed out", "Err carries the timeout message")
     Result::Ok(_) => panic("deadline did not expire")

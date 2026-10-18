@@ -152,18 +152,9 @@ user.age = 31  // mutable via `let` binding
 Struct fields are **private by default**. Use `pub` for public fields:
 
 ```js
-export struct User {
+pub struct User {
   pub name: string    // Public
   age: number         // Private
-}
-```
-
-Batch-public with `export pub struct`:
-
-```js
-export pub struct Point {
-  x: number   // Automatically pub
-  y: number   // Automatically pub
 }
 ```
 
@@ -198,11 +189,11 @@ enum Person {
 Construction and matching:
 
 ```js
-let op = Operation.Success(42)
+let op = Operation::Success(42)
 
 match op {
-  Operation.Success(value) => print("Got: " + value)
-  Operation.Error(msg) => print("Error: " + msg)
+  Operation::Success(value) => print("Got: " + value)
+  Operation::Error(msg) => print("Error: " + msg)
 }
 ```
 
@@ -224,15 +215,15 @@ Explicit dispatch (static call, zero overhead):
 
 ```js
 let r: Rectangle = { w: 3, h: 4 }
-print(str(Area.area(r)))        // 12
-print(str(Area.perimeter(r)))   // 14
+print(str(Area::area(r)))        // 12
+print(str(Area::perimeter(r)))   // 14
 ```
 
 Generic constraints:
 
 ```js
 fn describe<T: Area>(t: T): number {
-  Area.area(t)
+  Area::area(t)
 }
 ```
 
@@ -377,10 +368,10 @@ match value {
 With enum payloads:
 
 ```js
-let op = Operation.Success(42)
+let op = Operation::Success(42)
 match op {
-  Operation.Success(value) => print("Got: " + value)
-  Operation.Error(msg) => print("Error: " + msg)
+  Operation::Success(value) => print("Got: " + value)
+  Operation::Error(msg) => print("Error: " + msg)
 }
 ```
 
@@ -419,7 +410,7 @@ enum ValidationError {
   OutOfRange(field: string, min: number, max: number)
 }
 
-throw ValidationError.OutOfRange("age", 0, 150)
+throw ValidationError::OutOfRange("age", 0, 150)
 ```
 
 Built-in exception types: `JSONError`, `FsError`, `NetworkError`, `Error` (base).
@@ -514,7 +505,7 @@ fn consume(u: User) { save_to_database(u) }   // Ownership transfer
 fn main() {
   let mut alice = User(name: "Alice", age: 30)
   inspect(alice)        // alice still valid
-  birthday(mut alice)   // alice still valid
+  birthday(alice)       // alice still valid
   let bob = copy alice  // alice and bob independent
   consume(move alice)   // alice invalidated
 }
@@ -562,36 +553,38 @@ struct WorkerService {
 impl WorkerService {
   fn on_message(u: mut self, cmd: Command) {
     match cmd {
-      Command.Analyze(data) => { reply(heavy_analysis(data)) }
-      Command.Shutdown => { reply(Status.ShuttingDown) }
+      Command::Analyze(data) => { reply(heavy_analysis(data)) }
+      Command::Shutdown => { reply(Status::ShuttingDown) }
     }
   }
 }
 
 fn main() {
-  let worker = spawn.process WorkerService { metrics: Metrics.new() }
-  worker.send(Command.Analyze("data"))
+  let worker = spawn.process WorkerService { metrics: Metrics::new() }
+  worker.send(Command::Analyze("data"))
 }
 ```
 
 ---
 
-## Built-in: JSON
+## JSON
 
-No import required.
+Import the std package, then access its members with `::`:
 
 ```js
+use json as JSON;
+
 // Serialize
-let json_str = JSON.stringify({ name: "Alice", age: 30 })
+let json_str = JSON::stringify({ name: "Alice", age: 30 })
 
 // Deserialize (generic)
-let user = JSON.parse<User>(json_str)
+let user = JSON::parse<User>(json_str)
 
 // Async parse
-let user = await JSON.parse_async<User>(json_str)
+let user = await JSON::parse_async<User>(json_str)
 ```
 
-Throws `JSONError` with variants: `SyntaxError`, `TypeMismatch`, `UnexpectedEof`.
+Failures carry `JSONError` with variants: `SyntaxError`, `TypeMismatch`, `UnexpectedEof`.
 
 ---
 
@@ -648,7 +641,7 @@ fn Home(): View {
 
   VStack {
     Text("User: " + user?.name)
-    Button(onClick: fn() { setTheme(Theme.Dark) }) {
+    Button(onClick: fn() { setTheme(Theme::Dark) }) {
       Text("Dark mode")
     }
   }
@@ -688,40 +681,49 @@ Checkbox(checked: $isActive)
 
 ## Module System
 
-### Import
+### Declarations
 
 ```js
-import { add, PI } from "math"
-import type { User } from "types"
-import * as math from "math"
-import "core"
+mod form;           // claims form.xulo
+pub mod form;       // and exports it
+mod tests { … }     // inline module
 ```
 
-### Export
+### Imports
 
 ```js
-export fn add(a: number, b: number): number { a + b }
-export let PI = 3.14
-export type User = { name: string }
-export enum Status { Active Inactive }
+use form::validate;
+use ui::{HStack, Button};
+use ui::hstack::HStack as Btn;
+use type router::Router;
+use lsp-server::*;
+use lsp-server as ls;
+```
 
-// Re-export current module declarations
-export { add, PI }
+### Exports
 
-// Re-export from another module
-export { add, PI } from './math'
-export { default as Logger } from './logger'
+```js
+pub fn add(a: number, b: number): number { a + b }
+pub let PI = 3.14
+pub type User = { name: string }
+pub enum Status { Active Inactive }
+
+// Binds AND exports
+pub use ui::hstack::HStack;
+
+// Re-export imported bindings
+pub use { add, PI };
 ```
 
 ### Visibility
 
 | Level | Keyword | Controls |
 |-------|---------|----------|
-| Module | `export` | Whether declaration is exposed externally |
+| Module | `pub` | Whether declaration is exposed externally |
 | Type member | `pub` | Whether field/method is accessible |
 
 ```js
-export struct User {
+pub struct User {
   pub name: string     // Public field
   age: number          // Private field
 }
@@ -733,9 +735,8 @@ impl User {
 ```
 
 Import resolution:
-- Relative paths (`./math`) or local names → `.xulo` files, inlined in bundle
-- Other specifiers (`@xulo/ui`) → external packages, ESM `import`
-- `import type` is erased at runtime
+- A module path (`form::validate`) claims the module's `.xulo` file, inlined in the bundle
+- `use type` is erased at runtime
 - No runtime module loader — each file compiles to an IIFE returning an export object
 
 ---
@@ -869,23 +870,23 @@ Screen {
 ## Standard Library (`std`)
 
 ```js
-import { HashMap, BTreeMap, HashSet, Deque } from "std/collections"
-import { File, Path } from "std/fs"
-import { http } from "std/net"
-import { sleep, interval } from "std/async"
-import { AtomicI64 } from "std/sync"
+use collections::{HashMap, BTreeMap, HashSet, Deque};
+use fs::{File, Path};
+use net::fetch;
+use async::{sleep, interval};
+use sync::AtomicI64;
 ```
 
-| Module | Contents |
-|--------|----------|
-| `std/collections` | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
-| `std/fs` | `File`, `Path` |
-| `std/net` | `TcpStream`, `TcpListener`, `UdpSocket`, `http.fetch()`, `HttpListener` |
-| `std/async` | `sleep(ms)`, `interval(ms)`, `Task`, `channel` |
-| `std/thread` | `Builder`, `current` |
-| `std/sync` | `AtomicBool`, `AtomicI64`, `Semaphore`, `Barrier` |
-| `std/process` | `Command`, `env.args()` |
-| `std/math` | `Random`, `Matrix`, `Vector`, `Complex` |
-| `std/time` | `Instant`, `Duration`, `DateTime` |
+| Package | Contents |
+|---------|----------|
+| `collections` | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
+| `fs` | `File`, `Path` |
+| `net` | `TcpStream`, `TcpListener`, `UdpSocket`, `fetch`, `HttpListener` |
+| `async` | `sleep(ms)`, `interval(ms)`, `Task`, `channel` |
+| `thread` | `Builder`, `current` |
+| `sync` | `AtomicBool`, `AtomicI64`, `Semaphore`, `Barrier` |
+| `process` | `Command`, `env.args()` |
+| `math` | `Random`, `Matrix`, `Vector`, `Complex` |
+| `time` | `Instant`, `Duration`, `DateTime` |
 
-Built-in primitives (`list`, `map`, `set`, `JSON`, `spawn`, `lock`, `shared`, `Math`) do not require import.
+Built-in primitives (`list`, `map`, `set`, `spawn`, `lock`, `shared`, `Task`, `Math`) do not require import.

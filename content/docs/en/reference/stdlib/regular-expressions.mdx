@@ -5,22 +5,22 @@ description: Pattern matching and text replacement with the standard-library Reg
 
 ## Overview
 
-Regular expressions are a standard-library API. The specification places regular expressions (together with JSON and I/O) outside the language, and the grammar has no `/pattern/flags` literal: in expression position `/` is division. Patterns are ordinary `String` values handed to the `RegExp` type, which comes from a module that must be imported before use — no regex name is part of the prelude.
+Regular expressions are a standard-library API. The specification places regular expressions (together with JSON and I/O) outside the language, and the grammar has no `/pattern/flags` literal: in expression position `/` is division. Patterns are ordinary `String` values handed to the `RegExp` type, which comes from a module that must be named by an explicit `use` before use — no regex name is part of the prelude.
 
 ```js
-import { RegExp, RegexError } from "std/regex"   // the type, its compile function, and the error type
+use regex::{RegExp, RegexError};   // the type, its compile function, and the error type
 ```
 
-Compiling never throws: `RegExp.compile` returns `Result<RegExp, RegexError>`, so an illegal pattern is a value the caller handles with `match` or `?`.
+Compiling never throws: `RegExp::compile` returns `Result<RegExp, RegexError>`, so an illegal pattern is a value the caller handles with `match` or `?`.
 
 ## Methods
 
-### `RegExp.compile(pattern: String, flags: String = ""): Result<RegExp, RegexError>`
+### `RegExp::compile(pattern: String, flags: String = ""): Result<RegExp, RegexError>`
 
 Compiles a pattern string, optionally with [flags](#flags). The default for `flags` is the empty string.
 
 ```js
-match RegExp.compile("[a-z]+", "i") {
+match RegExp::compile("[a-z]+", "i") {
   Result::Ok(re) => print("pattern compiled")
   Result::Err(reason) => print("Illegal pattern: " + reason.message)
 }
@@ -31,7 +31,7 @@ match RegExp.compile("[a-z]+", "i") {
 Whether the pattern matches anywhere in `input`.
 
 ```js
-match RegExp.compile("^[a-z0-9]+$") {
+match RegExp::compile("^[a-z0-9]+$") {
   Result::Ok(re) => print(re.test("abc123"))   // true
   Result::Err(reason) => print(reason.message)
 }
@@ -80,12 +80,12 @@ A `String` method that substitutes matches of `pattern`. The replacer is either 
 
 ```js
 fn format_date(text: String): Result<String, RegexError> {
-  let re = RegExp.compile("(\\d{4})-(\\d{2})-(\\d{2})")?
+  let re = RegExp::compile("(\\d{4})-(\\d{2})-(\\d{2})")?
   Result::Ok(text.replace(re, "$2/$3/$1"))     // "2026-09-07" → "09/07/2026"
 }
 
 fn upper_words(text: String): Result<String, RegexError> {
-  let re = RegExp.compile("[a-z]+", "g")?
+  let re = RegExp::compile("[a-z]+", "g")?
   Result::Ok(text.replace(re, (m) => m.value.to_uppercase()))
 }
 ```
@@ -99,21 +99,21 @@ fn upper_words(text: String): Result<String, RegexError> {
 | `m` | multiline mode: `^` and `$` match line starts and ends |
 | `u` | Unicode mode |
 
-Flags are passed to `compile`, not written after a pattern: `RegExp.compile("^[a-z0-9]+$", "i")`.
+Flags are passed to `compile`, not written after a pattern: `RegExp::compile("^[a-z0-9]+$", "i")`.
 
 ## Error Handling
 
-The only failure is compilation, and it is a value: `RegExp.compile` yields `Result<RegExp, RegexError>`. There is no `throw` and no `try` / `catch` — a bad pattern leaves the function as `Result::Err`, propagated with `?` or inspected with `match`.
+The only failure is compilation, and it is a value: `RegExp::compile` yields `Result<RegExp, RegexError>`. There is no `throw` and no `try` / `catch` — a bad pattern leaves the function as `Result::Err`, propagated with `?` or inspected with `match`.
 
 `RegexError` is the regex module's error value; it carries a `message: String`, the same shape as the built-in `Error` ([Error Handling](/en/docs/spec/error-handling/)).
 
 ```js
 fn compile_or_fail(pattern: String): Result<RegExp, RegexError> {
-  RegExp.compile(pattern)          // an illegal pattern travels up as Err
+  RegExp::compile(pattern)          // an illegal pattern travels up as Err
 }
 
 fn describe(pattern: String): String {
-  match RegExp.compile(pattern) {
+  match RegExp::compile(pattern) {
     Result::Ok(_) => "compiled"
     Result::Err(reason) => "illegal pattern: " + reason.message
   }
@@ -134,7 +134,7 @@ Matching itself cannot fail: `test`, `find`, `find_all`, and `replace` return or
 ```js
 // Validate an email address
 fn is_valid_email(email: String): Boolean {
-  match RegExp.compile("^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") {
+  match RegExp::compile("^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") {
     Result::Ok(re) => re.test(email)
     Result::Err(_) => false
   }
@@ -142,7 +142,7 @@ fn is_valid_email(email: String): Boolean {
 
 // Extract the domain from a URL
 fn extract_domain(url: String): Result<String?, RegexError> {
-  let re = RegExp.compile("https?://([^/]+)")?
+  let re = RegExp::compile("https?://([^/]+)")?
   let m = re.find(url)                 // RegexMatch?
   if m != null {
     Result::Ok(m.group(1) ?? "")       // m is narrowed inside the branch
@@ -153,7 +153,7 @@ fn extract_domain(url: String): Result<String?, RegexError> {
 
 // Extract every email address in a text
 fn find_emails(text: String): Result<List<RegexMatch>, RegexError> {
-  let re = RegExp.compile("([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)", "g")?
+  let re = RegExp::compile("([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)", "g")?
   Result::Ok(re.find_all(text))
 }
 ```

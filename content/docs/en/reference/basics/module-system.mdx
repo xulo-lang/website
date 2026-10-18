@@ -1,103 +1,161 @@
 ---
 title: Module System
-description: Imports, exports, and module resolution in XULO.
+description: Modules, packages, paths, and exports in XULO.
 ---
 
-## One File, One Module
+## Modules and Packages
 
-A Xulo module **is** a file (`.xulo`): there is no module header, no module block, and no directory module. The file's contents are the whole module, and everything in file scope marked `pub` forms its interface.
+A **module** is a body of code: one file, or one inline `mod` block. A file becomes a module only when a `mod` declaration claims it — an unclaimed `.xulo` file is not a module: it is not checked, not initialized, and not nameable. There is no `mod.rs`, no `index.xulo`, and no directory module; a `mod` declaration resolves to exactly one file.
 
-A file is a sequence of top-level declarations — `fn`, `struct`, `enum`, `trait`, `impl`, `type`, `let`, `const`, `import`, and `pub use` — and **`import` declarations must form the file's header**, before every other top-level declaration (`E0605`).
+A **package** is the tree of modules reachable from one **root module** — the file the environment designates — by `mod` declarations. The tree is declared, not discovered.
+
+## The Header
+
+Every module body — a file, or an inline `mod` block — starts with a **header**: every `mod`, `use`, and `pub use` at that level, in any order among themselves. The first form of any other kind ends the header, and a header form written after a top-level declaration is `E0605`. Header forms never appear inside a function body, a block, or a component body.
 
 ```js
-import { add, PI } from "math"
-import * as m from "util"
-import type { User } from "types"
+mod form;
+mod internal;
+
+use lsp-server::router::Router;
+use ui::{HStack, Button};
+use type ui::User;
+pub use ui::hstack::HStack;
 
 pub struct Account { owner: User, balance: Int }
 
-pub fn deposit(a: Account, amount: Int): Int {
-  a.balance + amount
-}
+pub fn deposit(a: Account, amount: Int): Int { a.balance }
 ```
 
-## Import Forms
+## Module Declarations
 
-There are exactly four:
+Two kinds claim files or nest modules:
 
 | Form | Meaning |
 |------|---------|
-| `import { a, b as c } from "m"` | named import; `as` renames the local binding only |
-| `import * as ns from "m"` | namespace import; members selected with `ns.a` |
-| `import type { T } from "m"` | type-only import, erased at runtime |
-| `import "m"` | side-effect import; binds nothing, forces initialization order |
+| `mod form;` | file-backed: claims `H/form.xulo`, where `H` is the home directory |
+| `mod tests { … }` | inline: a nested module body in this file — its own header, then its declarations |
+| `pub mod form;` | either form plus `pub`: puts the module's namespace in this interface |
 
-```js
-import { add, add as plus } from "math"
-import * as math from "math"
-import type { User, Status } from "types"
-import "core"
+- **Home directories.** The root module's home is its file's directory. A file-backed module found at `D/S.xulo` has home `D/S/`. An inline `mod m` inside a module with home `H` has home `H/m` — so a file-backed `mod extra;` declared inside `mod tests` still lands in the tree.
+- The `.xulo` extension is implied and never written. Lookup never leaves the package: homes are built from names, never from `..`.
+- One file is the body of at most one module, and a `mod` must not resolve to the file that declares it — either violation is `E0610`.
+- A plain `mod internal;` binds its name in this file's scope only; `pub mod form;` lets other modules path through it (`form::validate`) to its `pub` members.
+
+```text
+project/
+├── main.xulo          root module; home = project/
+├── form.xulo          mod form;      → project/form.xulo
+├── internal.xulo      mod internal;  → project/internal.xulo
+└── form/
+    └── fields.xulo    mod fields;    → project/form/fields.xulo
 ```
 
-- The `type` modifier follows `import` — `import { type User }` is not a form.
-- A type-only binding may be used in type positions and as the base of an enum-variant path (`Status::Active`), but never where a value is expected (`E0606`).
-- Every imported name must exist (`E0601`) and be exported (`E0602`); two imports binding the same local name are a duplicate (`E0104`). An import never used in the module is reported as `W0102`.
-- `import` appears only at file scope — never inside a function, block, or component body.
+## Use Forms
+
+`use` binds short names; `pub use` binds and exports. There is **no side-effect import**, no relative specifier, and no `from` clause — targets are paths, resolved structurally:
+
+| Form | Meaning |
+|------|---------|
+| `use lsp-server::router::Router;` | path: binds the last segment, `Router` |
+| `use ui::{HStack, Button};` | group: a path prefix and a brace list of entries relative to it |
+| `use lsp-server::*;` | glob: binds every export of the target |
+| `use lsp-server as ls;` | head-only target: binds the namespace itself; `as` is **required** |
+| `use form::validate as check;` | `as` renames the local binding only |
+| `use type ui::User;` | type-only: the marker follows `use`, before the path; whole statement only |
+| `pub use ui::hstack::HStack;` | binds `HStack` here **and** exports it |
+| `pub use { add, PI };` | re-exports names already in this module's interface |
+
+- Every segment the path walks must exist, and every name bound must be an export of the target: unknown is `E0601`, private is `E0602`.
+- A type-only binding may be used in type positions and as the base of an enum-variant path (`Status::Active`), but never where a value is expected (`E0606`) — a restriction that propagates through any `pub use` chain.
+- Two bindings for one local name are `E0104` — including glob overlap and a manifest path name colliding with a local `mod` name or alias. `_` cannot be a use entry or an alias.
+- An unused `use` entry — or a glob none of whose contributions is used — is `W0102`. A binding re-exported by `pub use` counts as used.
+
+## Paths: `::` and `.`
+
+One operator names every qualified name. **`::` is the declaration lane**: module members, package members, enum variants, built-ins:
+
+```js
+form::validate(1, 2)      // module member — callable with no prior `use`
+lsp-server::run()         // package member; hyphens stay unwspaced
+Theme::Dark               // enum variant, type, or trait name
+self::cache               // current module
+super::fields             // parent module
+Math::PI                  // built-in namespace
+Area::area(r)             // explicit trait dispatch
+```
+
+**`.` reaches into a value only**: fields, methods, map entries, tuple positions (`user.name`, `r.area()`, `p.0`). `.` never names a namespace or a module member.
+
+- Bare paths are package-root-absolute: `form::validate` starts at this package's root. There is no `crate` prefix and no leading `::`.
+- A path needs no prior `use` — `use` exists to bind the short name, not to grant access.
+- The first segment resolves as a dependency of this package (the manifest mapping), then as a root module of this package; a spelling that would be both is `E0104`. Later segments resolve inside whatever the previous reached.
+- The hyphen rule keeps packages unambiguous in expression position: `lsp-server::run()` is a qualified call, while `total - Math::PI` is subtraction.
+- An unresolvable head is `E0607`; an unresolvable later segment is `E0101` or `E0601` (local name vs module).
 
 ## Exports: `pub`, Not `export`
 
-Xulo has **no `export` keyword** — `export` is a reserved word. A declaration is exported by marking it `pub`, and names are re-exported with `pub use`:
+Xulo has **no `export` keyword** — `export` is a reserved word. A declaration is exported by marking it `pub`, a module namespace by `pub mod`, and names are moved into the interface with `pub use`:
 
 ```js
 pub fn add(a: Int, b: Int): Int { a + b }
 pub struct User { pub name: String, age: Int }
 pub enum Status { Active, Inactive }
-pub trait Shape { fn area(self): Float }
-pub type Score = Int
 pub const PI = 3.14
-pub let appName = "xulo"
-
-pub use { add, PI }                      // names of this module
-pub use { User, Status } from "types"    // names read from another module
+pub mod form;             // the namespace and its pub members
+pub use ui::hstack::HStack;   // binds here AND exports
+pub use { add, PI };          // names already in this interface
 ```
 
-| Declaration | Exported name | What importers receive |
-|-------------|---------------|------------------------|
+| Declaration | Exported name | What clients receive |
+|-------------|---------------|----------------------|
 | `pub fn f(…)` | `f` | a function of the declared signature |
 | `pub struct S { … }` | `S` | the type, its constructor, its `pub` members |
 | `pub enum E { … }` | `E` | the type and its variants `E::V` |
 | `pub trait T { … }` | `T` | the trait, to be implemented locally |
 | `pub type A = …` | `A` | the transparent alias |
 | `pub let x` / `pub const K` | `x` / `K` | the binding and its declared type |
+| `pub mod m` | `m` | the namespace, reached `m::…` |
+| `pub use path::x` | `x` | the same name, bound locally and exported |
 | `pub use { a, b }` | `a`, `b` | the interface names of this module |
 | `impl …` | — | never exported; an `impl` has no name |
 
-- `pub use { x } from "m"` is a pure forwarding edge: it does not bind `x` locally.
-- **Importing does not re-export.** A name a module imports is part of its view, not its interface, unless it is also `pub use`d.
-- `main` is an ordinary module-level `fn` (see [Entry Point](#entry-point)); it may optionally be marked `pub`.
+- **`pub use` binds and exports** — the bindless `from` form is gone; there is no pure forwarding edge. The local form `pub use { x }` names only bindings already in this module's interface: a `pub` declaration, a `pub mod` name, or a `use` from an export. Re-exporting a private local is `E0602`.
+- **Using does not re-export.** A name a module imports is part of its view, not its interface, unless it is also `pub use`d.
 
-## Specifiers and Resolution
+## Resolution and Manifest Names
 
-A specifier is a string literal resolved to exactly one file:
+A package head resolves through the dependency mapping the environment supplies — the project's dependency list:
 
-```js
-import { area } from "./shapes"        // ./shapes.xulo
-import { fmt } from "../lib/util"      // ../lib/util.xulo
-import { hstack } from "@xulo/ui"      // package specifier
+```toml
+[dependencies]
+lsp-server = "0.8"
+clap       = { version = "4.6.6", alias = "clap_lib" }
+"@xulo/ui" = { version = "1.2",    alias = "ui" }
 ```
 
-- **Relative specifiers** start with `./` or `../`, are resolved against the importing file's directory, and the `.xulo` extension is implied — never written.
-- A specifier resolves to a **file**: `./lib` means `lib.xulo`, never `lib/mod.xulo` or `lib/index.xulo`. There are no directory modules.
-- **Package specifiers** (anything without a `./` or `../` prefix) are mapped by the package environment, which is determined outside the language; what the language requires is that each resolves to exactly one module regardless of which file asks.
-- A specifier that resolves to nothing, to a non-file path, or to more than one candidate is `E0607`.
+| Manifest key | Path name | `alias` |
+|--------------|-----------|---------|
+| identifier (`clap`) | the key, unless `alias` renames it | optional |
+| kebab-case (`lsp-server`) | the key, unless `alias` renames it | optional |
+| anything else (`"@xulo/ui"`) | the `alias` | **required** |
 
-## Cycles
+- An `alias` **replaces** the key entirely as the dependency's only name in source; a path that spells the replaced key is `E0607`.
+- Two dependencies with the same path name are a manifest error. The manifest format itself (TOML shape, versions, sources) is tooling; the compiler consumes the mapping.
 
-Each `import` and each `pub use { … } from "…"` is an edge in the dependency graph. A cycle — direct, two-step, or longer — is a compile-time error (`E0603`), and the diagnostic names the path in order (`a.xulo → b.xulo → a.xulo`). A cycle has no topological initialization order.
+Standard-library modules are manifest packages too: `use json as JSON;` binds `JSON` for `JSON::parse(…)`, `use net::fetch;` is an ordinary path use, and `use regex::{RegExp, RegexError};` an ordinary group use.
+
+## Initialization Order
+
+- **Packages:** the environment initializes a package's declared dependencies before the package itself; source states no package edges.
+- **Within a package:** post-order of the mod tree — children before the module; siblings in the order their `mod` declarations appear in the parent's header.
+- **Within a module:** file-scope `let` and `const` initializers run in declaration order, and every module's initializers complete before `main` runs.
+- `use` and `pub use` create no order edge — they move names, not state.
+- Because each file is the body of at most one `mod` (`E0610`), the tree cannot cycle and a structural order always exists. A file-scope initializer must not directly read a file-scope `let` of a module that initializes after it, nor directly call a function declared there (`E0611`); the check is semantic — a `use`d binding of the same target counts.
 
 ## Visibility
 
-Every declaration is **module-private unless marked `pub`**:
+Every declaration is **module-private unless marked `pub`**, and the privacy domain is the **module body** — the file or the inline `mod` block, which is a separate privacy domain even inside one file:
 
 ```js
 // math.xulo
@@ -105,25 +163,21 @@ pub fn add(a: Int, b: Int): Int { a + b }
 fn helper(n: Int): Int { n }
 
 // main.xulo
-import { add, helper } from "math"    // error: `helper` is not public (E0602)
+use math::{add, helper};    // error: `helper` is not public (E0602)
 ```
 
-- **Core rule:** if the type itself is not `pub`, its `pub` members do not help — a module that cannot import `User` cannot reach `User.name`.
-- Struct fields and methods are private by default; `pub` on a member opens it to modules that can already see the type. Reads and writes are both controlled.
-- Enum variants carry no modifier: they ride on the enum's visibility. Trait methods do the same for their trait.
-- There is no `pub impl`: an `impl` introduces no name. Each method's own `pub` decides whether it is callable from other modules.
-- A nested `fn` is block-local and cannot be marked `pub`.
-- A `pub` signature must not expose a private type (`E0604`) — otherwise an importer would obtain values it cannot name.
+- `pub` is allowed on `fn`, `struct`, `enum`, `trait`, `type`, `let`, `const`, and — unlike older designs — on `mod` and `use`. There are exactly two levels: no `pub(crate)`, `pub(super)`, or `pub(package)`.
+- Struct fields and methods are private by default; enum variants ride on the enum's visibility, and trait members on the trait's. There is no `pub impl`, and a nested `fn` can never be `pub`.
+- **Core rule:** if the type itself is not `pub`, its `pub` members do not help — a module that cannot name `User` cannot reach `User.name`.
+- A `pub` signature must mention only types declared `pub` here, exported here by a `pub use` chain, or universally visible (built-in / prelude); anything else is `E0604`. Seeing a module is not publishing it: after `use ui::Widget;`, `pub fn render(w: Widget)` errors, and `pub use ui::Widget;` is the repair — the type must enter the interface.
 
-## Declaration Order
+## Cycles
 
-- Module-level `fn`, `struct`, `enum`, `trait`, `type`, and `impl` may reference each other **in any order**; forward references and mutual recursion are legal.
-- Module-level `let`, `let mut`, and `const` must be declared before use (`E0101`); their initializers run in declaration order.
-- Inside a body the stricter block rule always applies: locals are not hoisted.
+`use` cycles are **legal**: `a` may `use` `b` while `b` uses `a`. `use` moves names, not state, and initialization order comes from the mod tree — a cycle has no ordering problem to detect. The former cycle error `E0603` is retired and reserved.
 
 ## Entry Point
 
-An executable program's entry module declares a module-level `main`:
+An executable program's **root module** — the file the environment designates — declares a module-level `main`:
 
 ```js
 fn main() { … }            // headless program: Unit
@@ -131,21 +185,24 @@ fn main(): View { … }       // renderable program
 async fn main() { … }       // asynchronous program: Task<Unit>
 ```
 
-`main` takes no parameters, its return type is omitted or `View` (anything else is `E0609`), it may be `async`, and it may be marked `pub`. A program whose entry module declares no `main` is `E0608`.
+`main` takes no parameters and must be declared at the root module's file scope; its return type is omitted or `View` (anything else is `E0609`); it may be `async`, and it may be marked `pub`. A program whose root module declares no `main` is `E0608`.
 
 ## Error Summary
 
 | Code | Violation |
 |------|-----------|
-| `E0601` | import/re-export names a member the target does not have |
-| `E0602` | import names a private member, or a `pub` rule is broken |
-| `E0603` | import or re-export cycle |
-| `E0604` | a `pub` signature exposes a private type |
-| `E0605` | `import` outside the file header |
+| `E0601` | a path names a member the target module does not export |
+| `E0602` | a private name anywhere in a path, or a `pub` rule broken |
+| `E0604` | a `pub` signature mentions a type not in the module's interface |
+| `E0605` | a header form (`mod` / `use` / `pub use`) outside the file header |
 | `E0606` | a type-only binding used where a value is expected |
-| `E0607` | specifier unresolvable or ambiguous |
+| `E0607` | a path head resolves to nothing (unknown package, missing mod file, `super` above root, replaced manifest key) |
 | `E0608` / `E0609` | missing or malformed `main` |
-| `E0104` | two bindings for one local name |
-| `W0102` | an imported name is never used |
+| `E0610` | a `mod` claims a file already the body of another module, or its own file |
+| `E0611` | file-scope initializer uses a later-initialized module's state |
+| `E0101` | unknown name / unresolvable later path segment |
+| `E0104` | two bindings for one name (incl. glob overlap, manifest-name collision) |
+| `W0102` | a `use` entry (or glob contribution) is never used |
+| `E0603` | retired and reserved — `use` cycles are legal |
 
-Cross-module rules in full are in the [import/export spec](/en/docs/spec/modules/import-export/) and the [visibility spec](/en/docs/spec/modules/visibility/).
+Cross-module rules in full are in the [import/export spec](/en/docs/spec/modules/import-export/), the [visibility spec](/en/docs/spec/modules/visibility/), the [source-file spec](/en/docs/spec/modules/source-files/), and the [path & access spec](/en/docs/spec/expressions/path-and-access/); names and shadowing are in the [names spec](/en/docs/spec/names/).

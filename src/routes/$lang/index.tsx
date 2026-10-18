@@ -58,15 +58,15 @@ pub fn check_access(role: Role): Boolean {
     id: 'json-async',
     title: 'JSON & async/await',
     badge: 'Result & Task',
-    desc: 'JSON 来自 std/json 并返回 Result。async fn 产生 Task<T>，await 解包，失败用 ? 向上传播。',
+    desc: 'JSON 来自 std 的 json 包并返回 Result。async fn 产生 Task<T>，await 解包，失败用 ? 向上传播。',
     fileName: 'api.xulo',
-    code: `import * as JSON from "std/json"
-import { fetch } from "std/net"
+    code: `use json as JSON;
+use net::fetch;
 
 pub async fn fetch_profile(id: String): Result<User, JSONError> {
     let resp = await fetch("/api/users/" + id)
     // 解析失败会经由 ? 提前返回整个 Result::Err
-    let user = JSON.parse(resp.body)?
+    let user = JSON::parse(resp.body)?
     Result::Ok(user)
 }`,
   },
@@ -140,15 +140,15 @@ pub fn check_access(role: Role): Boolean {
     id: 'json-async',
     title: 'JSON & async/await',
     badge: 'Result & Task',
-    desc: 'JSON comes from std/json and returns a Result. async fn produces a Task<T> you await — failures travel up with ?.',
+    desc: 'JSON comes from the std json package and returns a Result. async fn produces a Task<T> you await — failures travel up with ?.',
     fileName: 'api.xulo',
-    code: `import * as JSON from "std/json"
-import { fetch } from "std/net"
+    code: `use json as JSON;
+use net::fetch;
 
 pub async fn fetch_profile(id: String): Result<User, JSONError> {
     let resp = await fetch("/api/users/" + id)
     // A parse failure early-returns the whole Result::Err via ?
-    let user = JSON.parse(resp.body)?
+    let user = JSON::parse(resp.body)?
     Result::Ok(user)
 }`,
   },
@@ -188,7 +188,7 @@ function Home() {
         {
           icon: Zap,
           title: '简洁语法',
-          description: '统一的 ESM 字符串导入，字段与方法用点号 (.)、变体用双冒号 (::)，零歧义语法设计，零摩擦。',
+          description: 'use 声明式导入，:: 走声明路径（包、模块、变体、命名空间），. 只访问值成员——零歧义语法设计，零摩擦。',
         },
         {
           icon: ShieldCheck,
@@ -210,7 +210,7 @@ function Home() {
         {
           icon: Zap,
           title: 'Clean Syntax',
-          description: 'Unified ESM string imports, one access rule — `.` for members, `::` for variants — and zero-ambiguity syntax designed for zero friction.',
+          description: '`use` declarations instead of string imports — `::` walks declaration paths (packages, modules, variants, namespaces), `.` reaches into values — and zero-ambiguity syntax designed for zero friction.',
         },
         {
           icon: ShieldCheck,
@@ -425,8 +425,8 @@ function Home() {
               </h3>
               <p className="text-xs text-fd-muted-foreground leading-relaxed">
                 {isZh
-                  ? '无需学习生命周期标注或宏。错误是普通的 Result 值，成员与变体共用一套访问规则。'
-                  : 'No lifetime annotations and no macros to learn. Errors are ordinary `Result` values, and one access rule covers members and variants alike.'}
+                  ? '无需学习生命周期标注或宏。错误是普通的 Result 值，访问规则简单：`::` 走声明，`.` 取值。'
+                  : 'No lifetime annotations and no macros to learn. Errors are ordinary `Result` values, with a simple access split: `::` for declarations, `.` for values.'}
               </p>
             </div>
 

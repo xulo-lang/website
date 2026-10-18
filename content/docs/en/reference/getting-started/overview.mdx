@@ -68,7 +68,7 @@ enum Direction {
 }
 ```
 
-`Point(x: 0, y: 0)` constructs a struct value. `Direction::Up` names a variant — `::` separates a variant from its enum, while `.` is used only for fields, methods, and namespace members.
+`Point(x: 0, y: 0)` constructs a struct value. `Direction::Up` names a variant — `::` walks the declaration lane (packages, modules, variants, associated names — `Math::max`, `Theme::Dark`, `form::validate`), while `.` reaches into a value only (fields, methods, map entries).
 
 ### Control Flow
 

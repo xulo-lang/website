@@ -59,7 +59,7 @@ async fn main() {
 
 - The operand MUST have type `Task<T>`; `await expr` then has type `T`. Awaiting anything else is a compile-time error (`E0502`).
 - The operand is evaluated exactly once, before the suspension it causes.
-- `await` is legal only inside the body of an `async` function or an `async` closure; elsewhere it is a compile-time error (`E0501`).
+- `await` is legal only inside the body of an `async` function, an `async` closure, or a `#Test` function marked `async`; elsewhere it is a compile-time error (`E0501`).
 - `await` is a prefix operator at the unary level of the precedence table: it binds tighter than any binary operator and looser than postfix operators such as calls, indexing, and member access.
 - Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables — with one exception: the body of a `lock` expression contains no suspension point, and `await` inside it is a compile-time error (`E0410`; see [Shared state and `lock`](/en/docs/reference/architecture/memory-and-concurrency-model/#shared-state-and-lock)).
 
@@ -114,28 +114,28 @@ async fn concurrent(): Int {
 }
 ```
 
-`Task.all`, `Task.race`, and `Task.timeout` combine several tasks into one. Starting work independently of the current task — detached work, work on another execution resource — is done with `spawn`.
+`Task::all`, `Task::race`, and `Task::timeout` combine several tasks into one. Starting work independently of the current task — detached work, work on another execution resource — is done with `spawn`.
 
 ## The `Task` utilities
 
-`Task<T>` is a built-in generic type. It requires no import, and the built-in `Task` namespace is accessed with `.`:
+`Task<T>` is a built-in generic type. It requires no import, and the built-in `Task` namespace is accessed with `::` — `::` names qualified names (paths, packages, modules, variants, namespaces), while `.` reaches into a value (fields, methods, map entries), never a namespace:
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `Task.all` | `all<T>(tasks: List<Task<T>>): Task<List<T>>` | completes when every task has completed; results in argument order |
-| `Task.race` | `race<T>(tasks: List<Task<T>>): Task<T>` | completes with the first task to complete |
-| `Task.timeout` | `timeout<T>(t: Task<T>, ms: U64): Task<Result<T, Error>>` | settles with `t`'s result within `ms`, or cancels `t` and fails with `Error("timed out")` |
-| `Task.resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
+| `Task::all` | `all<T>(tasks: List<Task<T>>): Task<List<T>>` | completes when every task has completed; results in argument order |
+| `Task::race` | `race<T>(tasks: List<Task<T>>): Task<T>` | completes with the first task to complete |
+| `Task::timeout` | `timeout<T>(t: Task<T>, ms: U64): Task<Result<T, Error>>` | settles with `t`'s result within `ms`, or cancels `t` and fails with `Error("timed out")` |
+| `Task::resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
 
 ```js
 async fn fetchAll(): List<User> {
   let a = fetchUser(1)
   let b = fetchUser(2)
-  await Task.all([a, b])
+  await Task::all([a, b])
 }
 
 async fn poll_with_deadline(): Result<Int, Error> {
-  await Task.timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
+  await Task::timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
 }
 ```
 
@@ -164,10 +164,10 @@ async fn log_user(id: Int) {
 
 The combinators combine results and cancellation the way the operations they describe settle:
 
-- `Task.all` waits until every task of the list has settled, then completes with the results in argument order; if any of them settled as cancelled, the combined task settles as cancelled.
-- `Task.race` settles as soon as the first task of the list settles: with that task's result when it completed, as cancelled when it was cancelled.
+- `Task::all` waits until every task of the list has settled, then completes with the results in argument order; if any of them settled as cancelled, the combined task settles as cancelled.
+- `Task::race` settles as soon as the first task of the list settles: with that task's result when it completed, as cancelled when it was cancelled.
 - Neither combinator cancels the tasks it combines: the others run on and their results are discarded when they are not the ones selected.
-- `Task.timeout` puts one task under a deadline: within `ms` milliseconds it settles with that task's result wrapped in `Result::Ok` (a body that is itself fallible nests as `Ok(Ok(…))` / `Ok(Err(…))`); on expiry it **cancels the wrapped task** — unlike `Task.all` and `Task.race` — and settles immediately with `Result::Err(Error("timed out"))`, without waiting for it to stop. A wrapped task that settles as cancelled before the deadline settles the combined task as cancelled; cancelling the combined task cancels the wrapped one.
+- `Task::timeout` puts one task under a deadline: within `ms` milliseconds it settles with that task's result wrapped in `Result::Ok` (a body that is itself fallible nests as `Ok(Ok(…))` / `Ok(Err(…))`); on expiry it **cancels the wrapped task** — unlike `Task::all` and `Task::race` — and settles immediately with `Result::Err(Error("timed out"))`, without waiting for it to stop. A wrapped task that settles as cancelled before the deadline settles the combined task as cancelled; cancelling the combined task cancels the wrapped one.
 
 ## Where `await` is forbidden
 
@@ -220,6 +220,6 @@ Because a component body is not an `async` context, the two never mix: an `async
 
 ## Scheduling
 
-Nothing about scheduling is language-visible: which ready task runs next, how many run concurrently, which execution resource a mode uses, and how long a suspension lasts are outside the specification, and programs MUST NOT depend on them. What is fixed — evaluation order, scope completion, message arrival order, and the order of `Task.all` results — is listed in [Memory & Concurrency Model](/en/docs/reference/architecture/memory-and-concurrency-model/).
+Nothing about scheduling is language-visible: which ready task runs next, how many run concurrently, which execution resource a mode uses, and how long a suspension lasts are outside the specification, and programs MUST NOT depend on them. What is fixed — evaluation order, scope completion, message arrival order, and the order of `Task::all` results — is listed in [Memory & Concurrency Model](/en/docs/reference/architecture/memory-and-concurrency-model/).
 
 See also: [Async Expressions](/en/docs/spec/expressions/async-expressions/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/) in the specification.

@@ -5,9 +5,9 @@ description: The built-in Math namespace of constants and mathematical functions
 
 ## Overview
 
-`Math` is a built-in namespace of mathematical constants and functions. No import is required: `Math` is in scope in every module from its first line, and members are selected with `.` — `Math.PI`, `Math.max(a, b)`. The bare member names are in scope nowhere: `max(a, b)` alone is not a call to the namespace member.
+`Math` is a built-in namespace of mathematical constants and functions. No `use` is required: `Math` is in scope in every module from its first line, and members are selected with `::` — `Math::PI`, `Math::max(a, b)`. The bare member names are in scope nowhere: `max(a, b)` alone is not a call to the namespace member. `.` reaches into a value — a field, a method, a map entry — never a namespace.
 
-Each member has exactly one signature. There is no overloading, and neither default nor named arguments apply at a call site; type arguments are inferred there and never written there. `Math` is a reserved name: a module-scope declaration may not bear it (compile-time error `E0106`).
+Each member has exactly one signature. There is no overloading, and neither default nor named arguments apply at a call site; type arguments are inferred there unless a call writes them explicitly, all-or-nothing per call ([Generics](/en/docs/spec/types/generics/)). `Math` is a reserved name: a module-scope declaration may not bear it (compile-time error `E0106`).
 
 See the [intrinsic `Math` chapter](/en/docs/spec/builtins/intrinsic-functions/#math-namespace) of the formal specification.
 
@@ -15,225 +15,241 @@ See the [intrinsic `Math` chapter](/en/docs/spec/builtins/intrinsic-functions/#m
 
 | Constant | Type | Value |
 |----------|------|-------|
-| `Math.PI` | `Float` | 3.141592653589793 |
-| `Math.E` | `Float` | 2.718281828459045 |
-| `Math.TAU` | `Float` | 6.283185307179586 |
-| `Math.INFINITY` | `Float` | positive infinity |
-| `Math.NAN` | `Float` | not a number |
+| `Math::PI` | `Float` | 3.141592653589793 |
+| `Math::E` | `Float` | 2.718281828459045 |
+| `Math::TAU` | `Float` | 6.283185307179586 |
+| `Math::INFINITY` | `Float` | positive infinity |
+| `Math::NAN` | `Float` | not a number |
 
 Constants are ordinary `Float` values and appear anywhere a `Float` may:
 
 ```js
-let circumference = 2.0 * Math.PI * radius
-let halfPi = Math.PI / 2
-let tau = Math.TAU  // 2 * Math.PI
+let circumference = 2.0 * Math::PI * radius
+let halfPi = Math::PI / 2
+let tau = Math::TAU  // 2 * Math::PI
 ```
 
 ## Methods
 
-### `Math.abs(x: Number): Number`
+### `Math::abs(x: Number): Number`
 
 Absolute value. Accepts an `Int` or a `Float`; the result is a `Number`.
 
 ```js
-Math.abs(-5)      // 5
-Math.abs(3.14)    // 3.14
+Math::abs(-5)      // 5
+Math::abs(3.14)    // 3.14
 ```
 
-### `Math.min(a: Number, b: Number): Number`
+### `Math::min(a: Number, b: Number): Number`
 
 The smaller of two values.
 
 ```js
-Math.min(10, 20)    // 10
-Math.min(3.14, 3)   // 3
+Math::min(10, 20)    // 10
+Math::min(3.14, 3)   // 3
 ```
 
-### `Math.max(a: Number, b: Number): Number`
+### `Math::max(a: Number, b: Number): Number`
 
 The larger of two values.
 
 ```js
-Math.max(10, 20)    // 20
-Math.max(-5, 5)     // 5
+Math::max(10, 20)    // 20
+Math::max(-5, 5)     // 5
 ```
 
-### `Math.sqrt(x: Float): Float`
+### `Math::sqrt(x: Float): Float`
 
 Square root. A negative argument yields `NaN`.
 
 ```js
-Math.sqrt(4)     // 2.0
-Math.sqrt(2)     // 1.4142135623730951
+Math::sqrt(4)     // 2.0
+Math::sqrt(2)     // 1.4142135623730951
 ```
 
-### `Math.cbrt(x: Float): Float`
+### `Math::cbrt(x: Float): Float`
 
 Cube root. Defined for every `Float`, negative values included.
 
 ```js
-Math.cbrt(8)     // 2.0
-Math.cbrt(-1)    // -1.0
+Math::cbrt(8)     // 2.0
+Math::cbrt(-1)    // -1.0
 ```
 
-### `Math.pow(base: Float, exp: Float): Float`
+### `Math::pow(base: Float, exp: Float): Float`
 
 `base` raised to `exp`.
 
 ```js
-Math.pow(2, 3)     // 8.0
-Math.pow(9, 0.5)   // 3.0
+Math::pow(2, 3)     // 8.0
+Math::pow(9, 0.5)   // 3.0
 ```
 
-### `Math.floor(x: Float): Int`
+### `Math::floor(x: Float): Int`
 
 The largest integer not above `x`. The result is an `Int`, so it never carries a fractional part.
 
 ```js
-Math.floor(3.7)     // 3
-Math.floor(-3.2)    // -4
+Math::floor(3.7)     // 3
+Math::floor(-3.2)    // -4
 ```
 
-### `Math.ceil(x: Float): Int`
+### `Math::ceil(x: Float): Int`
 
 The smallest integer not below `x`. The result is an `Int`.
 
 ```js
-Math.ceil(3.7)     // 4
-Math.ceil(-3.7)    // -3
+Math::ceil(3.7)     // 4
+Math::ceil(-3.7)    // -3
 ```
 
-### `Math.round(x: Float): Int`
+### `Math::round(x: Float): Int`
 
 The nearest integer to `x`. The result is an `Int`; a value exactly halfway between two integers rounds away from zero.
 
 ```js
-Math.round(3.7)     // 4
-Math.round(-3.5)    // -4
+Math::round(3.7)     // 4
+Math::round(-3.5)    // -4
 ```
 
-### `Math.trunc(x: Float): Int`
+### `Math::trunc(x: Float): Int`
 
 The integer formed by discarding the fractional part — rounding toward zero. The result is an `Int`.
 
 ```js
-Math.trunc(3.7)     // 3
-Math.trunc(-3.7)    // -3
+Math::trunc(3.7)     // 3
+Math::trunc(-3.7)    // -3
 ```
 
-### `Math.sin(x: Float): Float`
+### `Math::sin(x: Float): Float`
 
 Sine of an angle in radians.
 
 ```js
-Math.sin(0)                // 0.0
-Math.sin(Math.PI / 2)      // 1.0
+Math::sin(0)                // 0.0
+Math::sin(Math::PI / 2)      // 1.0
 ```
 
-### `Math.cos(x: Float): Float`
+### `Math::cos(x: Float): Float`
 
 Cosine of an angle in radians.
 
 ```js
-Math.cos(0)                // 1.0
-Math.cos(Math.PI)          // -1.0
+Math::cos(0)                // 1.0
+Math::cos(Math::PI)          // -1.0
 ```
 
-### `Math.tan(x: Float): Float`
+### `Math::tan(x: Float): Float`
 
 Tangent of an angle in radians.
 
 ```js
-Math.tan(0)                // 0.0
-Math.tan(Math.PI / 4)      // 1.0
+Math::tan(0)                // 0.0
+Math::tan(Math::PI / 4)      // 1.0
 ```
 
-### `Math.asin(x: Float): Float`
+### `Math::asin(x: Float): Float`
 
 Arcsine, in radians. Outside `-1.0...1.0` the result is `NaN`.
 
 ```js
-Math.asin(1)       // Math.PI / 2
-Math.asin(2)       // NaN
+Math::asin(1)       // Math::PI / 2
+Math::asin(2)       // NaN
 ```
 
-### `Math.acos(x: Float): Float`
+### `Math::acos(x: Float): Float`
 
 Arccosine, in radians. Outside `-1.0...1.0` the result is `NaN`.
 
 ```js
-Math.acos(0)       // Math.PI / 2
-Math.acos(-1)      // Math.PI
+Math::acos(0)       // Math::PI / 2
+Math::acos(-1)      // Math::PI
 ```
 
-### `Math.atan(x: Float): Float`
+### `Math::atan(x: Float): Float`
 
 Arctangent, in radians.
 
 ```js
-Math.atan(1)       // Math.PI / 4
-Math.atan(-1)      // -Math.PI / 4
+Math::atan(1)       // Math::PI / 4
+Math::atan(-1)      // -Math::PI / 4
 ```
 
-### `Math.atan2(y: Float, x: Float): Float`
+### `Math::atan2(y: Float, x: Float): Float`
 
 Arctangent of `y / x`, using the signs of both operands to choose the quadrant.
 
 ```js
-Math.atan2(1, 0)     // Math.PI / 2
-Math.atan2(0, -1)    // Math.PI
+Math::atan2(1, 0)     // Math::PI / 2
+Math::atan2(0, -1)    // Math::PI
 ```
 
-### `Math.log(x: Float): Float`
+### `Math::log(x: Float): Float`
 
-Natural logarithm. `Math.log(0)` is `-Infinity`; a negative argument yields `NaN`.
+Natural logarithm. `Math::log(0)` is `-Infinity`; a negative argument yields `NaN`.
 
 ```js
-Math.log(1)          // 0.0
-Math.log(Math.E)     // 1.0
+Math::log(1)          // 0.0
+Math::log(Math::E)     // 1.0
 ```
 
-### `Math.log2(x: Float): Float`
+### `Math::log2(x: Float): Float`
 
-Base-2 logarithm, with the same special values as `Math.log`.
+Base-2 logarithm, with the same special values as `Math::log`.
 
 ```js
-Math.log2(8)         // 3.0
-Math.log2(1024)      // 10.0
+Math::log2(8)         // 3.0
+Math::log2(1024)      // 10.0
 ```
 
-### `Math.log10(x: Float): Float`
+### `Math::log10(x: Float): Float`
 
-Base-10 logarithm, with the same special values as `Math.log`.
+Base-10 logarithm, with the same special values as `Math::log`.
 
 ```js
-Math.log10(1000)     // 3.0
-Math.log10(0)        // -Infinity
+Math::log10(1000)     // 3.0
+Math::log10(0)        // -Infinity
 ```
 
-### `Math.exp(x: Float): Float`
+### `Math::exp(x: Float): Float`
 
 `e` raised to `x`. Overflow yields `Infinity`.
 
 ```js
-Math.exp(0)          // 1.0
-Math.exp(1)          // 2.718281828459045
+Math::exp(0)          // 1.0
+Math::exp(1)          // 2.718281828459045
+```
+
+## Formatting
+
+`str`, `print`, `println`, and `${…}` render a `Float` as the shortest positional decimal numeral that reads back as the same `Float`: a whole value has no fractional part (`3.0` renders as `3`), no trailing fractional zeros appear (`0.50` renders as `0.5`), scientific notation is never used (`0.0000001` is written in full), and the special values render as `NaN`, `Infinity`, and `-Infinity`.
+
+### `Math::toFixed(x: Float, digits: Int): String`
+
+The decimal numeral of `x` with exactly `digits` digits after the decimal point. Rounds at the `digits`-th fractional place using the same halfway-away-from-zero rule as `Math::round` (`-2.5` with 0 digits → `-3`) and keeps trailing zeros — a fixed width is the point of the function. The sign is rendered exactly as `str` does, so a negative zero yields a leading `-`. The special values ignore `digits` and render as `NaN`, `Infinity`, and `-Infinity`. A `digits` value outside `0...=15` is a runtime failure (panic), not a compile-time error.
+
+```js
+print(`price: ${Math::toFixed(3.14159, 2)}`)  // price: 3.14
+print(`${Math::toFixed(2.5, 0)}`)             // 3
+print(`${Math::toFixed(-2.5, 0)}`)            // -3
+print(`${Math::toFixed(3.1, 2)}`)             // 3.10
 ```
 
 ## Error Handling
 
-Math members never return a `Result`: trouble is reported as an IEEE-754 value.
+Math members never return a `Result`: trouble is reported as an IEEE-754 value, or — for `Math::toFixed` — as a runtime failure.
 
 - Every `Float` parameter and result follows IEEE-754 binary64: an operation outside its domain yields `NaN`, an overflow yields the appropriate infinity, and the special values propagate through further operations.
-- `Math.sqrt` of a negative value yields `NaN`; `Math.log`, `Math.log2`, and `Math.log10` yield `-Infinity` at `0` and `NaN` for a negative argument; `Math.asin` and `Math.acos` yield `NaN` outside `-1.0...1.0`.
-- `Math.floor`, `Math.ceil`, `Math.round`, and `Math.trunc` return `Int`, so a `Float` reaches an integer only through one of them — there is no implicit narrowing.
-- `Math.abs`, `Math.min`, and `Math.max` are declared over `Number`: an `Int` or `Float` operand is accepted, and a fixed-bit operand (`I8`…`U64`, `F32`, `F64`) is not.
+- `Math::sqrt` of a negative value yields `NaN`; `Math::log`, `Math::log2`, and `Math::log10` yield `-Infinity` at `0` and `NaN` for a negative argument; `Math::asin` and `Math::acos` yield `NaN` outside `-1.0...1.0`.
+- `Math::floor`, `Math::ceil`, `Math::round`, and `Math::trunc` return `Int`, so a `Float` reaches an integer only through one of them — there is no implicit narrowing.
+- `Math::abs`, `Math::min`, and `Math::max` are declared over `Number`: an `Int` or `Float` operand is accepted, and a fixed-bit operand (`I8`…`U64`, `F32`, `F64`) is not.
+- `Math::toFixed` with `digits` outside `0...=15` is a runtime failure: the program stops, uncaught ([Error Handling](/en/docs/reference/stdlib/error-handling/)).
 
-A program that must decide on a non-finite result tests it with `NaN != NaN` or a comparison against `Math.INFINITY`; it does not wait for an error value.
+A program that must decide on a non-finite result tests it with `NaN != NaN` or a comparison against `Math::INFINITY`; it does not wait for an error value.
 
 ```js
 fn safe_root(delta: Float): Result<Float, String> {
-  let root = Math.sqrt(delta)
+  let root = Math::sqrt(delta)
   if root != root {                 // NaN is not equal to itself
     Result::Err("negative delta")
   } else {
@@ -251,14 +267,14 @@ fn ease_in_out(t: Float): Float {
   if t < 0.5 {
     2 * t * t
   } else {
-    1 - Math.pow(-2 * t + 2, 2) / 2
+    1 - Math::pow(-2 * t + 2, 2) / 2
   }
 }
 
-let x = Math.cos(angle) * radius
-let y = Math.sin(angle) * radius
+let x = Math::cos(angle) * radius
+let y = Math::sin(angle) * radius
 
-let distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
+let distance = Math::sqrt(Math::pow(x2 - x1, 2) + Math::pow(y2 - y1, 2))
 ```
 
 ### Color & Gradients
@@ -267,36 +283,36 @@ let distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
 // HSV to RGB conversion
 let hue_sector = hue / 60
 let c = value * saturation
-let x = c * (1 - Math.abs(hue_sector % 2 - 1))
+let x = c * (1 - Math::abs(hue_sector % 2 - 1))
 ```
 
 ### Physics Simulation
 
 ```js
 // Parabolic motion
-let position = initial_velocity * time - 0.5 * gravity * Math.pow(time, 2)
+let position = initial_velocity * time - 0.5 * gravity * Math::pow(time, 2)
 
 // Damped oscillation
-let amplitude = max_amplitude * Math.exp(-damping * time) * Math.cos(frequency * time)
+let amplitude = max_amplitude * Math::exp(-damping * time) * Math::cos(frequency * time)
 ```
 
 ## Examples
 
 ```js
 let radius = 2.5
-let area = Math.PI * radius * radius
-let hypotenuse = Math.sqrt(3.0 * 3.0 + 4.0 * 4.0)   // 5.0
-let clamped = Math.min(Math.max(120, 0), 100)         // 100, of type Number
-let whole = Math.floor(3.7)                           // 3, of type Int
-let radians = 90 * (Math.PI / 180.0)                  // Int literal promotes in `*`
+let area = Math::PI * radius * radius
+let hypotenuse = Math::sqrt(3.0 * 3.0 + 4.0 * 4.0)   // 5.0
+let clamped = Math::min(Math::max(120, 0), 100)         // 100, of type Number
+let whole = Math::floor(3.7)                           // 3, of type Int
+let radians = 90 * (Math::PI / 180.0)                  // Int literal promotes in `*`
 
 print(`area=${area} hypotenuse=${hypotenuse}`)
 ```
 
 ## Design Notes
 
-- **One signature each.** An intrinsic is not overloaded: the argument count and argument types MUST match the signature, and type parameters are inferred at the call site rather than written there.
-- **`Number` vs `Float`.** `Math.abs`, `Math.min`, and `Math.max` take `Number` (`Int | Float`); every other member reads and writes `Float`, except the four rounding functions, which return `Int`. An `Int` value does not implicitly become a `Float` — arithmetic promotes, assignment does not.
+- **One signature each.** An intrinsic is not overloaded: the argument count and argument types MUST match the signature, and type parameters are inferred at the call site unless the call writes them explicitly, all-or-nothing per call.
+- **`Number` vs `Float`.** `Math::abs`, `Math::min`, and `Math::max` take `Number` (`Int | Float`); every other member reads and writes `Float`, except the four rounding functions, which return `Int`. An `Int` value does not implicitly become a `Float` — arithmetic promotes, assignment does not.
 - **No random member.** `Math` has no random function: pseudo-random numbers come from the standard library's `Random` ([Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/)).
 - **Reserved name.** `Math` may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow it for the duration of that scope.
 - Further reading: [Numeric Types](/en/docs/spec/types/primitive-types/#numeric-types), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Prelude](/en/docs/spec/builtins/prelude/).

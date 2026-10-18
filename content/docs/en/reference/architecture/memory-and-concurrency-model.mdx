@@ -154,7 +154,7 @@ fn overlap(mut xs: List<Int>, i: Int) {
 
 ### Span end
 
-A borrow from a call that returns a `Task<U>` — an `async` call, an `async` closure call, or a synchronous call whose result type is `Task<U>` — lasts until the checker can see that task settle. It can see it where control flow reaches a point after an `await` whose operand contains the task's binding: `await t`, `await Task.all([t, u])`, and `await Task.timeout(t, ms)` each wait for `t`. When the scope contains no such `await`, the borrow lasts until the scope ends, by which time the scope's exit has settled the task.
+A borrow from a call that returns a `Task<U>` — an `async` call, an `async` closure call, or a synchronous call whose result type is `Task<U>` — lasts until the checker can see that task settle. It can see it where control flow reaches a point after an `await` whose operand contains the task's binding: `await t`, `await Task::all([t, u])`, and `await Task::timeout(t, ms)` each wait for `t`. When the scope contains no such `await`, the borrow lasts until the scope ends, by which time the scope's exit has settled the task.
 
 - The synchronous case is conservative: the callee MAY have stored a borrowed place inside the task it returned, so the checker cannot end the borrow at the call even though the callee has returned; with no `await` of the task, the borrow lasts to the scope end.
 - Flow decides: on a path that has not reached such an `await` — the other branch of an `if`, an earlier loop iteration — the borrow is still outstanding.
@@ -212,6 +212,7 @@ A runtime failure stops the program where it occurs: it is a `panic` raised by t
 | Absent map key | reading `m[k]` for a key with no binding |
 | Division or remainder by zero | `/` or `%` on non-constant operands whose value is zero |
 | Arithmetic overflow | an `Int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
+| `Math::toFixed` digits out of range | `Math::toFixed` is called with `digits` outside `0...=15` |
 | Unprovided environment key | reading an `@Environment` key no provision supplies |
 | Stack or task exhaustion | recursion depth or the runtime's task limit is exceeded |
 | Lock misuse | a task acquires a `lock` it already holds (locks are not reentrant) |
@@ -440,7 +441,7 @@ What this model does fix, for every conforming program:
 
 - **Evaluation order** — left-to-right for operands, arguments, and literal elements; source order for statements; declaration order for module initializers.
 - **Scope completion** — a block finishes only after the tasks started inside it have settled and its defers have run.
-- **Collection order** — `Map` entries iterate in insertion order, and `Task.all` yields results in argument order.
+- **Collection order** — `Map` entries iterate in insertion order, and `Task::all` yields results in argument order.
 - **Termination of the structural operations** — `==` and `copy` halt on cyclic values.
 
 Programs are deterministic when they do not depend on the unspecified items — that is, when they do not race.

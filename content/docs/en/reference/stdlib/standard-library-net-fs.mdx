@@ -7,12 +7,12 @@ description: The structure of the XULO standard library (std) and how it differs
 
 The XULO standard library (`std`) provides high-order data structures, file system and network I/O, async runtime control, and other core capabilities.
 
-The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, `str`, and `assert`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without an import. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be imported explicitly.
+The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, `str`, and `assert`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without a `use`. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be named by an explicit `use`.
 
 ## Design Principles
 
 1. **Zero Contamination & Cross-Platform**: `std/*` guarantees consistent behavior across all targets (native OS, embedded, WebAssembly) without platform-specific logic in the source.
-2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are imported alongside them and never replace them.
+2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are named with `use` alongside them and never replace them.
 
 ## Module Directory
 
@@ -25,7 +25,7 @@ std/
 │   └── Deque<T>          // Double-ended queue / concurrent queue
 │
 ├── json.xulo             // JSON serialization
-│   └── JSON              // namespace: JSON.stringify, JSON.parse
+│   └── JSON              // namespace: JSON::stringify, JSON::parse
 │
 ├── fs.xulo               // File system & I/O (async/sync)
 │   ├── File              // File handle, read / write API
@@ -35,7 +35,7 @@ std/
 │   ├── TcpStream         // TCP stream
 │   ├── TcpListener       // TCP listener
 │   ├── UdpSocket         // UDP socket
-│   ├── http.fetch()      // HTTP client request
+│   ├── fetch()           // HTTP client request
 │   └── HttpListener      // HTTP server listener
 │
 ├── async.xulo            // Async & coroutine runtime control
@@ -56,7 +56,7 @@ std/
 │
 ├── process.xulo          // System-level process & environment interaction
 │   ├── Command           // External system command execution & sandbox dispatch
-│   └── env.args()        // Environment variable reading & command-line argument parsing
+│   └── env::args()       // Environment variable reading & command-line argument parsing
 │
 ├── math.xulo             // Advanced math (the Math namespace is built in)
 │   ├── Random            // Pseudo-random number generator (with seed support)
@@ -75,27 +75,27 @@ Regexps live in `std/regex` ([Regular Expressions](/en/docs/reference/stdlib/reg
 ## Usage Examples
 
 ```js
-// Import standard-library modules
-import { HashMap, BTreeMap, HashSet, Deque } from "std/collections"
-import { File, Path, FileMode, FsError } from "std/fs"
-import { http, NetworkError } from "std/net"
-import { sleep, interval } from "std/async"
-import { AtomicI64 } from "std/sync"
-import * as JSON from "std/json"
-import { JSONError } from "std/json"
+// Bind standard-library modules
+use collections::{HashMap, BTreeMap, HashSet, Deque};
+use fs::{File, Path, FileMode, FsError};
+use net::{fetch, NetworkError};
+use async::{sleep, interval};
+use sync::AtomicI64;
+use json as JSON;
+use json::JSONError;
 
 // High-order map — distinct from the built-in Map<K, V>
-let mut users: HashMap<String, User> = HashMap.new()
+let mut users: HashMap<String, User> = HashMap::new()
 users.insert("alice", User(name: "Alice"))
 
 // JSON is a standard-library module, not a built-in
 let data = { name: "Alice", age: 30 }
-let json_str = JSON.stringify(data)
-let parsed: Result<User, JSONError> = JSON.parse(json_str)
+let json_str = JSON::stringify(data)
+let parsed: Result<User, JSONError> = JSON::parse(json_str)
 
 // File I/O: fallible calls return a Result
 fn save(path: String, text: String): Result<String, FsError> {
-  let file = File.open(path, mode: FileMode::Write)?
+  let file = File::open(path, mode: FileMode::Write)?
   file.write(text)?
   file.close()
   Result::Ok(path)
@@ -103,7 +103,7 @@ fn save(path: String, text: String): Result<String, FsError> {
 
 // HTTP request
 fn fetch_body(url: String): Result<String, NetworkError> {
-  let response = http.fetch(url)?
+  let response = fetch(url)?
   Result::Ok(response.body())
 }
 
@@ -116,7 +116,7 @@ spawn async {
 
 ## Error Handling
 
-Standard-library code follows the language model — there are no exceptions to import.
+Standard-library code follows the language model — there is no `throw` and no `try` / `catch`, in a library any more than in a program.
 
 - A fallible call returns `Result<T, E>`: `Result<String, FsError>`, `Result<Response, NetworkError>`, `Result<T, JSONError>`. Propagate with `?` or inspect with `match`.
 - Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test.
@@ -126,16 +126,16 @@ See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specific
 
 ## Built-ins vs Standard Library
 
-| Category | Language built-ins (no import) | Standard library (`import` required) |
+| Category | Language built-ins (no `use`) | Standard library (`use` required) |
 | --- | --- | --- |
 | **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`map_size`, `map_get`, `list_push`, `set_insert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
 | **Output & assertion** | `print`, `println`, `str`, `assert` | — |
-| **Concurrency** | `spawn`, `lock`, `shared`, `Task.all` / `Task.race` / `Task.resolve` / `Task.timeout` | `async/sleep`, `async/interval`, `sync/atomic`, `sync/semaphore` |
-| **I/O** | — | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
-| **Data** | — | `JSON.stringify`, `JSON.parse` |
-| **System** | — | `process/command`, `process/env` |
-| **Math** | `Math.PI`, `Math.sqrt`, `Math.sin`, … | `Random`, `Matrix`, `Vector`, `Complex` |
-| **Time** | `Time.now`, `Time.monotonic`, `Time.sleep` | `Instant`, `Duration`, `DateTime` |
+| **Concurrency** | `spawn`, `lock`, `shared`, `Task::all` / `Task::race` / `Task::resolve` / `Task::timeout` | `async::sleep`, `async::interval`, `sync::atomic`, `sync::semaphore` |
+| **I/O** | — | `fs::file`, `fs::path`, `net::tcp`, `net::http` |
+| **Data** | — | `JSON::stringify`, `JSON::parse` |
+| **System** | — | `process::command`, `process::env` |
+| **Math** | `Math::PI`, `Math::sqrt`, `Math::sin`, … | `Random`, `Matrix`, `Vector`, `Complex` |
+| **Time** | `Time::now`, `Time::monotonic`, `Time::sleep` | `Instant`, `Duration`, `DateTime` |
 
 The prelude operations are unqualified functions in scope in every module, called like any other function:
 
@@ -147,11 +147,11 @@ The prelude operations are unqualified functions in scope in every module, calle
 
 Iteration, subscripts, and `+` on the collections are core syntax, not prelude calls. The lookups that cannot fail are the prelude's: `map_get(m, k)` answers `null` for an absent key where `m[k]` is a runtime failure, and `list_remove(xs, i)` answers `null` for an out-of-range index where `xs[i]` panics. `list_push` and `list_remove` (like `map_remove` and `set_insert`) mutate their first argument, which must be a mutable place.
 
-The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `import`.
+The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `use`.
 
 ## Design Notes
 
-- **Namespaces vs members.** Built-in members are reached only through their namespace (`Math.max`, `Time.now`, `Task.all`); the bare names (`max`, `now`, `all`) are in scope nowhere. Library namespaces are created with `import * as JSON from "std/json"` and behave the same way.
+- **Namespaces vs members.** Built-in members are reached only through their namespace (`Math::max`, `Time::now`, `Task::all`); the bare names (`max`, `now`, `all`) are in scope nowhere. `.` reaches into a value — a field, a method, a map entry — never a namespace. A library namespace behaves the same way: `use json as JSON;` binds it, and members are then selected with `::` — `JSON::parse(…)`.
 - **Reserved names are absolute.** `print`, `str`, `assert`, `List`, `Map`, `Set`, `Task`, `Result`, `Error`, `Math`, `Time`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
-- **Sync shapes.** Examples above show synchronous `File` and `http` calls with `?`; whether a given `std` function is `async` is a property of its own signature — an `async fn` returns a `Task<T>` and is awaited.
+- **Sync shapes.** Examples above show synchronous `File` and `fetch` calls with `?`; whether a given `std` function is `async` is a property of its own signature — an `async fn` returns a `Task<T>` and is awaited.
 - Further reading: [Prelude](/en/docs/spec/builtins/prelude/), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Import & Export](/en/docs/spec/modules/import-export/), [Error Handling](/en/docs/spec/error-handling/).

@@ -113,7 +113,7 @@ fn ok(p: Counter): fn(): Int {
 
 ```js
 async fn doubleAsync(n: Int): Int {
-  await Task.resolve(n * 2)
+  await Task::resolve(n * 2)
 }
 async fn main() { print(await doubleAsync(21)) }   // 42
 ```
@@ -156,7 +156,7 @@ fn main() {
 
 - Methods live in an `impl` block. The first parameter is the receiver, written `self` (immutable borrow) or `mut self`; a method that assigns to `self` or a field must declare `mut self`.
 - At the call site the receiver is not written as an argument: `c.increment()` supplies `c`.
-- **Resolution order:** `value.method(…)` resolves first to an inherent method of the receiver's type, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait.method(receiver)`.
+- **Resolution order:** `value.method(…)` resolves first to an inherent method of the receiver's type, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait::method(receiver)`.
 - A receiver that may be `null` uses optional chaining: `receiver?.method()` evaluates to `null` instead of calling.
 
 ## Trait Methods
@@ -174,7 +174,7 @@ Trait methods are signature-only, separated by `;`, and **must** declare a retur
 
 ```js
 fn first<T>(xs: List<T>): T { xs[0] }
-fn areaOf<T: Area>(shape: T): Float { Area.area(shape) }
+fn areaOf<T: Area>(shape: T): Float { Area::area(shape) }
 fn perimeterOf<T>(shape: T): Float where T: Area { shape.perimeter() }
 
 fn main() {
@@ -183,6 +183,6 @@ fn main() {
 }
 ```
 
-Type arguments are always inferred — `first<Int>(…)` is not part of the language — and every inferred argument must satisfy the parameter's bounds. Inline `<T: …>` and `where T: …` are equivalent; multiple bounds are joined with `+`.
+Type arguments are inferred from the arguments and the expected type unless the call writes them explicitly — `first<Int>(…)` — and every argument, written or inferred, must satisfy the parameter's bounds. Inline `<T: …>` and `where T: …` are equivalent; multiple bounds are joined with `+`.
 
 Full rules for generics, traits, and dispatch are in [Generics & Traits](/en/docs/reference/basics/generics-and-traits/); the declaration and parameter forms are specified in the [functions spec](/en/docs/spec/functions/).

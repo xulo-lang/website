@@ -13,7 +13,7 @@ See the formal specification: [Error Handling](/en/docs/spec/error-handling/).
 
 ## `Result<T, E>`
 
-- **`Result` is a built-in generic type**, part of the prelude: no import introduces it, and the name is reserved, so a program cannot declare its own `Result`. It has exactly two variants, written with `::`:
+- **`Result` is a built-in generic type**, part of the prelude: no `use` introduces it, and the name is reserved, so a program cannot declare its own `Result`. It has exactly two variants, written with `::`:
 
 ```js
 Result::Ok(value)    // the operation succeeded
@@ -84,7 +84,7 @@ fn fetch_name(id: Int): String? {
 `panic(message)` is an expression that stops the program where it is written.
 
 - The operand MUST be a `String` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
-- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, division by zero, arithmetic overflow — is the same event, raised by the implementation.
+- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, division by zero, arithmetic overflow, `Math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
 - The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `Unit`.
 
 ```js
@@ -110,9 +110,9 @@ fn double_or_stop(n: Int): Int {
 
 Compile-time diagnostics are a separate matter: they are assigned in the specification's [error table](/en/docs/spec/type-system/errors/), and no program sees them at run time.
 
-## `Task.timeout`
+## `Task::timeout`
 
-`Task.timeout(t, ms)` puts a deadline on one task and yields a `Task<Result<T, Error>>` — a timeout is an `Err` value, not a panic:
+`Task::timeout(t, ms)` puts a deadline on one task and yields a `Task<Result<T, Error>>` — a timeout is an `Err` value, not a panic:
 
 | Case | What the combined task settles with |
 |------|--------------------------------------|
@@ -120,11 +120,11 @@ Compile-time diagnostics are a separate matter: they are assigned in the specifi
 | the deadline elapses | `Result::Err(Error("timed out"))`, immediately — `t` is **cancelled**, without waiting for it to stop; a result it produces afterwards is discarded |
 | `t` settles as cancelled before the deadline | the combined task settles as cancelled: cancellation travels through `await` and never becomes a timeout error |
 
-Unlike [`Task.all` and `Task.race`](/en/docs/spec/error-handling/), `Task.timeout` cancels the task it wraps on expiry; cancelling the combined task cancels `t` in turn.
+Unlike [`Task::all` and `Task::race`](/en/docs/spec/error-handling/), `Task::timeout` cancels the task it wraps on expiry; cancelling the combined task cancels `t` in turn.
 
 ```js
 async fn poll_with_deadline(): Result<Int, Error> {
-  await Task.timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
+  await Task::timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
 }
 ```
 
@@ -153,7 +153,7 @@ async fn fetch_user(id: Int): Result<User, LoadError> {
 // The first task to settle decides; a cancelled task stops this body
 // without producing any error value
 async fn first_wins(a: Task<Int>, b: Task<Int>): Int {
-  await Task.race([a, b])
+  await Task::race([a, b])
 }
 ```
 
@@ -161,7 +161,7 @@ async fn first_wins(a: Task<Int>, b: Task<Int>): Int {
 
 - **Failure is data.** An `Err` is an ordinary return value: returned, bound, passed, and compared like any other. Exhaustiveness (`E0301`) keeps every `match` honest about it.
 - **No exceptions anywhere.** Standard-library modules follow the same model: fallible calls return `Result<T, E>` — see [JSON](/en/docs/reference/stdlib/json/) and [Regular Expressions](/en/docs/reference/stdlib/regular-expressions/).
-- **Async does not change the model.** `async fn f(): Result<T, E>` evaluates to `Task<Result<T, E>>`; an `Err` is data, not a failed task, and a `panic` in an async body stops the whole program. Cancellation carries no error at all — a timeout arrives as `Result::Err` from the `Task.timeout` combinator itself, not as a cancellation and not as a panic.
+- **Async does not change the model.** `async fn f(): Result<T, E>` evaluates to `Task<Result<T, E>>`; an `Err` is data, not a failed task, and a `panic` in an async body stops the whole program. Cancellation carries no error at all — a timeout arrives as `Result::Err` from the `Task::timeout` combinator itself, not as a cancellation and not as a panic.
 - **`?` is not `unwrap`.** It propagates or returns `null`; it never discards a failure and never throws.
 - **`assert` ends in `panic`.** The assertion intrinsic stops the program with `panic(message)` when its condition is `false` — see [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/).
 - Further reading: [Error Handling (spec)](/en/docs/spec/error-handling/), [Prelude](/en/docs/spec/builtins/prelude/), [Control Flow](/en/docs/spec/expressions/control-flow/), [Testing (spec)](/en/docs/spec/testing/).

@@ -182,9 +182,9 @@ impl Area for Rectangle {
 
 - Methods inside a trait are **separated by `;`** (a trailing `;` is optional), are signature-only, and each must declare a return type.
 - There are no default methods: an `impl` must provide **every** declared method, with matching signatures, and may not add extra ones.
-- Calls use explicit dispatch — `Area.area(r)` — or, for a member call, the resolution order inherent methods first, then trait implementations in scope.
+- Calls use explicit dispatch — `Area::area(r)` — or, for a member call, the resolution order inherent methods first, then trait implementations in scope.
 - Satisfaction is **nominal**: only an `impl` makes a type implement a trait; matching field shapes never does.
-- `pub trait` exports the trait; importers normally bring it in with `import type { Area } from "…"` and implement it locally — importing a trait never imports an `impl`.
+- `pub trait` exports the trait; importers normally bring it in with `use type form::Area;` and implement it locally — `use`-ing a trait never brings an `impl`.
 - `ToString` is built in: interpolating a value in a template requires a base type or `impl ToString` (`E0212`).
 
 Bounds, generics, and dispatch are specified in [Generics & Traits](/en/docs/reference/basics/generics-and-traits/). Base types, optionals, and collections follow the [type spec](/en/docs/spec/types/primitive-types/).
