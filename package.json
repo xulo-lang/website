@@ -43,5 +43,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "wrangler": "^4.129.0"
+  },
+  "overrides": {
+    "mdast-util-to-markdown": "2.1.2"
   }
 }
