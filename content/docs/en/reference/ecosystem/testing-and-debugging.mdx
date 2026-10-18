@@ -13,7 +13,7 @@ A test is a function marked with `#Test`. It appears at file scope, among a modu
 
 ```js
 #Test
-fn map_get_answers_null() {
+fn mapGetAnswersNull() {
   let m = { a: 1 }
   assert(map_get(m, "z") == null, "absent key is null")
 }
@@ -39,12 +39,12 @@ The form carries no other attributes — `#Derive #Test fn` is not a test. A `#T
 
 ```js
 #Test
-fn reference_is_forbidden() {
+fn referenceIsForbidden() {
   assert(true, "runs only under a tool")
 }
 
 fn main() {
-  reference_is_forbidden() // error: `reference_is_forbidden` is a test function and cannot be referenced (E0107)
+  referenceIsForbidden() // error: `referenceIsForbidden` is a test function and cannot be referenced (E0107)
 }
 ```
 
@@ -54,12 +54,12 @@ A test whose body suspends is marked `async`; the marker follows `#Test` (`#Test
 
 ```js
 #Test
-async fn delayed_task_finishes() {
+async fn delayedTaskFinishes() {
   await Time::sleep(1) // ok: an async test body is an async context
 }
 
 #Test
-fn await_needs_the_async_marker() {
+fn awaitNeedsTheAsyncMarker() {
   await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 ```
@@ -112,22 +112,22 @@ The language guarantees only that a test body is inert until a tool runs it and 
 ```js
 // The pair differs only in the marker: rejected at check time vs. accepted
 #Test
-fn await_needs_the_async_marker() {
+fn awaitNeedsTheAsyncMarker() {
   await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 
 #Test
-async fn await_with_the_async_marker() {
+async fn awaitWithTheAsyncMarker() {
   await Time::sleep(1) // ok: the test passes when its task completes
 }
 
 #Test
-fn reference_is_forbidden() {
+fn referenceIsForbidden() {
   assert(true, "runs only under a tool")
 }
 
 fn main() {
-  reference_is_forbidden() // error: `reference_is_forbidden` is a test function and cannot be referenced (E0107)
+  referenceIsForbidden() // error: `referenceIsForbidden` is a test function and cannot be referenced (E0107)
 }
 ```
 
@@ -135,7 +135,7 @@ The last test is well-formed on its own; the call in `main` is rejected (`E0107`
 
 ```js
 #Test
-fn list_ops_round_trip() {
+fn listOpsRoundTrip() {
   let mut xs = ["a", "b"]
   list_push(xs, "c")
   assert(list_size(xs) == 3, "three items")
@@ -144,7 +144,7 @@ fn list_ops_round_trip() {
 }
 
 #Test
-async fn deadline_reports_timeout() {
+async fn deadlineReportsTimeout() {
   let outcome = await Task::timeout(Time::sleep(5000), 50)
   match outcome {
     Result::Err(e) => assert(e.message == "timed out", "Err carries the timeout message")

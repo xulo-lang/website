@@ -86,10 +86,10 @@ try {
 
 | 方法 | 返回类型 | 说明 |
 |------|---------|------|
-| `test(input: string)` | `boolean` | 测试是否匹配 |
-| `find(input: string)` | `RegexMatch?` | 查找第一个匹配项 |
-| `find_all(input: string)` | `list<RegexMatch>` | 查找所有匹配项 |
-| `replace(pattern: RegExp, replacer: string \| (m: RegexMatch) -> string)` | `string` | 替换匹配内容 |
+| `test(input: String)` | `Boolean` | 测试是否匹配 |
+| `find(input: String)` | `RegexMatch?` | 查找第一个匹配项 |
+| `find_all(input: String)` | `List<RegexMatch>` | 查找所有匹配项 |
+| `replace(pattern: RegExp, replacer: String \| (m: RegexMatch) -> String)` | `String` | 替换匹配内容 |
 
 ## 使用场景
 
@@ -102,13 +102,13 @@ try {
 
 ```js
 // 验证邮箱格式
-fn is_valid_email(email: string): boolean {
+fn is_valid_email(email: String): Boolean {
     let email_regex = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     return email_regex.test(email)
 }
 
 // 提取 URL 中的域名
-fn extract_domain(url: string): string? {
+fn extract_domain(url: String): String? {
     let domain_regex = /https?:\/\/([^/]+)/
     if let match = domain_regex.find(url) {
         return match.group(1)
@@ -117,7 +117,7 @@ fn extract_domain(url: string): string? {
 }
 
 // 格式化日期
-fn format_date(date_str: string): string {
+fn format_date(date_str: String): String {
     let date_regex = /(\d{4})-(\d{2})-(\d{2})/
     return date_str.replace(date_regex, "$2/$3/$1")
 }

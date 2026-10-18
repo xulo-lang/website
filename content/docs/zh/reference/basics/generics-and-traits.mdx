@@ -56,15 +56,15 @@ GenericArgs   ::= '<' Type (',' Type)* ','? '>' ;
 
 ```js
 trait Area {
-    fn area(self): number
-    fn perimeter(self): number
+    fn area(self): Number
+    fn perimeter(self): Number
 }
 
-type Rectangle = { w: number, h: number }
+type Rectangle = { w: Number, h: Number }
 
 impl Area for Rectangle {
-    fn area(self): number { self.w * self.h }
-    fn perimeter(self): number { 2 * (self.w + self.h) }
+    fn area(self): Number { self.w * self.h }
+    fn perimeter(self): Number { 2 * (self.w + self.h) }
 }
 ```
 
@@ -85,7 +85,7 @@ fn main() {
 类型参数可以用 `T: Trait`（内联）或 `where T: Trait` 约束。受约束的参数会根据 trait 的结构形状进行细化以访问成员；多个 trait 使用 `&` 连接：
 
 ```js
-fn describe<T: Area>(t: T): number {
+fn describe<T: Area>(t: T): Number {
     Area.area(t)
 }
 ```

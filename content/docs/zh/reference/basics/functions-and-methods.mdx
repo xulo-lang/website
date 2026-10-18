@@ -7,17 +7,17 @@ description: XULO 中的函数定义、参数、泛型和闭包。
 
 ```js
 // 无返回值
-fn log(message: string) {
+fn log(message: String) {
   print(message)
 }
 
 // 有返回值（隐式返回）
-fn add(a: int, b: int): int {
+fn add(a: Int, b: Int): Int {
   a + b
 }
 
 // 显式 return
-fn subtract(a: int, b: int): int {
+fn subtract(a: Int, b: Int): Int {
   return a - b
 }
 ```
@@ -36,7 +36,7 @@ fn subtract(a: int, b: int): int {
 ### 可选参数（`?`）
 
 ```js
-fn greet(name: string?): string {
+fn greet(name: String?): String {
   if name != null {
     "Hello, " + name
   } else {
@@ -51,7 +51,7 @@ greet("A")   // OK
 ### 默认参数值（`=`）
 
 ```js
-fn greet(name: string = "stranger"): string {
+fn greet(name: String = "stranger"): String {
   "Hello, " + name
 }
 ```
@@ -59,7 +59,7 @@ fn greet(name: string = "stranger"): string {
 ### 命名参数
 
 ```js
-fn Button(label: string, variant: string = "primary"): View
+fn Button(label: String, variant: String = "primary"): View
 
 Button(variant: "outline", label: "Submit")  // 命名参数，可乱序
 ```
@@ -70,33 +70,33 @@ Button(variant: "outline", label: "Submit")  // 命名参数，可乱序
 ## 泛型函数
 
 ```js
-fn first<T>(list: list<T>): T {
+fn first<T>(list: List<T>): T {
   list[0]
 }
 
 // 调用处推断类型实参：first([1, 2, 3]) 把 T 绑定为 int
-let n: int = first([1, 2, 3])
-let s: string = first(["a"])      // OK，T = string
-let bad: string = first([1, 2])   // 错误，T 推断为 int
+let n: Int = first([1, 2, 3])
+let s: String = first(["a"])      // OK，T = String
+let bad: String = first([1, 2])   // 错误，T 推断为 Int
 ```
 
-> **显式**类型实参（`first<number>(...)`）不受语法规范支持。泛型类型参数始终在调用处推断。
+> **显式**类型实参（`first<Number>(...)`）不受语法规范支持。泛型类型参数始终在调用处推断。
 
 ## 闭包
 
 闭包是用 `=>` 编写的匿名函数，自动捕获外层作用域变量（等价 JS 闭包）。`fn` 仅用于具名函数声明。
 
 ```js
-fn apply(f: fn(int): int, x: int): int {
+fn apply(f: fn(Int): Int, x: Int): Int {
   f(x)
 }
 
-fn makeAdder(n: int): fn(int): int {
-  (v: int): int => v + n   // 捕获 n
+fn makeAdder(n: Int): fn(Int): Int {
+  (v: Int): Int => v + n   // 捕获 n
 }
 
 fn main() {
-  let double = (x: int): int => x * 2
+  let double = (x: Int): Int => x * 2
 
   let add5 = makeAdder(5)
   print(apply(double, 3))   // 6
@@ -120,7 +120,7 @@ let numbers = list.map([1, 2, 3], (x) => x * 2)
 #### 多行块级闭包（带显式类型与返回类型）
 
 ```js
-let handler = (event: MouseEvent): boolean => {
+let handler = (event: MouseEvent): Boolean => {
     if event.is_valid {
         return true
     }
@@ -133,7 +133,7 @@ let handler = (event: MouseEvent): boolean => {
 `fn(InputType): OutputType`
 
 ```js
-pub fn filter<T>(items: list<T>, predicate: fn(T): boolean): list<T> {
+pub fn filter<T>(items: List<T>, predicate: fn(T): Boolean): List<T> {
     // ...
 }
 ```

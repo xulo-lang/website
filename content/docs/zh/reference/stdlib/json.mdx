@@ -33,7 +33,7 @@ let user = JSON.parse<User>(json_str)
 // user.name = "Alice", user.age = 30
 
 let json_list = '[1, 2, 3]'
-let numbers = JSON.parse<list<number>>(json_list)
+let numbers = JSON.parse<List<Number>>(json_list)
 // numbers = [1, 2, 3]
 ```
 
@@ -111,5 +111,5 @@ fn fetch_data() {
 1. **错误机制**：XULO 统一采用 `try / catch / throw` 管理运行时与可恢复异常
 2. **内置 JSONError**：`JSONError` 是语言内置的标准异常类型（继承自语言根 `Error` / 枚举类型），包含 `SyntaxError`、`TypeMismatch`、`UnexpectedEof` 等变体
 3. **同步 / 异步解析签名**：
-   * `JSON.parse<T>(input: string): T`（失败抛出 `JSONError`）
-   * `JSON.parse_async<T>(input: string): T async`（异步失败在调用协程中抛出 `JSONError`）
+   * `JSON.parse<T>(input: String): T`（失败抛出 `JSONError`）
+   * `JSON.parse_async<T>(input: String): T async`（异步失败在调用协程中抛出 `JSONError`）

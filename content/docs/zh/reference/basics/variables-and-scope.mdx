@@ -10,8 +10,8 @@ XULO 的绑定分两类：普通变量（`let` / `let mut`）与响应式状态�
 ```js
 let count = 0                 // 默认不可变
 let mut x = 10                // 显式可变
-let name: string = "Alice"    // 带类型标注
-let maybe: string? = null     // 可选类型
+let name: String = "Alice"    // 带类型标注
+let maybe: String? = null     // 可选类型
 ```
 
 **规则：**
@@ -32,14 +32,14 @@ let maybe: string? = null     // 可选类型
 ## 局部状态 `@State`
 
 ```js
-@State let count: number = 0
-@State let name: string = ""
-@State let isActive: boolean = true
+@State let count: Number = 0
+@State let name: String = ""
+@State let isActive: Boolean = true
 ```
 
 - `@State` 只能在 UI 组件（返回 `View` 的函数）顶层声明
 - 触发 UI 重新渲染
-- 编译为响应式信号：读取 `.get()`，写入 `.set()`
+- 编译为响应式信号：读取 `.get()`，写入 `.Set()`
 
 ## 全局状态 `@Store`
 
@@ -52,8 +52,8 @@ import { createStore } from "@xulo/store"
 type AppState = {
   user: User?
   theme: Theme
-  notifications: list<string>
-  loading: boolean
+  notifications: List<String>
+  loading: Boolean
 }
 
 fn setUser(state: AppState, user: User?): AppState {
@@ -161,7 +161,7 @@ Input(value: name, onInput: (e) => {
 ```js
 fn UserProfile(): View {
   @Store let { user, loading } = useAppStore()
-  @State let editing: boolean = false
+  @State let editing: Boolean = false
   @Effect () => { fetchUser(id) }
 
   VStack { ... }

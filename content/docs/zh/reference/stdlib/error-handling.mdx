@@ -34,7 +34,7 @@ try {
 
 ```js
 // 经典场景：资源释放与状态重置
-fn load_user_avatar(path: string) {
+fn load_user_avatar(path: String) {
     let file = File.open(path, mode: FileMode.Read)
     show_loading_spinner()
 
@@ -96,7 +96,7 @@ fn process_data(data: Data) {
 完整模式：捕获 + 清理。
 
 ```js
-fn fetch_and_save(url: string, path: string) {
+fn fetch_and_save(url: String, path: String) {
     let response = http.fetch(url)
 
     try {
@@ -135,12 +135,12 @@ XULO 内置以下标准异常类型：
 
 ```js
 enum ValidationError {
-    FieldRequired(field: string),
-    InvalidFormat(field: string, expected: string),
-    OutOfRange(field: string, min: number, max: number)
+    FieldRequired(field: String),
+    InvalidFormat(field: String, expected: String),
+    OutOfRange(field: String, min: Number, max: Number)
 }
 
-fn validate_age(age: number): number {
+fn validate_age(age: Number): Number {
     if age < 0 || age > 150 {
         throw ValidationError.OutOfRange("age", 0, 150)
     }

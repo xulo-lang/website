@@ -84,7 +84,7 @@ spawn async {
 }
 
 // 重试机制
-fn fetch_with_retry(url: string): Task<Response> {
+fn fetch_with_retry(url: String): Task<Response> {
     let attempts = 0
     while attempts < 3 {
         try {

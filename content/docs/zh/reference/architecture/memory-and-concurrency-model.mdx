@@ -45,8 +45,8 @@ XULO 采用无垃圾回收（No GC）**与**强所有权（Ownership & Borrowing
 
 ```js
 struct User {
-    name: string
-    age: number
+    name: String
+    age: Number
 }
 
 // 1. 只读借用（默认）
@@ -93,8 +93,8 @@ fn main() {
 
 ```js
 struct Config {
-    debug: boolean
-    log_level: number
+    debug: Boolean
+    log_level: Number
 }
 
 fn example() {
@@ -142,7 +142,7 @@ fn example3() {
 
 ```js
 fn process() {
-    let mut data = list<number> { 1, 2, 3 }
+    let mut data = list<Number> { 1, 2, 3 }
     
     // 借用的作用域由花括号限定
     {
@@ -237,8 +237,8 @@ fn spawn_worker() {
 
 ```js
 struct AppState {
-    total_online: number
-    active_users: list<string>
+    total_online: Number
+    active_users: List<String>
 }
 
 // 示例：多线程安全共享与修改
@@ -378,7 +378,7 @@ let result = worker.send_sync(Command.Analyze("data"))
 ```js
 // 1. 定义标准的接收数据类型与响应结构
 enum Command {
-    Analyze(string),
+    Analyze(String),
     Shutdown,
     Crash
 }
@@ -436,11 +436,11 @@ XULO 支持多种 IPC 模式：
 ```js
 // 1. 请求-响应模式
 struct Calculator {
-    result: number
+    result: Number
 }
 
 impl Calculator {
-    fn on_message(u: mut self, msg: { op: string, a: number, b: number }) {
+    fn on_message(u: mut self, msg: { op: String, a: Number, b: Number }) {
         let result = match msg.op {
             "add" => msg.a + msg.b,
             "mul" => msg.a * msg.b,
@@ -458,7 +458,7 @@ fn main() {
 
 // 2. 发布-订阅模式
 struct EventBroker {
-    subscribers: list<channel.Handler>
+    subscribers: List<channel.Handler>
 }
 
 impl EventBroker {
@@ -489,7 +489,7 @@ fn inspect(u: User) {
 }
 
 // 2. 可变借用（仅 mut）
-fn update_profile(u: mut User, new_name: string) {
+fn update_profile(u: mut User, new_name: String) {
     u.name = new_name  // 独占修改
 }
 
@@ -575,7 +575,7 @@ fn update_user(u: mut User, changes: UserUpdate) {
 }
 
 // ✅ 多线程共享状态使用 shared 与 lock
-let app_cache = shared Cache { data: map<string, Data>{} }
+let app_cache = shared Cache { data: Map<String, Data>{} }
 spawn async {
     lock app_cache {
         app_cache.data.set("key", value)

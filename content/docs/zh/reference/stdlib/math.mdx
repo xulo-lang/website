@@ -11,11 +11,11 @@ description: XULO 内置数学命名空间，提供常用数学函数与常量�
 
 | 常量 | 类型 | 描述 |
 |------|------|------|
-| `Math.PI` | `float` | 圆周率 π (3.141592653589793) |
-| `Math.E` | `float` | 自然对数底 e (2.718281828459045) |
-| `Math.TAU` | `float` | 圆周率的两倍 2π (6.283185307179586) |
-| `Math.INFINITY` | `float` | 正无穷大 |
-| `Math.NAN` | `float` | 非数值 |
+| `Math.PI` | `Float` | 圆周率 π (3.141592653589793) |
+| `Math.E` | `Float` | 自然对数底 e (2.718281828459045) |
+| `Math.TAU` | `Float` | 圆周率的两倍 2π (6.283185307179586) |
+| `Math.INFINITY` | `Float` | 正无穷大 |
+| `Math.NAN` | `Float` | 非数值 |
 
 ```js
 let circumference = 2 * Math.PI * radius
@@ -249,7 +249,7 @@ Math.exp(2)          // 7.38905609893065
 
 ```js
 // 缓动函数
-fn ease_in_out(t: float): float {
+fn ease_in_out(t: Float): Float {
   if t < 0.5 {
     2 * t * t
   } else {

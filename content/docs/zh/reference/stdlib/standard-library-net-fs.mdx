@@ -5,12 +5,12 @@ description: XULO 标准库（std）的模块结构与设计原则。
 
 ## 概述
 
-XULO 标准库（`std`）提供高阶数据结构、I/O、网络、异步运行时等核心能力。语言内建原语（如 `spawn`、`lock`、`shared`、`list`、`map`、`set`、`JSON`）不包含在此目录中；`std::*` 模块仅在显式 `import` 时引入对应类型与函数。
+XULO 标准库（`std`）提供高阶数据结构、I/O、网络、异步运行时等核心能力。语言内建原语（如 `spawn`、`lock`、`shared`、`List`、`Map`、`Set`、`JSON`）不包含在此目录中；`std::*` 模块仅在显式 `import` 时引入对应类型与函数。
 
 ## 设计原则
 
 1. **零污染与跨平台**：`std::*` 核心库保证在所有 Target（包括 Native OS、嵌入式及 WebAssembly）上行为一致且不包含特定平台的渲染逻辑
-2. **原语与 std 分离**：`spawn`、`lock`、`shared` 以及 `list` / `map` / `set` / `JSON` 均属语言内建原语，不包含在此目录中
+2. **原语与 std 分离**：`spawn`、`lock`、`shared` 以及 `List` / `Map` / `Set` / `JSON` 均属语言内建原语，不包含在此目录中
 
 ## 模块目录
 
@@ -76,7 +76,7 @@ import { sleep, interval } from "std/async"
 import { AtomicI64 } from "std/sync"
 
 // 使用 HashMap（高阶数据结构，区别于内置 map 原语）
-let users = HashMap<string, User>.new()
+let users = HashMap<String, User>.new()
 users.insert("alice", User { name: "Alice" })
 
 // JSON 序列化（内置原语，无需导入）
@@ -104,7 +104,7 @@ spawn async {
 
 | 类别 | 内置原语 | 标准库扩展 |
 | --- | --- | --- |
-| **集合** | `list<T>`, `map<K, V>`, `set<T>` | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
+| **集合** | `List<T>`, `Map<K, V>`, `Set<T>` | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
 | **并发** | `spawn`, `shared`, `lock` | `async/task`, `sync/atomic`, `sync/semaphore` |
 | **I/O** | - | `fs/file`, `fs/path`, `net/tcp`, `net/http` |
 | **数据** | `JSON.stringify`, `JSON.parse` | - |

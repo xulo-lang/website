@@ -9,14 +9,14 @@ XULO 使用 `export` 控制模块级导出，使用 `pub` 控制类型内部成�
 
 ```js
 // 导出（export 声明）
-export fn add(a: number, b: number): number {
+export fn add(a: Number, b: Number): Number {
   a + b
 }
 
 export let PI = 3.14
 
 export type User = {
-  name: string
+  name: String
 }
 
 export enum Status {
@@ -54,10 +54,10 @@ import "core"
 `export` 是声明级修饰符，把声明标记为公开（对其他模块可见）：
 
 ```js
-export fn add(a: number, b: number): number { a + b }
+export fn add(a: Number, b: Number): Number { a + b }
 export let PI = 3.14
 export enum Status { Active Inactive }
-export type User = { name: string }
+export type User = { name: String }
 ```
 
 - `export fn/let/type/enum` 只影响跨模块可见性，模块内照常使用
@@ -81,7 +81,7 @@ export fn create_user(): User { ... }
 
 // 私有：仅当前文件可用
 struct InternalCache { ... }
-fn helper(): string { ... }
+fn helper(): String { ... }
 ```
 
 ### 类型内部层级（Member Level）
@@ -90,23 +90,23 @@ fn helper(): string { ... }
 
 ```js
 export struct User {
-    pub name: string     // 公有字段，外部可读写
-    age: number          // 私有字段，仅限本模块内部访问
+    pub name: String     // 公有字段，外部可读写
+    age: Number          // 私有字段，仅限本模块内部访问
 }
 
 impl User {
     // 构造函数（外部可调用）
-    pub fn new(name: string, age: number): User {
+    pub fn new(name: String, age: Number): User {
         User(name: name, age: age)
     }
 
     // 公有方法（外部可调用）
-    pub fn get_age(self): number {
+    pub fn get_age(self): Number {
         self.age
     }
 
     // 私有方法（仅本文件可用）
-    fn validate_age(age: number): boolean {
+    fn validate_age(age: Number): Boolean {
         age >= 0
     }
 }
