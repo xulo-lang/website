@@ -6,7 +6,7 @@ description: XULO 中的 async/await、错误处理和异步闭包。
 ## `async` / `await`
 
 ```js
-async fn fetchUser(id: String): User {
+async fn fetchUser(id: string): User {
   let response = await fetch("/api/users/" + id)
   let data = await response.json()
   return data
@@ -21,7 +21,7 @@ async fn fetchUser(id: String): User {
 ## `try` / `catch`
 
 ```js
-async fn fetchUser(id: String): User {
+async fn fetchUser(id: string): User {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()
@@ -36,7 +36,7 @@ async fn fetchUser(id: String): User {
 
 ```js
 async fn main() {
-  let work = async (): Number => 21 * 2
+  let work = async (): number => 21 * 2
   print(await work())   // 42
 }
 ```
@@ -49,7 +49,7 @@ async fn main() {
 
 ```js
 // 正确：直接调用 useAppStore()
-pub async fn fetchUser(id: String): User {
+pub async fn fetchUser(id: string): User {
   let store = useAppStore()
   store.actions.setLoading(true)
   let data = await fetch("/api/users/" + id).json()
@@ -57,7 +57,7 @@ pub async fn fetchUser(id: String): User {
 }
 
 // 错误：在异步函数里使用 @Store 装饰器
-pub async fn fetchUser(id: String): User {
+pub async fn fetchUser(id: string): User {
   @Store let { setUser } = useAppStore()  // 错误
 }
 ```

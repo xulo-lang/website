@@ -5,7 +5,7 @@ description: Pattern matching and text replacement with the standard-library Reg
 
 ## Overview
 
-Regular expressions are a standard-library API. The specification places regular expressions (together with JSON and I/O) outside the language, and the grammar has no `/pattern/flags` literal: in expression position `/` is division. Patterns are ordinary `String` values handed to the `RegExp` type, which comes from a module that must be named by an explicit `use` before use — no regex name is part of the prelude.
+Regular expressions are a standard-library API. The specification places regular expressions (together with JSON and I/O) outside the language, and the grammar has no `/pattern/flags` literal: in expression position `/` is division. Patterns are ordinary `string` values handed to the `RegExp` type, which comes from a module that must be named by an explicit `use` before use — no regex name is part of the prelude.
 
 ```js
 use regex::{RegExp, RegexError};   // the type, its compile function, and the error type
@@ -15,7 +15,7 @@ Compiling never throws: `RegExp::compile` returns `Result<RegExp, RegexError>`, 
 
 ## Methods
 
-### `RegExp::compile(pattern: String, flags: String = ""): Result<RegExp, RegexError>`
+### `RegExp::compile(pattern: string, flags: string = ""): Result<RegExp, RegexError>`
 
 Compiles a pattern string, optionally with [flags](#flags). The default for `flags` is the empty string.
 
@@ -26,7 +26,7 @@ match RegExp::compile("[a-z]+", "i") {
 }
 ```
 
-### `test(input: String): Boolean`
+### `test(input: string): bool`
 
 Whether the pattern matches anywhere in `input`.
 
@@ -37,12 +37,12 @@ match RegExp::compile("^[a-z0-9]+$") {
 }
 ```
 
-### `find(input: String): RegexMatch?`
+### `find(input: string): RegexMatch?`
 
 First match in `input`, or `null` when there is none. The optional is read with a null test (which narrows the binding) or with `??` — there is no `if let` and no non-null assertion (`!` is logical negation, not an unwrap).
 
 ```js
-fn first_group(re: RegExp, input: String): String? {
+fn first_group(re: RegExp, input: string): string? {
   let m = re.find(input)
   if m != null {
     print("Full match: " + m.value)
@@ -53,12 +53,12 @@ fn first_group(re: RegExp, input: String): String? {
 }
 ```
 
-### `find_all(input: String): List<RegexMatch>`
+### `find_all(input: string): List<RegexMatch>`
 
 Every match in `input`, in order.
 
 ```js
-fn all_matches(re: RegExp, input: String): List<RegexMatch> {
+fn all_matches(re: RegExp, input: string): List<RegexMatch> {
   let matches = re.find_all(input)
   for m in matches {
     print("Found: " + m.value)
@@ -71,20 +71,20 @@ fn all_matches(re: RegExp, input: String): List<RegexMatch> {
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `value` | `String` (field) | the text that matched |
-| `group` | `group(index: Int): String?` | capture group `index`; `null` when the group did not participate |
+| `value` | `string` (field) | the text that matched |
+| `group` | `group(index: int): string?` | capture group `index`; `null` when the group did not participate |
 
-### `String.replace(pattern: RegExp, replacer: String | fn(RegexMatch): String): String`
+### `string.replace(pattern: RegExp, replacer: string | fn(RegexMatch): string): string`
 
-A `String` method that substitutes matches of `pattern`. The replacer is either a literal string — `$1`, `$2`, … name capture groups — or a closure that receives each match.
+A `string` method that substitutes matches of `pattern`. The replacer is either a literal string — `$1`, `$2`, … name capture groups — or a closure that receives each match.
 
 ```js
-fn format_date(text: String): Result<String, RegexError> {
+fn format_date(text: string): Result<string, RegexError> {
   let re = RegExp::compile("(\\d{4})-(\\d{2})-(\\d{2})")?
   Result::Ok(text.replace(re, "$2/$3/$1"))     // "2026-09-07" → "09/07/2026"
 }
 
-fn upper_words(text: String): Result<String, RegexError> {
+fn upper_words(text: string): Result<string, RegexError> {
   let re = RegExp::compile("[a-z]+", "g")?
   Result::Ok(text.replace(re, (m) => m.value.to_uppercase()))
 }
@@ -105,14 +105,14 @@ Flags are passed to `compile`, not written after a pattern: `RegExp::compile("^[
 
 The only failure is compilation, and it is a value: `RegExp::compile` yields `Result<RegExp, RegexError>`. There is no `throw` and no `try` / `catch` — a bad pattern leaves the function as `Result::Err`, propagated with `?` or inspected with `match`.
 
-`RegexError` is the regex module's error value; it carries a `message: String`, the same shape as the built-in `Error` ([Error Handling](/en/docs/spec/error-handling/)).
+`RegexError` is the regex module's error value; it carries a `message: string`, the same shape as the built-in `Error` ([Error Handling](/en/docs/spec/error-handling/)).
 
 ```js
-fn compile_or_fail(pattern: String): Result<RegExp, RegexError> {
+fn compile_or_fail(pattern: string): Result<RegExp, RegexError> {
   RegExp::compile(pattern)          // an illegal pattern travels up as Err
 }
 
-fn describe(pattern: String): String {
+fn describe(pattern: string): string {
   match RegExp::compile(pattern) {
     Result::Ok(_) => "compiled"
     Result::Err(reason) => "illegal pattern: " + reason.message
@@ -133,7 +133,7 @@ Matching itself cannot fail: `test`, `find`, `find_all`, and `replace` return or
 
 ```js
 // Validate an email address
-fn is_valid_email(email: String): Boolean {
+fn is_valid_email(email: string): bool {
   match RegExp::compile("^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") {
     Result::Ok(re) => re.test(email)
     Result::Err(_) => false
@@ -141,7 +141,7 @@ fn is_valid_email(email: String): Boolean {
 }
 
 // Extract the domain from a URL
-fn extract_domain(url: String): Result<String?, RegexError> {
+fn extract_domain(url: string): Result<string?, RegexError> {
   let re = RegExp::compile("https?://([^/]+)")?
   let m = re.find(url)                 // RegexMatch?
   if m != null {
@@ -152,7 +152,7 @@ fn extract_domain(url: String): Result<String?, RegexError> {
 }
 
 // Extract every email address in a text
-fn find_emails(text: String): Result<List<RegexMatch>, RegexError> {
+fn find_emails(text: string): Result<List<RegexMatch>, RegexError> {
   let re = RegExp::compile("([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)", "g")?
   Result::Ok(re.find_all(text))
 }
@@ -162,6 +162,6 @@ fn find_emails(text: String): Result<List<RegexMatch>, RegexError> {
 
 - **No regex literal.** The grammar defines only integer, float, string, template, boolean, and null literals; `/…/` is not one of them. Patterns are strings, and the compiler checks them only when `compile` runs.
 - **No exceptions.** Compilation failure is a `Result`; use `?` in a function that returns `Result<T, RegexError>` and `match` at a boundary. `panic` is for broken invariants, never for a user-supplied pattern.
-- **Optionals, not `!`.** `find` returns `RegexMatch?` and `group` returns `String?`; a null test narrows the binding and `??` supplies a default. The propagation operator `?` on an optional is legal only where the enclosing function's return type admits `null`.
-- **Spec type spellings.** `String`, `Boolean`, `List<RegexMatch>` — not `string`, `boolean`, or `list<…>`.
+- **Optionals, not `!`.** `find` returns `RegexMatch?` and `group` returns `string?`; a null test narrows the binding and `??` supplies a default. The propagation operator `?` on an optional is legal only where the enclosing function's return type admits `null`.
+- **Spec type spellings.** `string`, `bool`, `List<RegexMatch>` — not `string`, `boolean`, or `list<…>`.
 - Further reading: [Error Handling](/en/docs/spec/error-handling/), [Optional Types](/en/docs/spec/types/composite-types/), [Calls](/en/docs/spec/expressions/calls/).

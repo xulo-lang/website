@@ -22,10 +22,10 @@ XULO is expression-oriented but not purely so: a small set of constructs is a st
 
 **Statement termination.** The grammar is newline-insensitive: a statement ends when the next token cannot continue it, and `;` is an optional terminator — this is not automatic semicolon insertion. Several statements on one line are separated with `;`.
 
-**The statement-value rule.** An expression statement that is not `Unit` is an error (`E0218`), **except** when it is a control-flow construct (`if`, `match`, `for`, `while`) whose value is discarded, or a `Task` returned by `send` on a service handle — a fire-and-forget message whose reply goes unread.
+**The statement-value rule.** An expression statement that is not `unit` is an error (`E0218`), **except** when it is a control-flow construct (`if`, `match`, `for`, `while`) whose value is discarded, or a `Task` returned by `send` on a service handle — a fire-and-forget message whose reply goes unread.
 
 ```js
-print("hi")                              // legal: Unit call
+print("hi")                              // legal: unit call
 total + 1                                // error: value discarded (E0218)
 if total > 0 { print("yes") }            // legal: control-flow exception
 total > 0 ? a() : b()                    // error: ternary is not control flow
@@ -39,7 +39,7 @@ let sum = a + b                          // legal: expression position uses the 
 Two structural restrictions follow the same rule:
 
 - An expression statement must not begin with `{` — statement-position `{` always starts a block. Parenthesize a map literal: `({ a: 1 })`.
-- The trailing expression of a block is its value; writing `;` after it discards that value (`42;` in an `Int` function is `E0218`).
+- The trailing expression of a block is its value; writing `;` after it discards that value (`42;` in an `int` function is `E0218`).
 
 ## Operator Precedence
 
@@ -73,10 +73,10 @@ Non-assoc operators must not be chained: `a < b < c` does not parse — write `a
 ```js
 let mut x = 1
 x = x + 1
-a = b = c            // right-associative: a = (b = c), each yielding Unit
+a = b = c            // right-associative: a = (b = c), each yielding unit
 ```
 
-The target must be a place backed by a `mut` binding (`E0401`); the right-hand side is evaluated before the write; the result is `Unit`. **Compound assignment does not exist** — no `+=`, `-=`, `*=`, or increment operators.
+The target must be a place backed by a `mut` binding (`E0401`); the right-hand side is evaluated before the write; the result is `unit`. **Compound assignment does not exist** — no `+=`, `-=`, `*=`, or increment operators.
 
 ## Logical and Ternary
 
@@ -86,22 +86,22 @@ let grade = score >= 90 ? "A" : "B"
 print(!flag)
 ```
 
-- `and`, `or`, and `!` take and yield `Boolean` only; there is no truthiness (`E0201`). `and` and `or` short-circuit.
-- The ternary condition must be `Boolean`; both branches must have a common type. It is right-associative and is **not** a control-flow construct, so in statement position its type must be `Unit`.
+- `and`, `or`, and `!` take and yield `bool` only; there is no truthiness (`E0201`). `and` and `or` short-circuit.
+- The ternary condition must be `bool`; both branches must have a common type. It is right-associative and is **not** a control-flow construct, so in statement position its type must be `unit`.
 - The `?` of a ternary is read first whenever `Expression :` follows it, so `c ? a : b` and `f()?` are each read as written.
 
 ## Equality and Type Tests
 
 ```js
 let same = [1, 2] == [1, 2]
-let ok = data is String
-if size is not Int { print("other") }
+let ok = data is string
+if size is not int { print("other") }
 ```
 
 - Equality is structural for primitives, `List`, `Map`, `Set`, tuples, structs, and enums; both operands must have a common type (`E0211`), so there is no cross-type equality.
 - `null == null` is `true`; comparing `null` with a value requires that value's type to be optional.
-- `is` / `is not` yield `Boolean` and are non-associative. The right side must be a **testable type** — a base type, a non-generic struct/enum, `Unknown`, or a union/optional of testable types (`E0222`).
-- As the condition of an `if`, `x is T` narrows `x` in the branches; in every other `Boolean` position it is an ordinary test.
+- `is` / `is not` yield `bool` and are non-associative. The right side must be a **testable type** — a base type, a non-generic struct/enum, `unknown`, or a union/optional of testable types (`E0222`).
+- As the condition of an `if`, `x is T` narrows `x` in the branches; in every other `bool` position it is an ordinary test.
 
 ## Arithmetic, Bitwise, Shift
 
@@ -114,11 +114,11 @@ let wide = n << 2
 ```
 
 - Integer division truncates toward zero (`-7 / 2` is `-3`); `%` takes the sign of the dividend (`-7 % 2` is `-1`).
-- Mixed `Int`/`Float` promotes to `Float`; fixed-bit types stay in their own type, and other mixtures are errors (`E0201`). Constant overflow is `E0210`, a literal out of range is `E0209`.
+- Mixed `int`/`float` promotes to `float`; fixed-bit types stay in their own type, and other mixtures are errors (`E0201`). Constant overflow is `E0210`, a literal out of range is `E0209`.
 - Division or remainder by zero is a compile-time error on constants (`E0210`) and a runtime trap otherwise.
 - Bitwise and shift operators take integers of the same type; `<<`/`>>` bind tighter than `&`, so `a < b | c` groups as `a < (b | c)`.
 
-## String and List `+`
+## string and List `+`
 
 ```js
 print("Hello, " + who + "!")
@@ -126,7 +126,7 @@ print("count=" + str(count))
 let all = head + tail
 ```
 
-`String + String` yields `String`; `List<T> + List<U>` yields `List<T | U>`. Mixing a string with a non-string is an error (`E0227`) — convert explicitly with `str(x)` or a template. There is no implicit conversion anywhere.
+`string + string` yields `string`; `List<T> + List<U>` yields `List<T | U>`. Mixing a string with a non-string is an error (`E0227`) — convert explicitly with `str(x)` or a template. There is no implicit conversion anywhere.
 
 ## Access, Optional Chaining, Spread
 
@@ -166,12 +166,12 @@ let x = {
 }
 ```
 
-A block's type is its final expression's type, or `Unit` when there is none. The final expression must not be followed by `;` if its value is wanted.
+A block's type is its final expression's type, or `unit` when there is none. The final expression must not be followed by `;` if its value is wanted.
 
 ## `defer`
 
 ```js
-fn handle(path: String) {
+fn handle(path: string) {
   let f = open(path)
   defer close(f)          // runs when this block exits
   process(f)

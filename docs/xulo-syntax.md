@@ -53,11 +53,11 @@ Field("Email") { Input(placeholder: "you@example.com") }
 
 ## Values
 
-- **String** — `"..."` or `'...'`, including theme refs `"$theme.text.secondary"`
-- **Number** — `400`, `1.5`, `16` (integers and floats unified)
-- **Boolean** — `true` / `false`
+- **string** — `"..."` or `'...'`, including theme refs `"$theme.text.secondary"`
+- **number** — `400`, `1.5`, `16` (integers and floats unified)
+- **bool** — `true` / `false`
 - **Identifier** — named value or token, e.g. `primary`, `lg`
-- **Null** — `null`
+- **null** — `null`
 
 ## Comments
 
@@ -72,13 +72,13 @@ Field("Email") { Input(placeholder: "you@example.com") }
 ### Base Types
 
 ```js
-String         // String
-Boolean        // Boolean
+string         // string
+bool        // bool
 List<T>        // Dynamic array (built-in generic)
 Map<K, V>      // Key-value dictionary (built-in generic)
 Set<T>         // Set (built-in generic)
 object         // Anonymous object literal
-null           // Null
+null           // null
 T?             // Optional (T | null)
 T | U          // Union type
 T & U          // Intersection type
@@ -91,9 +91,9 @@ XULO uses a **two-layer** numeric type system:
 **User-facing layer** (everyday coding, AI-friendly):
 
 ```js
-Number         // Generic numeric (alias for Int | Float)
-Int            // 64-bit signed integer (default for integer literals)
-Float          // 64-bit double-precision float (default for float literals)
+number         // Generic numeric (alias for int | float)
+int            // 64-bit signed integer (default for integer literals)
+float          // 64-bit double-precision float (default for float literals)
 ```
 
 **Formal layer** (fixed-bit types for systems/FFI):
@@ -105,8 +105,8 @@ f32 / f64              // Floats
 ```
 
 ```js
-let x = 42            // inferred: Int
-let pi = 3.14         // inferred: Float
+let x = 42            // inferred: int
+let pi = 3.14         // inferred: float
 let w: u32 = 800      // coerced to u32
 let opacity: f32 = 0.8 // coerced to f32
 ```
@@ -117,9 +117,9 @@ let opacity: f32 = 0.8 // coerced to f32
 
 ```js
 type User = {
-  name: String
-  age: Number
-  email: String?
+  name: string
+  age: number
+  email: string?
 }
 
 type Status = "active" | "inactive" | "pending"
@@ -128,7 +128,7 @@ type Handler = fn(request: Request): Response
 
 type ApiResponse<T> = {
   data: T?
-  error: String?
+  error: string?
 }
 ```
 
@@ -136,9 +136,9 @@ type ApiResponse<T> = {
 
 ```js
 struct User {
-  name: String
-  age: Number
-  email: String?
+  name: string
+  age: number
+  email: string?
 }
 
 // Creating instances
@@ -153,8 +153,8 @@ Struct fields are **private by default**. Use `pub` for public fields:
 
 ```js
 pub struct User {
-  pub name: String    // Public
-  age: Number         // Private
+  pub name: string    // Public
+  age: number         // Private
 }
 ```
 
@@ -170,8 +170,8 @@ enum Theme {
 
 // With associated data
 enum Operation {
-  Success(data: Number)
-  Error(message: String)
+  Success(data: number)
+  Error(message: string)
 }
 
 enum Action {
@@ -182,7 +182,7 @@ enum Action {
 
 enum Person {
   Nobody
-  Named(String, Number)  // Multi-parameter payload
+  Named(string, number)  // Multi-parameter payload
 }
 ```
 
@@ -201,13 +201,13 @@ match op {
 
 ```js
 trait Area {
-  fn area(self): Number
-  fn perimeter(self): Number
+  fn area(self): number
+  fn perimeter(self): number
 }
 
 impl Area for Rectangle {
-  fn area(self): Number { self.w * self.h }
-  fn perimeter(self): Number { 2 * (self.w + self.h) }
+  fn area(self): number { self.w * self.h }
+  fn perimeter(self): number { 2 * (self.w + self.h) }
 }
 ```
 
@@ -222,7 +222,7 @@ print(str(Area::perimeter(r)))   // 14
 Generic constraints:
 
 ```js
-fn describe<T: Area>(t: T): Number {
+fn describe<T: Area>(t: T): number {
   Area::area(t)
 }
 ```
@@ -234,8 +234,8 @@ fn describe<T: Area>(t: T): Number {
 ```js
 let count = 0                  // Immutable by default
 let mut x = 10                 // Explicitly mutable
-let name: String = "Alice"     // With type annotation
-let maybe: String? = null      // Optional type
+let name: string = "Alice"     // With type annotation
+let maybe: string? = null      // Optional type
 ```
 
 Assignment requires `let mut`:
@@ -254,17 +254,17 @@ y = 10      // Error
 
 ```js
 // No return value
-fn log(message: String) {
+fn log(message: string) {
   print(message)
 }
 
 // Implicit return (last expression)
-fn add(a: Number, b: Number): Number {
+fn add(a: number, b: number): number {
   a + b
 }
 
 // Explicit return
-fn subtract(a: Number, b: Number): Number {
+fn subtract(a: number, b: number): number {
   return a - b
 }
 ```
@@ -272,11 +272,11 @@ fn subtract(a: Number, b: Number): Number {
 ### Optional & Default Parameters
 
 ```js
-fn greet(name: String?): String {
+fn greet(name: string?): string {
   if name != null { "Hello, " + name } else { "Hello, stranger" }
 }
 
-fn greet(name: String = "stranger"): String {
+fn greet(name: string = "stranger"): string {
   "Hello, " + name
 }
 ```
@@ -284,7 +284,7 @@ fn greet(name: String = "stranger"): String {
 ### Named Parameters
 
 ```js
-fn Button(label: String, variant: String = "primary"): View
+fn Button(label: string, variant: string = "primary"): View
 
 Button(variant: "outline", label: "Submit")  // Out of order OK
 ```
@@ -296,16 +296,16 @@ fn first<T>(list: List<T>): T {
   list[0]
 }
 
-let n: Number = first([1, 2, 3])   // T inferred as Number
+let n: number = first([1, 2, 3])   // T inferred as number
 ```
 
 ### Closures
 
 ```js
-let double = fn(x: Number): Number { x * 2 }
+let double = fn(x: number): number { x * 2 }
 
-fn makeAdder(n: Number): fn(Number): Number {
-  fn(v: Number): Number { v + n }   // Captures n
+fn makeAdder(n: number): fn(number): number {
+  fn(v: number): number { v + n }   // Captures n
 }
 
 let add5 = makeAdder(5)
@@ -390,7 +390,7 @@ try {
 ```
 
 ```js
-async fn fetchUser(id: String): User {
+async fn fetchUser(id: string): User {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()
@@ -405,9 +405,9 @@ Custom exceptions via `enum`:
 
 ```js
 enum ValidationError {
-  FieldRequired(field: String),
-  InvalidFormat(field: String, expected: String),
-  OutOfRange(field: String, min: Number, max: Number)
+  FieldRequired(field: string),
+  InvalidFormat(field: string, expected: string),
+  OutOfRange(field: string, min: number, max: number)
 }
 
 throw ValidationError::OutOfRange("age", 0, 150)
@@ -442,16 +442,16 @@ let n = a > 1 ? "big" : "small"
 print(!flag)
 ```
 
-### String Concatenation
+### string Concatenation
 
 ```js
 print("Hello, " + who + "!")
-print("count=" + str(count))    // str(x) converts to String
+print("count=" + str(count))    // str(x) converts to string
 ```
 
 Rules:
-- `Number + Number` → `Number`
-- `String + String` → `String`
+- `number + number` → `number`
+- `string + string` → `string`
 - `List<T> + List<U>` → concatenated list
 - Mixed types are prohibited — use `str(x)` first
 
@@ -542,7 +542,7 @@ spawn async {
 
 ```js
 enum Command {
-  Analyze(String),
+  Analyze(string),
   Shutdown
 }
 
@@ -623,7 +623,7 @@ Decorators are only valid at the top level of functions returning `View`.
 
 ```js
 fn Counter(): View {
-  @State let count: Number = 0
+  @State let count: number = 0
 
   VStack {
     Text(str(count))
@@ -660,7 +660,7 @@ fn Nav(): View {
 ### `@Effect` — Side Effects
 
 ```js
-fn UserProfile(id: String): View {
+fn UserProfile(id: string): View {
   @Effect fn() { fetchUser(id) }               // On mount
   @Effect fn() { fetchUser(id) }, [id]          // On dependency change
   @Effect fn() {
@@ -703,9 +703,9 @@ use lsp-server as ls;
 ### Exports
 
 ```js
-pub fn add(a: Number, b: Number): Number { a + b }
+pub fn add(a: number, b: number): number { a + b }
 pub let PI = 3.14
-pub type User = { name: String }
+pub type User = { name: string }
 pub enum Status { Active Inactive }
 
 // Binds AND exports
@@ -724,13 +724,13 @@ pub use { add, PI };
 
 ```js
 pub struct User {
-  pub name: String     // Public field
-  age: Number          // Private field
+  pub name: string     // Public field
+  age: number          // Private field
 }
 
 impl User {
-  pub fn new(name: String, age: Number): User { ... }
-  fn validate_age(age: Number): Boolean { ... }  // Private method
+  pub fn new(name: string, age: number): User { ... }
+  fn validate_age(age: number): bool { ... }  // Private method
 }
 ```
 
@@ -747,20 +747,20 @@ Short attribute names for style and layout:
 
 | Attribute | Type | Description | Example |
 |-----------|------|-------------|---------|
-| `color` | `String` | Text color | `color: "#ff0000"` |
-| `bg` | `String` | Background color | `bg: "#1a1a2e"` |
-| `bgImage` | `String` | Background image URL | `bgImage: "/img/hero.png"` |
-| `border` | `String` | Border color | `border: "#4a90d9"` |
-| `size` | `Number` | Font size (px) | `size: 16` |
-| `weight` | `String` | Font weight | `weight: "bold"` |
-| `padding` | `Number` | Inner spacing | `padding: 8` |
-| `margin` | `Number` | Outer spacing | `margin: 4` |
-| `width` | `Number` | Width | `width: 200` |
-| `height` | `Number` | Height | `height: 24` |
-| `radius` | `Number` | Border radius | `radius: 4` |
-| `opacity` | `Number` | Opacity (0.0–1.0) | `opacity: 0.8` |
-| `alignment` | `String` | Cross-axis alignment | `alignment: "center"` |
-| `justify` | `String` | Main-axis distribution | `justify: "space-between"` |
+| `color` | `string` | Text color | `color: "#ff0000"` |
+| `bg` | `string` | Background color | `bg: "#1a1a2e"` |
+| `bgImage` | `string` | Background image URL | `bgImage: "/img/hero.png"` |
+| `border` | `string` | Border color | `border: "#4a90d9"` |
+| `size` | `number` | Font size (px) | `size: 16` |
+| `weight` | `string` | Font weight | `weight: "bold"` |
+| `padding` | `number` | Inner spacing | `padding: 8` |
+| `margin` | `number` | Outer spacing | `margin: 4` |
+| `width` | `number` | Width | `width: 200` |
+| `height` | `number` | Height | `height: 24` |
+| `radius` | `number` | Border radius | `radius: 4` |
+| `opacity` | `number` | Opacity (0.0–1.0) | `opacity: 0.8` |
+| `alignment` | `string` | Cross-axis alignment | `alignment: "center"` |
+| `justify` | `string` | Main-axis distribution | `justify: "space-between"` |
 
 Layout size literals: `"fill"` (flex: 1), `"auto"` (content size).
 

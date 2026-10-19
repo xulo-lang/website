@@ -26,7 +26,7 @@ Hello World
 XULO 函数使用 `fn` 关键字声明，参数带类型标注：
 
 ```js
-fn greet(name: String): String {
+fn greet(name: string): string {
   "Hello, " + name
 }
 
@@ -49,16 +49,16 @@ Hello, XULO
 
 ```js
 struct Rectangle {
-  w: Number
-  h: Number
+  w: number
+  h: number
 }
 
 impl Rectangle {
-  fn area(self): Number {
+  fn area(self): number {
     self.w * self.h
   }
 
-  fn is_square(self): Boolean {
+  fn is_square(self): bool {
     self.w == self.h
   }
 }

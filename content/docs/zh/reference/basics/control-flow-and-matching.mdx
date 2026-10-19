@@ -66,7 +66,7 @@ match op {
 ## 异常：`throw` / `try` / `catch`
 
 ```js
-async fn fetchUser(id: String): User {
+async fn fetchUser(id: string): User {
   try {
     let response = await fetch("/api/users/" + id)
     return await response.json()

@@ -15,25 +15,27 @@ A test is a function marked with `#Test`. It appears at file scope, among a modu
 #Test
 fn mapGetAnswersNull() {
   let m = { a: 1 }
-  assert(map_get(m, "z") == null, "absent key is null")
+  assert(mapGet(m, "z") == null, "absent key is null")
 }
 ```
 
 The head token is exactly `#Test`, and the optional `async` marker follows it (`#Test async fn`, never `async #Test fn`). The examples write `#Test` on its own line directly above `fn`, and that placement is **RECOMMENDED** — the attribute marks the whole declaration and reads better apart from the signature; `#Test fn name() { … }` on one line is equally well-formed.
 
-A test function has a fixed shape — nothing is optional beyond `async`:
+An optional parenthesized string between the attribute and the signature — `#Test("parse test")` — is the test's **title**: metadata the declaration carries for a tool's reporting. It is not a name in any namespace, it binds nothing, and it need not be unique. An empty group `#Test()` and the bare form both mean no title; the bare form is **RECOMMENDED** when no title is wanted.
+
+A test function has a fixed shape — nothing is optional beyond `async` and the title:
 
 | Slot | Rule |
 |------|------|
 | parameters | none: the list is empty |
-| return type | none: the body is an implicit `fn(): Unit` |
+| return type | none: the body is an implicit `fn(): unit` |
 | `pub` | none: a test is never part of an interface |
 | generics / `where` | none |
 
-The form carries no other attributes — `#Derive #Test fn` is not a test. A `#Test` before an `fn` with parameters, a return type, generics, a `where` clause, or `pub` parses as an ordinary `fn` carrying the attribute and is diagnosed `E0110` (`` attribute `Test` takes the form `#Test [async] fn name() { … }` ``); written on a `struct`, `enum`, `trait`, or `impl` it is `E0109`.
+The form carries no other attributes — `#Derive #Test fn` is not a test. A `#Test` before an `fn` with parameters, a return type, generics, a `where` clause, or `pub` parses as an ordinary `fn` carrying the attribute and is diagnosed `E0110` (`` attribute `Test` takes the form `#Test [( "…" )] [async] fn name() { … }` ``); written on a `struct`, `enum`, `trait`, or `impl` it is `E0109`.
 
-- **Always checked.** The body is checked exactly as a `fn(): Unit` body is checked — types, exhaustiveness, mutability, the statement-value rule — whether or not any tool ever runs it. A file whose tests do not check is rejected like any other file. The body is the body of an implicit nullary function returning `Unit`: `return` alone is accepted, and `return e` checks `e` against `Unit`.
-- **The name binds no value.** The identifier is the test's identity as a tool reports it, not a callable name: any reference to it — a call, a value use, a path — is a compile-time error (`E0107`). A check that would recurse is written as an ordinary helper function that the test calls. Two tests in a module MAY share a name; a tool tells them apart by their positions.
+- **Always checked.** The body is checked exactly as a `fn(): unit` body is checked — types, exhaustiveness, mutability, the statement-value rule — whether or not any tool ever runs it. A file whose tests do not check is rejected like any other file. The body is the body of an implicit nullary function returning `unit`: `return` alone is accepted, and `return e` checks `e` against `unit`.
+- **The name binds no value.** The identifier is the test's identity as a tool reports it, not a callable name: any reference to it — a call, a value use, a path — is a compile-time error (`E0107`). A check that would recurse is written as an ordinary helper function that the test calls. Two tests in a module MAY share a name; a tool tells them apart by their positions or their titles. The title, when written, is not a name either — it lives in metadata position and cannot be referenced.
 - **Inert.** No execution of the program evaluates a test body — not the module's initializers, not `main`, not any call: the name binds no value, so nothing can reach it. Statements in a test body run only under a tool.
 - **Same view of the module.** The body sees the file's `use` bindings and its module-level declarations under the same scope and forward-reference rules as any function body.
 
@@ -50,7 +52,7 @@ fn main() {
 
 ## Async tests
 
-A test whose body suspends is marked `async`; the marker follows `#Test` (`#Test async fn`, never `async #Test fn`) and is spelled exactly as `async` is spelled on a function:
+A test whose body suspends is marked `async`; the marker follows `#Test` and its optional title group (`#Test("…") async fn`, never `async #Test fn`) and is spelled exactly as `async` is spelled on a function:
 
 ```js
 #Test
@@ -64,22 +66,22 @@ fn awaitNeedsTheAsyncMarker() {
 }
 ```
 
-With the marker the body is an `async` context exactly as an `async fn(): Unit` body is; without it, `await` is `E0501`. When a tool runs the test, the body starts as its own task.
+With the marker the body is an `async` context exactly as an `async fn(): unit` body is; without it, `await` is `E0501`. When a tool runs the test, the body starts as its own task.
 
 ## `assert`
 
 | Signature | Result |
 |-----------|--------|
-| `assert(condition: Boolean, message: String): Unit` | `Unit` |
+| `assert(condition: bool, message: string): unit` | `unit` |
 
 - Arguments are checked and evaluated left to right like any other call: `message` is evaluated whether or not `condition` holds.
 - When `condition` is `false`, the call stops the program with `panic(message)` — the same effect as writing that `panic` directly ([Error Handling](/en/docs/reference/stdlib/error-handling/)).
-- When `condition` is `true`, the call has no effect beyond producing `Unit`.
+- When `condition` is `true`, the call has no effect beyond producing `unit`.
 
 ```js
 let xs = [2, 4, 6]
-assert(list_size(xs) == 3, "three items") // ok: no effect
-assert(list_size(xs) == 4, "not four")    // false: stops with panic("not four")
+assert(listSize(xs) == 3, "three items") // ok: no effect
+assert(listSize(xs) == 4, "not four")    // false: stops with panic("not four")
 ```
 
 `assert` is how a `#Test` body states a requirement. It is an intrinsic, like `print`, `println`, and `str`: available without `use`, exactly one signature, and the name is reserved — a module-scope declaration MUST NOT bear it (`E0106`).
@@ -110,6 +112,16 @@ The language guarantees only that a test body is inert until a tool runs it and 
 ## Examples
 
 ```js
+#Test("parse test")
+fn testParse() {
+  assert(true, "parses")
+}
+
+#Test()
+fn noTitle() {
+  assert(true, "the empty group means no title")
+}
+
 // The pair differs only in the marker: rejected at check time vs. accepted
 #Test
 fn awaitNeedsTheAsyncMarker() {
@@ -137,10 +149,10 @@ The last test is well-formed on its own; the call in `main` is rejected (`E0107`
 #Test
 fn listOpsRoundTrip() {
   let mut xs = ["a", "b"]
-  list_push(xs, "c")
-  assert(list_size(xs) == 3, "three items")
-  assert(list_remove(xs, 0) == "a", "removed head")
-  assert(list_size(xs) == 2, "two remain")
+  listPush(xs, "c")
+  assert(listSize(xs) == 3, "three items")
+  assert(listRemove(xs, 0) == "a", "removed head")
+  assert(listSize(xs) == 2, "two remain")
 }
 
 #Test

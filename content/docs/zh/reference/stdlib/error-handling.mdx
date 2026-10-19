@@ -34,7 +34,7 @@ try {
 
 ```js
 // 经典场景：资源释放与状态重置
-fn load_user_avatar(path: String) {
+fn load_user_avatar(path: string) {
     let file = File.open(path, mode: FileMode.Read)
     show_loading_spinner()
 
@@ -43,11 +43,11 @@ fn load_user_avatar(path: String) {
         let user = JSON.parse<User>(content)
         render_avatar(user.avatar_url)
     } catch err: JSONError {
-        print("JSON 解析失败: " + err.to_string())
+        print("JSON 解析失败: " + err.toString())
     } catch err: FsError {
-        print("文件读取失败: " + err.to_string())
+        print("文件读取失败: " + err.toString())
     } catch err {
-        print("未知错误: " + err.to_string())
+        print("未知错误: " + err.toString())
     } finally {
         // 保证无论成功还是失败，都会关闭文件并隐藏 loading
         file.close()
@@ -69,7 +69,7 @@ try {
     let data = JSON.parse<Config>(config_str)
     apply_config(data)
 } catch err: JSONError {
-    print("配置解析失败: " + err.to_string())
+    print("配置解析失败: " + err.toString())
 }
 ```
 
@@ -96,16 +96,16 @@ fn process_data(data: Data) {
 完整模式：捕获 + 清理。
 
 ```js
-fn fetch_and_save(url: String, path: String) {
+fn fetch_and_save(url: string, path: string) {
     let response = http.fetch(url)
 
     try {
         let data = response.body()
         File.write(path, data)
     } catch err: NetworkError {
-        print("网络错误: " + err.to_string())
+        print("网络错误: " + err.toString())
     } catch err: FsError {
-        print("文件写入失败: " + err.to_string())
+        print("文件写入失败: " + err.toString())
     } finally {
         response.close()
     }
@@ -135,12 +135,12 @@ XULO 内置以下标准异常类型：
 
 ```js
 enum ValidationError {
-    FieldRequired(field: String),
-    InvalidFormat(field: String, expected: String),
-    OutOfRange(field: String, min: Number, max: Number)
+    FieldRequired(field: string),
+    InvalidFormat(field: string, expected: string),
+    OutOfRange(field: string, min: number, max: number)
 }
 
-fn validate_age(age: Number): Number {
+fn validate_age(age: number): number {
     if age < 0 || age > 150 {
         throw ValidationError.OutOfRange("age", 0, 150)
     }
@@ -152,7 +152,7 @@ try {
 } catch err: ValidationError {
     match err {
         ValidationError.OutOfRange(field, min, max) => {
-            print(field + " 必须在 " + min.to_string() + " 到 " + max.to_string() + " 之间")
+            print(field + " 必须在 " + min.toString() + " 到 " + max.toString() + " 之间")
         },
         _ => print("验证错误")
     }

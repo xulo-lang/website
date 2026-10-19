@@ -12,7 +12,7 @@ The normative text is [Async Expressions](/en/docs/spec/expressions/async-expres
 ## `async` functions
 
 ```js
-async fn fetchUser(id: Int): User {
+async fn fetchUser(id: int): User {
   let raw = await request(`/users/${id}`)
   decodeUser(raw)
 }
@@ -25,14 +25,14 @@ async fn notify() {
 - `async` is written before `fn` (after `pub` when present).
 - The declared return type is written exactly as in a synchronous function, but it denotes the *declared* result: the value of the function name has the evaluated type `Task<T>`.
 - Inside an `async` body the trailing expression and every `return` operand MUST have the declared type `T` — not `Task<T>`; wrapping the result into the task is automatic.
-- An `async` function without a declared return type has the evaluated type `fn(): Task<Unit>` and its body produces `Unit`.
+- An `async` function without a declared return type has the evaluated type `fn(): Task<unit>` and its body produces `unit`.
 - Calling an `async` function yields its `Task`; the result `T` is obtained with `await`.
 - `main` MAY be declared `async`; the program ends when its task settles.
 
 | Written form | Value type |
 |--------------|------------|
 | `async fn f(): T { ... }` | `fn(): Task<T>` |
-| `async fn f() { ... }` | `fn(): Task<Unit>` |
+| `async fn f() { ... }` | `fn(): Task<unit>` |
 | `async (x: A): R => ...` | `fn(A): Task<R>` |
 | `async (x: A) => ...` | `fn(A): Task<R>` |
 | `async fn(x: A): R { ... }` | `fn(A): Task<R>` |
@@ -43,8 +43,8 @@ An `async` closure is either closure form prefixed with `async`:
 
 ```js
 async fn main() {
-  let double = async (x: Int): Int => x * 2
-  let t: Task<Int> = double(21)
+  let double = async (x: int): int => x * 2
+  let t: Task<int> = double(21)
   print(await t)     // 42
 }
 ```
@@ -64,12 +64,12 @@ async fn main() {
 - Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables — with one exception: the body of a `lock` expression contains no suspension point, and `await` inside it is a compile-time error (`E0410`; see [Shared state and `lock`](/en/docs/reference/architecture/memory-and-concurrency-model/#shared-state-and-lock)).
 
 ```js
-async fn greet(id: Int): String {
+async fn greet(id: int): string {
   let user = await fetchUser(id)   // suspends here until the task settles
   "hello " + user.name
 }
 
-async fn demo(a: Task<Int>, b: Task<Int>) {
+async fn demo(a: Task<int>, b: Task<int>) {
   let r1 = await cache.get("k")    // == await (cache.get("k"))
   let r2 = await a + await b       // == (await a) + (await b)
   print(await fetchCount())        // await in argument position
@@ -100,14 +100,14 @@ Awaiting an `async` call immediately after making it runs the work sequentially.
 
 ```js
 // sequential: each await completes before the next call is made
-async fn sequential(): Int {
+async fn sequential(): int {
   let a = await stepA()
   let b = await stepB()
   a + b
 }
 
 // concurrent: both tasks start at their calls, then both are awaited
-async fn concurrent(): Int {
+async fn concurrent(): int {
   let ta = stepA()
   let tb = stepB()
   await ta + await tb
@@ -124,7 +124,7 @@ async fn concurrent(): Int {
 |--------|-----------|---------|
 | `Task::all` | `all<T>(tasks: List<Task<T>>): Task<List<T>>` | completes when every task has completed; results in argument order |
 | `Task::race` | `race<T>(tasks: List<Task<T>>): Task<T>` | completes with the first task to complete |
-| `Task::timeout` | `timeout<T>(t: Task<T>, ms: U64): Task<Result<T, Error>>` | settles with `t`'s result within `ms`, or cancels `t` and fails with `Error("timed out")` |
+| `Task::timeout` | `timeout<T>(t: Task<T>, ms: u64): Task<Result<T, Error>>` | settles with `t`'s result within `ms`, or cancels `t` and fails with `Error("timed out")` |
 | `Task::resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
 
 ```js
@@ -134,7 +134,7 @@ async fn fetchAll(): List<User> {
   await Task::all([a, b])
 }
 
-async fn poll_with_deadline(): Result<Int, Error> {
+async fn poll_with_deadline(): Result<int, Error> {
   await Task::timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
 }
 ```
@@ -149,12 +149,12 @@ An `async` body is ordinary control flow with one extension — suspension — a
 - **Cancellation carries no error.** Awaiting a task that has settled as cancelled stops the awaiting body at that `await`: the await produces no value, and the awaiting task settles as cancelled in turn. The stop propagates outward through every enclosing `await` — until a scope absorbs its children's cancellation, or a cancelled `main` ends the program. There is nothing to catch, because no error value exists.
 
 ```js
-async fn fetch_user(id: Int): Result<User, LoadError> {
+async fn fetch_user(id: int): Result<User, LoadError> {
   let raw = (await get_json(`/users/${id}`))?   // Err propagates out
   decode_user(raw)                              // Result<User, LoadError>
 }
 
-async fn log_user(id: Int) {
+async fn log_user(id: int) {
   match await find_user(id) {
     Result::Ok(user) => print(user.name)
     Result::Err(reason) => print(reason)
@@ -197,7 +197,7 @@ async fn refresh_ok(state: shared AppState) {
 Otherwise no further restriction applies:
 
 ```js
-async fn cached(id: Int): User {
+async fn cached(id: int): User {
   if await isCached(id) {
     return await readCache(id)
   }

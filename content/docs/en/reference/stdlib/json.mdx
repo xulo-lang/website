@@ -16,7 +16,7 @@ use json::JSONError;     // the error type, where an annotation names it
 
 ## Methods
 
-### `JSON::stringify<T>(value: T): String`
+### `JSON::stringify<T>(value: T): string`
 
 Serializes a value into a JSON string.
 
@@ -30,7 +30,7 @@ let json_list = JSON::stringify(list)
 // '[1,2,3]'
 ```
 
-### `JSON::parse<T>(input: String): Result<T, JSONError>`
+### `JSON::parse<T>(input: string): Result<T, JSONError>`
 
 Deserializes a JSON string. `T` is inferred from the expected type: annotate the binding, or let the enclosing function's declared return type supply it.
 
@@ -41,17 +41,17 @@ let raw = '{"name":"Alice","age":30}'
 let outcome: Result<User, JSONError> = JSON::parse(raw)
 
 // T from the declared return type
-fn load_user(raw: String): Result<User, JSONError> {
+fn load_user(raw: string): Result<User, JSONError> {
   JSON::parse(raw)
 }
 ```
 
-### `JSON::parse_async<T>(input: String): Task<Result<T, JSONError>>`
+### `JSON::parse_async<T>(input: string): Task<Result<T, JSONError>>`
 
 Async variant of `parse`. The call yields a `Task`; `await` it to reach the `Result`. Combine `await` and `?` with parentheses: `(await …)?`.
 
 ```js
-async fn load_user_async(raw: String): Result<User, JSONError> {
+async fn load_user_async(raw: string): Result<User, JSONError> {
   let user: User = (await JSON::parse_async(raw))?
   Result::Ok(user)
 }
@@ -85,7 +85,7 @@ match outcome {
 Inside a function that already returns a `Result`, propagate instead of matching:
 
 ```js
-fn user_name(raw: String): Result<String, JSONError> {
+fn user_name(raw: string): Result<string, JSONError> {
   let user: User = JSON::parse(raw)?
   Result::Ok(user.name)
 }
@@ -112,12 +112,12 @@ fn save_user(user: User) {
 }
 
 // Deserialize: the Err case travels up untouched
-fn load_user(raw: String): Result<User, JSONError> {
+fn load_user(raw: string): Result<User, JSONError> {
   JSON::parse(raw)
 }
 
 // Interact with an HTTP API: propagate with `?`
-fn fetch_data(raw: String): Result<ApiResponse, JSONError> {
+fn fetch_data(raw: string): Result<ApiResponse, JSONError> {
   let data: ApiResponse = JSON::parse(raw)?
   Result::Ok(data)
 }
@@ -126,7 +126,7 @@ fn fetch_data(raw: String): Result<ApiResponse, JSONError> {
 ## Design Notes
 
 - **Errors are data.** `JSON::parse` returns `Result<T, JSONError>`; Xulo has no exceptions, so nothing is thrown and nothing is caught ([Error Handling](/en/docs/spec/error-handling/)).
-- **`JSONError` is a library enum.** The only built-in error type is `Error` — constructed as `Error("…")`, carrying one `message: String` field, with no subtypes and no inheritance. `Result<T, Error>` is the conventional shape for system-level failures; a failure with structure is an ordinary enum.
+- **`JSONError` is a library enum.** The only built-in error type is `Error` — constructed as `Error("…")`, carrying one `message: string` field, with no subtypes and no inheritance. `Result<T, Error>` is the conventional shape for system-level failures; a failure with structure is an ordinary enum.
 - **Type arguments are inferred unless written.** `parse<T>` is written `T` in the signature only; at the call site the expected type usually supplies it (`let outcome: Result<User, JSONError> = JSON::parse(raw)`), and a call may write the type arguments explicitly, all-or-nothing per call.
 - **`use` required.** `JSON` is neither a prelude name nor an intrinsic; see [Prelude](/en/docs/spec/builtins/prelude/) and the specification's [scope statement](/en/docs/spec/introduction/).
 - Further reading: [Error Handling](/en/docs/spec/error-handling/), [Calls](/en/docs/spec/expressions/calls/), [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/).

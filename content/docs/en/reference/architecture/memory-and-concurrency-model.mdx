@@ -19,13 +19,13 @@ Every type has one of two categories, and the category decides what a binding de
 
 | Category | Types | `let x = e` and assignment |
 |----------|-------|----------------------------|
-| **Value** | `Boolean`, `String`, `Int`, `Float`, `Number`, fixed-bit numerics, `Null`, `Unit`, `struct`, `enum`, `Range<T>`, tuples | a fresh, independent copy of `e`'s value; a `struct`, `enum`, or tuple copy is shallow — each field or element is copied by its own category |
+| **Value** | `bool`, `string`, `int`, `float`, `number`, fixed-bit numerics, `null`, `unit`, `struct`, `enum`, `Range<T>`, tuples | a fresh, independent copy of `e`'s value; a `struct`, `enum`, or tuple copy is shallow — each field or element is copied by its own category |
 | **Reference** | `List<T>`, `Map<K, V>`, `Set<T>` | the same value, shared: `x` and `e` then denote the one underlying value |
 
 Four further values carry **identity** rather than content — function values (closures), `Task<T>`, `View`, and `Error` — and behave as references to a single, distinct thing: two such values are equal only when they are the same value. `copy` of an identity-carrying value is the same value, so there is no way to clone a task in flight or to split a closure's captured storage by copying it.
 
 ```js
-struct Point { x: Int, y: Int }
+struct Point { x: int, y: int }
 
 let a = Point(x: 1, y: 2)
 let mut b = a        // b holds an independent copy of a's value
@@ -58,7 +58,7 @@ Consequences:
 - `move` applies to every category. For a value-semantic value the transfer is not observable through other bindings (there are none); for a reference value it is: after the move, no binding of the moving scope denotes that value.
 
 ```js
-fn consume(data: List<Int>): Int {
+fn consume(data: List<int>): int {
   data[0] * 2
 }
 
@@ -104,7 +104,7 @@ Borrowing obeys **aliasing XOR mutability**: at any moment a value is either sha
 3. **Borrows span suspension.** A borrow begins when the call starts and ends when the callee returns — or, when the call returns a `Task`, when that task settles ([Span end](#span-end)). While a **mutable** borrow of a place is outstanding, code outside the callee MUST NOT use the place at all (`E0405`). While an **immutable** borrow is outstanding, code outside the callee MUST NOT write the place (`E0411`) and MUST NOT start a mutable borrow of it (`E0404`); reads remain unrestricted. The same spans apply to a `let mut` binding written by an `async` closure that has suspended: the binding is borrowed by the running body until the closure's task settles.
 
 ```js
-struct Counter { value: Int }
+struct Counter { value: int }
 
 fn bump(p: mut Counter) {
   p.value = p.value + 1
@@ -120,11 +120,11 @@ fn main() {
 Many immutable borrows may be outstanding at once — reads through them are unrestricted. Ordinary reference sharing between bindings is not a borrow and is always allowed:
 
 ```js
-async fn peek(xs: List<Int>) {
+async fn peek(xs: List<int>) {
   print(xs[0])
 }
 
-async fn watch(mut xs: List<Int>) {
+async fn watch(mut xs: List<int>) {
   let t = peek(xs)           // immutable borrow of xs, until t settles
   // xs[0] = 9               // error: written during an immutable borrow (E0411)
   print(xs[0])               // ok: reads remain unrestricted
@@ -143,9 +143,9 @@ Two places overlap unless, walking their paths from the base, the first position
 Any pair whose paths do not diverge this way overlaps: the same binding; one path a prefix of the other (`a` and `a.x`); the same field (`a.x` and `a.x.y`); subscripts that are not two distinct literals (`xs[i]` and `xs[j]`, or `xs[i]` and `xs[0]`). Overlap is a static judgment: two non-literal indices are never assumed distinct.
 
 ```js
-fn pair(a: mut Int, b: Int): Int { a + b }
+fn pair(a: mut int, b: int): int { a + b }
 
-fn overlap(mut xs: List<Int>, i: Int) {
+fn overlap(mut xs: List<int>, i: int) {
   pair(xs[0], xs[1])         // ok: distinct literal subscripts are disjoint
   pair(xs[0], xs[0])         // error: the same place, mutably borrowed twice (E0404)
   pair(xs[0], xs[i])         // error: a non-literal index is never assumed distinct (E0404)
@@ -160,7 +160,7 @@ A borrow from a call that returns a `Task<U>` — an `async` call, an `async` cl
 - Flow decides: on a path that has not reached such an `await` — the other branch of an `if`, an earlier loop iteration — the borrow is still outstanding.
 
 ```js
-async fn fill(p: mut List<Int>) {
+async fn fill(p: mut List<int>) {
   p[0] = 7
 }
 
@@ -211,7 +211,7 @@ A runtime failure stops the program where it occurs: it is a `panic` raised by t
 | List index out of bounds | reading or writing `xs[i]` where `i` is negative or at or past the list's length |
 | Absent map key | reading `m[k]` for a key with no binding |
 | Division or remainder by zero | `/` or `%` on non-constant operands whose value is zero |
-| Arithmetic overflow | an `Int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
+| Arithmetic overflow | an `int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
 | `Math::toFixed` digits out of range | `Math::toFixed` is called with `digits` outside `0...=15` |
 | Unprovided environment key | reading an `@Environment` key no provision supplies |
 | Stack or task exhaustion | recursion depth or the runtime's task limit is exceeded |
@@ -245,14 +245,14 @@ spawn.process Type { FieldInit , … }
 | `spawn async { … }` | on the default task scheduler |
 | `spawn.thread async { … }` | on an operating-system thread |
 | `spawn.process async { … }` | in a separate process |
-| `spawn.on(pool) async { … }` where `pool` has type `fn(fn(): Unit): Unit` | where `pool` decides |
+| `spawn.on(pool) async { … }` where `pool` has type `fn(fn(): unit): unit` | where `pool` decides |
 | `spawn.process Type { … }` | as a service of type `Type` (see [Services](#services)) |
 
 - The `async` keyword is required in the block forms, and the block is an `async` context: `await` is legal inside it wherever it is legal inside an `async` function body.
 - The first four forms are expressions of type `Task<T>`, where `T` is the type of the block. The service form evaluates to a service handle.
 - The dispatch mode selects the **executor** that runs the block's segments (see [Executors](#executors)). Capture, scope, and cancellation rules are identical in every mode.
 - `spawn` is an ordinary expression: it may appear in a synchronous or an `async` body, in any expression position its type permits.
-- A `spawn` expression is not `Unit`, so — like every non-`Unit` expression — it may not stand alone as an expression statement. Bind it, `await` it, or pass it on.
+- A `spawn` expression is not `unit`, so — like every non-`unit` expression — it may not stand alone as an expression statement. Bind it, `await` it, or pass it on.
 
 ```js
 async fn main() {
@@ -267,7 +267,7 @@ async fn main() {
 The dispatch mode selects the executor that runs the block: the default task scheduler, an operating-system thread, a separate process, or a caller-supplied pool. The service form produces no task; its process is governed by [Services](#services). A task's execution is a sequence of **segments**: the body runs until it completes or suspends at an `await`, and each segment is handed to the task's executor when the task becomes ready — once when the `spawn` expression is evaluated, and once more after each `await` in the block completes.
 
 - A segment runs from the task's current position to its next suspension or to settlement. The executor MAY begin the segment before the call that hands it over returns; `spawn` itself yields the `Task` without waiting for any segment to finish.
-- The block's result is carried by the `Task`, never by the executor: the `fn(): Unit` a pool receives runs one segment and returns `Unit`, and the value the block produces is stored in the task when it settles.
+- The block's result is carried by the `Task`, never by the executor: the `fn(): unit` a pool receives runs one segment and returns `unit`, and the value the block produces is stored in the task when it settles.
 - `spawn.thread` runs each segment on an operating-system thread, which MAY be released when the segment ends and MAY differ from segment to segment. No language rule depends on which thread a segment runs on.
 - `spawn.process async { … }` runs segments on the new process's own scheduler, and the block's result is carried back to the `Task` in the spawning process when the block settles.
 - A task cancelled while its next segment waits in an executor settles as cancelled when that segment runs; the body does not resume.
@@ -285,7 +285,7 @@ A `spawn` block is not a closure. It does not see the bindings of the scope that
 Capture is decided when the `spawn` expression is evaluated, before the body runs, so what a block receives never changes while it executes:
 
 ```js
-fn upload_files(): Task<Unit> {
+fn upload_files(): Task<unit> {
   let config = load_config()
   let data = gather()
   let job = spawn.thread async {
@@ -351,16 +351,16 @@ lock state { Block }             // a critical section
 - Locks are not reentrant: acquiring a lock the current task already holds is a runtime failure (lock misuse, above).
 
 ```js
-struct AppState { total_online: Int, names: List<String> }
+struct AppState { total_online: int, names: List<string> }
 
-fn join(state: shared AppState, name: String) {
+fn join(state: shared AppState, name: string) {
   lock state {
     state.total_online = state.total_online + 1
     state.names = state.names + [name]
   }
 }
 
-fn report(state: shared AppState): Int {
+fn report(state: shared AppState): int {
   lock state { state.total_online }
 }
 
@@ -393,10 +393,10 @@ Data-race freedom is therefore a consequence of the static rules, not an obligat
 A **service** is an actor: a struct with an `on_message` method, running in its own process, reached only by sending messages.
 
 ```js
-struct Tally { total: Int }
+struct Tally { total: int }
 
 impl Tally {
-  fn on_message(mut self, cmd: Int) {
+  fn on_message(mut self, cmd: int) {
     self.total = self.total + cmd
     reply(self.total)
   }
@@ -412,13 +412,13 @@ async fn main() {
 
 - `spawn.process Type { field: expr, … }` starts a service of the struct type `Type`. The field list initializes the service's state; it is evaluated left-to-right, and the constructed value is deep-copied into the new service, so the service never shares storage with its spawner.
 - `Type` MUST declare `on_message` in an `impl` block; a service type without one is a compile-time error (`E0409`). The method takes a receiver (`self` or `mut self`) and exactly one message parameter; it MAY be declared `async`.
-- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R>, stop: fn(): Unit }`, whose `stop` member ends the service ([Service lifetime and `stop`](#service-lifetime-and-stop)).
+- The spawn evaluates to a **service handle**: a value of the structural type `{ send: fn(M): Task<R>, stop: fn(): unit }`, whose `stop` member ends the service ([Service lifetime and `stop`](#service-lifetime-and-stop)).
 - `handle.send(m)` copies the message value into a message, queues it for the service, and returns a `Task<R>` immediately. The message is deep-copied in transit and the sender's value is unaffected; `send(move x)` transfers ownership instead — no copy is performed, and any later use of `x` is a compile-time error (`E0403`), exactly as after any other `move`. Because the copy completes before `send` returns, the argument's borrow ends with the call and does not span the returned task.
 - The queue of messages waiting for a service is unbounded: `send` never waits for capacity and never fails because the queue is full. A client that needs backpressure limits how many sends it leaves unanswered.
 - The returned `Task<R>` MAY stand alone as a statement: `handle.send(m)` in statement position is fire-and-forget — the message was queued when the call evaluated, so only the reply goes unread, and the block settles the task on exit.
 - A `send` performed after the service has stopped is discarded immediately and its task settles as cancelled, exactly like a message still queued when the service stopped.
 - A service handles one message at a time, in arrival order: `on_message` runs to completion — through every `await`, if it is `async` — before the next message begins.
-- `reply(e)` may be called only inside `on_message`. The reply type `R` is the common type of the `reply` operands in the method, or `Unit` when the method never calls `reply`. The send's task settles when `on_message` returns, carrying the reply value — or, when the executed path performed no `reply` although the method contains `reply` calls, settling as cancelled.
+- `reply(e)` may be called only inside `on_message`. The reply type `R` is the common type of the `reply` operands in the method, or `unit` when the method never calls `reply`. The send's task settles when `on_message` returns, carrying the reply value — or, when the executed path performed no `reply` although the method contains `reply` calls, settling as cancelled.
 - Cancelling a send task does not withdraw a message already queued.
 
 Messages are the only channel: there is no shared state between a service and its clients, so a service never needs `shared` or `lock`.

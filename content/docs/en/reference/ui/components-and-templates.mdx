@@ -8,7 +8,7 @@ description: Component declarations, naming, and composition in XULO.
 A **component** is a function whose declared return type is `View`. That return type — never the spelling of the name — is what makes it a component:
 
 ```js
-fn Greeting(name: String): View {
+fn Greeting(name: string): View {
   Text(`Hello, ${name}`)
 }
 ```
@@ -142,7 +142,7 @@ VStack {
 }
 ```
 
-- The condition must have type `Boolean` — there is no truthiness — and exactly one branch is evaluated.
+- The condition must have type `bool` — there is no truthiness — and exactly one branch is evaluated.
 - The items of the selected branch's block are contributed in place of the `if`.
 - An `if` without an `else` contributes its children when the condition is `true` and **no** children when it is `false`.
 
@@ -166,13 +166,13 @@ VStack {
 | Item | Form | Contributes |
 |------|------|-------------|
 | Component invocation | `Name(args) { … }` | one child |
-| String | `"…"`, `'…'`, `` `…` `` | a text node |
+| string | `"…"`, `'…'`, `` `…` `` | a text node |
 | `if` / `else` | `if cond { … } else { … }` | the children of the selected branch |
 | `for` | `for x in xs { … }` | one child per element |
 | `View` expression | `makeRow(item)` | one child |
 | `List<View>` expression | `rows` | one child per element, in list order |
 
-Anything else is a compile-time error (`E0702`): in particular a binding declaration, an assignment, a `return`, or an expression of any other type — `Int`, `List<Int>`, `Map<K, V>` — must not appear as a child item. Blocks nest without limit, and an empty block (`Card { }`) contributes no children. State, effects, and environment are covered in [Props & State](/en/docs/reference/ui/props-and-state/).
+Anything else is a compile-time error (`E0702`): in particular a binding declaration, an assignment, a `return`, or an expression of any other type — `int`, `List<int>`, `Map<K, V>` — must not appear as a child item. Blocks nest without limit, and an empty block (`Card { }`) contributes no children. State, effects, and environment are covered in [Props & State](/en/docs/reference/ui/props-and-state/).
 
 ## Fill (Flexible Spacer)
 

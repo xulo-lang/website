@@ -22,8 +22,8 @@ impl<T> Holder<T> {
 **Rules:**
 
 - One parameter list per declaration, comma-separated with distinct names — `<T, T>` is ill-formed.
-- A parameter list has **no default type arguments**: every argument of an application is written or inferred; there is no `T = Int` form.
-- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position — and never a constructor: applying a type parameter, `T<Int>`, is ill-formed (`E0230`).
+- A parameter list has **no default type arguments**: every argument of an application is written or inferred; there is no `T = int` form.
+- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position — and never a constructor: applying a type parameter, `T<int>`, is ill-formed (`E0230`).
 - Naming convention: a single letter (`T`, `U`, `K`, `V`) or an UpperCamelCase descriptive name.
 - Generic method and variant access use ordinary spelling: `x.method()` with `.`, variants with `::` (`Either::Left(1)`).
 
@@ -32,7 +32,7 @@ impl<T> Holder<T> {
 `>>` is one token (right shift), so two closing angle brackets must never touch — write a space:
 
 ```js
-let nested: List<Map<String, List<Int> > > = []
+let nested: List<Map<string, List<int> > > = []
 ```
 
 | Form | Well-formed |
@@ -44,14 +44,14 @@ let nested: List<Map<String, List<Int> > > = []
 
 A type application `Name<Args>` may be written wherever a type is expected — an annotation, a field, a payload, an alias, a parameter or return type, a pattern's type. Four rules make it well-formed; all violations are `E0230`:
 
-- The argument count must equal the declaration's parameter count: `Map<String>` and `Pair<Int, String, Int>` are ill-formed.
+- The argument count must equal the declaration's parameter count: `Map<string>` and `Pair<int, string, int>` are ill-formed.
 - A generic name never appears without its arguments: `let xs: List = []` is ill-formed, not shorthand for anything.
-- A non-generic name takes no arguments: `Int<String>` is ill-formed.
-- A type parameter is never applied: `T<Int>` stands for a proper type, not a family of them.
+- A non-generic name takes no arguments: `int<string>` is ill-formed.
+- A type parameter is never applied: `T<int>` stands for a proper type, not a family of them.
 
 ```js
-let ok: Map<String, Int> = {}         // well-formed
-// let bad: Map<String> = {}          // error: `Map` expects 2 type arguments, found 1 (E0230)
+let ok: Map<string, int> = {}         // well-formed
+// let bad: Map<string> = {}          // error: `Map` expects 2 type arguments, found 1 (E0230)
 // let bare: List = []                // error: `List` expects 1 type argument, found 0 (E0230)
 ```
 
@@ -60,23 +60,23 @@ Type arguments written in a type application differ from inferred ones only in s
 ## Bounds
 
 ```js
-fn area_of<T: Area>(shape: T): Float { Area::area(shape) }
-fn perimeter_of<T>(shape: T): Float where T: Area { shape.perimeter() }
-fn render<T: Area + Scalable>(shape: T): Float { … }
+fn area_of<T: Area>(shape: T): float { Area::area(shape) }
+fn perimeter_of<T>(shape: T): float where T: Area { shape.perimeter() }
+fn render<T: Area + Scalable>(shape: T): float { … }
 ```
 
 - `<T: Trait>` and `where T: Trait` are equivalent; a parameter must not be bounded in both places. A `where` clause follows the return type and precedes the body — and may follow only a **function** signature: `struct`, `enum`, `trait`, `type`, and `impl` declarations use the inline `<T: …>` form.
 - Multiple bounds are joined with `+`, never with `&` — `&` builds an intersection *type* a value has, while `: A + B` restricts what may be substituted for a parameter.
-- A bound must name a trait visible at the declaration site (`E0806`), and it names a trait, never an application of one: `<T: Convert<String>>` is `E0811` — a trait is not a type constructor.
+- A bound must name a trait visible at the declaration site (`E0806`), and it names a trait, never an application of one: `<T: Convert<string>>` is `E0811` — a trait is not a type constructor.
 - A bound is a constraint, not subtyping: a `T: Area` value is not an `Area`; inside the body it exposes the members the bound declares.
 - **Bound checking.** Every type argument — inferred at a call or written in a type application, for a function, `struct`, `enum`, alias, or `impl` — must satisfy every bound of its parameter (`E0801`), even when the argument was inferred rather than written:
 
 ```js
-trait Area { fn area(self): Float }
+trait Area { fn area(self): float }
 struct Palette<T: Area> { shape: T }
 
 let ok = Palette(shape: rect)       // T = Rect, and Rect: Area
-// let bad: Palette<Int> = …        // error: `Int` does not implement `Area` (E0801)
+// let bad: Palette<int> = …        // error: `int` does not implement `Area` (E0801)
 ```
 
 - A type satisfies a bound exactly when a visible `impl` for the bound's trait **applies** to it — including that impl's own bounds holding in turn (see [Traits](#traits)). There is no structural fallback and no second source of evidence.
@@ -86,12 +86,12 @@ let ok = Palette(shape: rect)       // T = Rect, and Rect: Area
 A call that writes no type-argument list is checked by inference: arguments are determined by unification against the declared parameter types, and an expected type may supply what the arguments leave open. A call MAY also write the list itself — see [Explicit Type Arguments](#explicit-type-arguments).
 
 ```js
-let n = first([1, 2, 3])        // T = Int
-let s = first(["a", "b"])       // T = String
-// let bad: String = first([1, 2])   // error: T is already Int
+let n = first([1, 2, 3])        // T = int
+let s = first(["a", "b"])       // T = string
+// let bad: string = first([1, 2])   // error: T is already int
 
 fn empty<T>(): List<T> { [] }
-let ys: List<Int> = empty()     // OK: T from the expected type
+let ys: List<int> = empty()     // OK: T from the expected type
 let xs = empty()                // error: T not determined (E0216)
 ```
 
@@ -100,10 +100,10 @@ let xs = empty()                // error: T not determined (E0216)
 
 ```js
 fn both<T>(a: List<T>, b: List<T>): T { a[0] }
-let t = both([1], ["x"])   // error: T is Int from `a`; `List<String>` does not match `List<Int>` (E0202)
+let t = both([1], ["x"])   // error: T is int from `a`; `List<string>` does not match `List<int>` (E0202)
 ```
 
-- Under-constrained inference is repaired by writing the type list — `empty<Int>()` — or by annotating the context.
+- Under-constrained inference is repaired by writing the type list — `empty<int>()` — or by annotating the context.
 - Each distinct assignment of type arguments is a separate instantiation: the program behaves **as if** a non-generic copy were written for each, and no operation observes a type argument at runtime.
 
 ## Explicit Type Arguments
@@ -111,33 +111,33 @@ let t = both([1], ["x"])   // error: T is Int from `a`; `List<String>` does not 
 A call MAY write the type arguments of a generic callee explicitly, in a list between the callee and the argument list:
 
 ```js
-let n = first<Int>([1, 2, 3])      // T = Int, written at the call
-let m = Map<String, Int>()          // constructor with written arguments
-let all = Task::all<Int>([t1, t2])  // namespace member
+let n = first<int>([1, 2, 3])      // T = int, written at the call
+let m = Map<string, int>()          // constructor with written arguments
+let all = Task::all<int>([t1, t2])  // namespace member
 
-// let bad = first<Int, String>([1, 2, 3])  // error: expected 1 type argument, found 2 (E0808)
-// let none = double<Int>(21)               // error: `double` accepts no type arguments (E0807)
+// let bad = first<int, string>([1, 2, 3])  // error: expected 1 type argument, found 2 (E0808)
+// let none = double<int>(21)               // error: `double` accepts no type arguments (E0807)
 ```
 
 - The list is written `<` … `>` immediately before the argument list, and it is **all or nothing**: a call writes every type parameter of its callee or writes none.
 - The number of written arguments must equal the number the callee declares — a longer or shorter list is `E0808`; a list before a callee that declares no type parameters — a function value, a constructor — is `E0807`.
 - Each written argument must satisfy the parameter's bounds (`E0801`).
 - When the list is written, inference is suppressed for those parameters and an expected type cannot override a written argument. Value arguments are checked against the parameter types with the written arguments substituted — a mismatch is the ordinary argument error (`E0202`) — and the call's type is the declared return type so substituted (an assignment mismatch is `E0201`).
-- Whether a `<` after a callee begins such a list is decided by the [calls spec](/en/docs/spec/expressions/calls/): the material to the matching `>` must parse as a comma-separated type list, and the next token must be `(`; otherwise the `<` is a comparison. Nested generics keep the spacing rule: `first<Map<String, Int> >(m)` is well-formed; `first<Map<String, Int>>(m)` is not.
+- Whether a `<` after a callee begins such a list is decided by the [calls spec](/en/docs/spec/expressions/calls/): the material to the matching `>` must parse as a comma-separated type list, and the next token must be `(`; otherwise the `<` is a comparison. Nested generics keep the spacing rule: `first<Map<string, int> >(m)` is well-formed; `first<Map<string, int>>(m)` is not.
 
 ## Traits
 
 ```js
 trait Area {
-  fn area(self): Float;
-  fn perimeter(self): Float
+  fn area(self): float;
+  fn perimeter(self): float
 }
 
-struct Rectangle { w: Float, h: Float }
+struct Rectangle { w: float, h: float }
 
 impl Area for Rectangle {
-  fn area(self): Float { self.w * self.h }
-  fn perimeter(self): Float { 2.0 * (self.w + self.h) }
+  fn area(self): float { self.w * self.h }
+  fn perimeter(self): float { 2.0 * (self.w + self.h) }
 }
 ```
 
@@ -158,15 +158,15 @@ impl Area for Rectangle {
 
 ```js
 struct Palette<T> { shape: T }
-struct Rect { w: Float, h: Float }
-struct Dot { r: Float }
+struct Rect { w: float, h: float }
+struct Dot { r: float }
 
 impl Area for Rect {
-  fn area(self): Float { self.w * self.h }
+  fn area(self): float { self.w * self.h }
 }
 
 impl<T: Area> Palette<T> {
-  fn render(self): Float { Area::area(self.shape) }
+  fn render(self): float { Area::area(self.shape) }
 }
 
 let ok = Palette(shape: Rect(w: 3.0, h: 4.0))
@@ -193,7 +193,7 @@ fn main() {
 ### Inside a Bound
 
 ```js
-fn describe<T: Area>(shape: T): Float {
+fn describe<T: Area>(shape: T): float {
   shape.area() + Area::area(shape)   // both forms, one target
 }
 ```
@@ -206,13 +206,13 @@ fn describe<T: Area>(shape: T): Float {
 
 - A type satisfies a trait **only through an `impl`**. Matching field shapes never implies satisfaction.
 - A `type` alias is transparent: it never causes a type to implement a trait, and no `impl` may be declared *for an alias* — implementations attach to the type it expands to.
-- `ToString` is built in: interpolating a value in a template requires a base type (`Int`, `Float`, `Boolean`, `String`) or `impl ToString` (`E0212`).
+- `ToString` is built in: interpolating a value in a template requires a base type (`int`, `float`, `bool`, `string`) or `impl ToString` (`E0212`).
 
 ```js
-struct User { name: String, age: Int }
+struct User { name: string, age: int }
 
 impl ToString for User {
-  fn to_string(self): String {
+  fn toString(self): string {
     `${self.name} (${self.age})`
   }
 }
@@ -234,10 +234,10 @@ Exactly two attributes are registered.
 
 ```js
 #Derive(ToString)
-struct User { name: String, age: Int }
+struct User { name: string, age: int }
 
 #Derive(ToString)
-enum Shape { Circle(Float), Rect(Float, Float) }
+enum Shape { Circle(float), Rect(float, float) }
 
 let s = User(name: "Alice", age: 30)
 print(str(s))                    // User(name: Alice, age: 30)
@@ -251,30 +251,30 @@ print(`${Shape::Circle(2.5)}`)   // Shape::Circle(2.5)
 
 ### `#Test`
 
-`#Test` marks a function as a test — `#Test [async] fn name() { … }`, no other attributes and no other shape. Its form, checking, and pass/fail criterion are on the [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/) page.
+`#Test` marks a function as a test — `#Test [( "…" )] [async] fn name() { … }`, no other attributes and no other shape. Its form, checking, and pass/fail criterion are on the [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/) page.
 
 ## Example
 
 ```js
 trait Area {
-  fn area(self): Float;
-  fn perimeter(self): Float
+  fn area(self): float;
+  fn perimeter(self): float
 }
 
-struct Rectangle { w: Float, h: Float }
-struct Circle { r: Float }
+struct Rectangle { w: float, h: float }
+struct Circle { r: float }
 
 impl Area for Rectangle {
-  fn area(self): Float { self.w * self.h }
-  fn perimeter(self): Float { 2.0 * (self.w + self.h) }
+  fn area(self): float { self.w * self.h }
+  fn perimeter(self): float { 2.0 * (self.w + self.h) }
 }
 
 impl Area for Circle {
-  fn area(self): Float { 3.14159 * self.r * self.r }
-  fn perimeter(self): Float { 2.0 * 3.14159 * self.r }
+  fn area(self): float { 3.14159 * self.r * self.r }
+  fn perimeter(self): float { 2.0 * 3.14159 * self.r }
 }
 
-fn area_of<T: Area>(shape: T): Float { Area::area(shape) }
+fn area_of<T: Area>(shape: T): float { Area::area(shape) }
 
 fn main() {
   let r = Rectangle(w: 3.0, h: 4.0)

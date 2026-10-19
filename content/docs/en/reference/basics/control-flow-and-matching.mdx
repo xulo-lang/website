@@ -17,25 +17,25 @@ if condition {
 }
 ```
 
-- The condition must be `Boolean`; there is no truthiness (`if 0 { … }` is `E0201`).
+- The condition must be `bool`; there is no truthiness (`if 0 { … }` is `E0201`).
 - `else if` is just an `if` used as the `else` branch and may be chained without limit.
-- With an `else` branch, both branches must have a common type (`E0211`); without one, the `if` has type `Unit` and the then-branch value is discarded.
+- With an `else` branch, both branches must have a common type (`E0211`); without one, the `if` has type `unit` and the then-branch value is discarded.
 - In statement position the value is discarded, so branches may have unrelated types (see the statement-value rule in [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/)).
 - The condition is evaluated once; exactly one branch runs.
 
 ### Type narrowing with `is`
 
 ```js
-fn step(data: String | Int) {
-  if data is Int {
-    print(str(data + 1))    // data is Int here
+fn step(data: string | int) {
+  if data is int {
+    print(str(data + 1))    // data is int here
   } else {
-    print(data)             // data is String here
+    print(data)             // data is string here
   }
 }
 ```
 
-When the condition (directly, or parenthesized) is `x is T` or `x is not T`, where `x` is an identifier and `T` is a testable type assignable to `x`'s type, the branches check with `x` narrowed. Narrowing belongs to the `if` condition alone — in `?:`, `while`, a `match` guard, or under `!`, `is` is an ordinary `Boolean` test.
+When the condition (directly, or parenthesized) is `x is T` or `x is not T`, where `x` is an identifier and `T` is a testable type assignable to `x`'s type, the branches check with `x` narrowed. Narrowing belongs to the `if` condition alone — in `?:`, `while`, a `match` guard, or under `!`, `is` is an ordinary `bool` test.
 
 ## `match`
 
@@ -50,7 +50,7 @@ let label = match x {
 - The scrutinee is evaluated exactly once, before any arm is tested.
 - Arms are tested in source order; the first arm whose pattern matches — and whose guard, when there is one, is `true` — wins; later arms are skipped.
 - An arm is `pattern [if condition] => expression` or `pattern [if condition] => { block }`; arms are separated by newlines or optional commas.
-- A **guard** is an `if condition` between the pattern and `=>`. It is evaluated only after the pattern has matched, at most once: a `false` guard skips the arm and testing continues with the next, so one `match` may run several guards in source order. The condition must be `Boolean` (`E0201`) — there is no truthiness — and it sees the bindings the pattern made, exactly as the body will. A guard never narrows: in a guard, `is` is an ordinary `Boolean` test.
+- A **guard** is an `if condition` between the pattern and `=>`. It is evaluated only after the pattern has matched, at most once: a `false` guard skips the arm and testing continues with the next, so one `match` may run several guards in source order. The condition must be `bool` (`E0201`) — there is no truthiness — and it sees the bindings the pattern made, exactly as the body will. A guard never narrows: in a guard, `is` is an ordinary `bool` test.
 - In expression position all arm bodies must have a common type (`E0211`); as a statement the values are discarded.
 
 ### Patterns
@@ -63,30 +63,30 @@ let label = match x {
 | Variant | `Enum::Variant` | a payload-less variant |
 | Variant with payload | `Enum::Variant(p1, …)` | that variant, one sub-pattern per slot, in declaration order |
 | Struct deconstruction | `Type(p1, …)` | a value of that struct, one sub-pattern per field |
-| Type | `String s`, `Unknown _`, `String \| Int v` | a value of that type, binding the name |
+| Type | `string s`, `unknown _`, `string \| int v` | a value of that type, binding the name |
 | Or | `p1 \| p2` | a value matched by any alternative; the alternatives bind the same names |
 | Range | `a..<b`, `a...b` | numeric values inside the range |
 
 - Variants use `::` in patterns and expressions — `Shape::Circle(r)`, never `Shape.Circle`.
 - Sub-patterns nest: `Shape::Dot(Point(x, y))`. A slot that is not bound must be written `_`.
 - Range operands must be numeric literals of the same type as the scrutinee; `0...9` includes both ends, `0..<10` excludes the upper bound.
-- The written type of a type pattern must be **testable**: a base type, a non-generic struct/enum, `Unknown`, or an optional/union of testable types. `List<Int>`, `Map<…>`, function types, and type parameters are not testable (`E0303`).
-- An **or-pattern** lists alternatives separated by `|` — `0 | 1`, `true | false`, `Result::Ok(v) | Result::Err(v)` — and the arm matches when any alternative does; an alternative may be parenthesized. Every alternative must bind the same names at the same type (`E0304` otherwise), so the guard and the body read one set of bindings. The union type pattern keeps `|` when a binder follows the designators: `String | Int v` is one type pattern; write `(A) | B c` when parentheses are needed to make alternatives.
+- The written type of a type pattern must be **testable**: a base type, a non-generic struct/enum, `unknown`, or an optional/union of testable types. `List<int>`, `Map<…>`, function types, and type parameters are not testable (`E0303`).
+- An **or-pattern** lists alternatives separated by `|` — `0 | 1`, `true | false`, `Result::Ok(v) | Result::Err(v)` — and the arm matches when any alternative does; an alternative may be parenthesized. Every alternative must bind the same names at the same type (`E0304` otherwise), so the guard and the body read one set of bindings. The union type pattern keeps `|` when a binder follows the designators: `string | int v` is one type pattern; write `(A) | B c` when parentheses are needed to make alternatives.
 
 ```js
 enum Shape {
   Dot(Point)
-  Rect(Int, Int)
+  Rect(int, int)
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape): string {
   match s {
     Shape::Dot(Point(x, y)) => `point ${x},${y}`
     Shape::Rect(w, h) => `${w}x${h}`
   }
 }
 
-fn bucket(n: Int): String {
+fn bucket(n: int): string {
   match n {
     v if v < 0 => "negative"    // guard: the pattern alone matches everything
     0 | 1 => "zero or one"      // or-pattern: two alternatives, one arm
@@ -98,13 +98,13 @@ fn bucket(n: Int): String {
 // bucket(4) => "even"; bucket(7) => "odd"
 
 match value {
-  Int x | String y => print(x)   // error: alternatives bind different names (E0304)
+  int x | string y => print(x)   // error: alternatives bind different names (E0304)
 }
 ```
 
 ### Exhaustiveness and Reachability
 
-- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `Boolean`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `Unknown`. Or-pattern alternatives cover together (`true | false` covers `Boolean`, and union members may be split across alternatives); a **guarded arm never covers**, because its guard may be false, so exhaustiveness counts only unguarded arms.
+- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `bool`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `unknown`. Or-pattern alternatives cover together (`true | false` covers `bool`, and union members may be split across alternatives); a **guarded arm never covers**, because its guard may be false, so exhaustiveness counts only unguarded arms.
 - An arm that can never be selected is an error (`E0302`): anything after an unguarded wildcard or binding arm, a repeated literal, or a type already covered by earlier unguarded arms. A guarded arm never makes a later arm unreachable — its guard may fail — and an or-pattern does so only when every value its alternatives match was already selected by earlier unguarded arms.
 
 ```js
@@ -143,7 +143,7 @@ for i in 0..<10 {
 | `Range<T>` | `T` | ascending from `start` |
 
 - The loop variable is a fresh **immutable** binding per iteration: it may shadow an outer name, must not be assigned, and is gone after the loop. To accumulate, use a `let mut` outside the loop.
-- The value of a `for` loop is `Unit`.
+- The value of a `for` loop is `unit`.
 
 ## Ranges
 
@@ -152,7 +152,7 @@ for i in 0..<3 { }   // 0, 1, 2
 for i in 0...3 { }   // 0, 1, 2, 3
 ```
 
-- `..<` is half-open, `...` is closed. Both operands must have the same numeric type (`E0201` for `0..<x` with `x: Float` — write `0.0..<x`).
+- `..<` is half-open, `...` is closed. Both operands must have the same numeric type (`E0201` for `0..<x` with `x: float` — write `0.0..<x`).
 - A range whose start is greater than its end iterates zero times; there is no reverse iteration.
 - `Range<T>` is a value: it may be bound, passed, and used as a range pattern in `match`.
 
@@ -165,7 +165,7 @@ while count < 10 {
 }
 ```
 
-The condition is evaluated before every iteration and must be `Boolean`; the body runs zero or more times and the loop has type `Unit`.
+The condition is evaluated before every iteration and must be `bool`; the body runs zero or more times and the loop has type `unit`.
 
 ## `break` and `continue`
 
@@ -200,11 +200,11 @@ print(note)    // error: not in scope
 XULO has **no exceptions** — no `throw`, `try`, or `catch`. Failures are values:
 
 ```js
-fn half(n: Int): Result<Int, String> {
+fn half(n: int): Result<int, string> {
   if n % 2 == 0 { Result::Ok(n / 2) } else { Result::Err("odd input") }
 }
 
-fn quarter(n: Int): Result<Int, String> {
+fn quarter(n: int): Result<int, string> {
   let h = half(n)?      // propagates Err upward
   half(h)
 }
@@ -213,6 +213,6 @@ fn quarter(n: Int): Result<Int, String> {
 - A missing value is ordinary data: `T?`, read with `??`, `?.`, a null test, or `?`.
 - A failed operation returns the built-in `Result<T, E>` — `Result::Ok(v)` or `Result::Err(e)` — inspected with `match` (exhaustiveness applies) or propagated with the postfix `?`.
 - `e?` yields the success value or returns the failure from the enclosing function; the operand must be `T?` or `Result<T, E>` and the enclosing function must declare a return type the failure fits (`E0217`).
-- `panic(message)` stops the program where it is written; the operand is a `String` and there is no handler. Use `Result` for outcomes a caller may handle, `panic` for broken invariants.
+- `panic(message)` stops the program where it is written; the operand is a `string` and there is no handler. Use `Result` for outcomes a caller may handle, `panic` for broken invariants.
 
 See the [control flow spec](/en/docs/spec/expressions/control-flow/) for the normative pattern, guard, and exhaustiveness rules, the [error handling spec](/en/docs/spec/error-handling/) for the full failure model, and [Expressions & Statements](/en/docs/reference/basics/expressions-and-statements/) for evaluation order and the statement-value rule.

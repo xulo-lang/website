@@ -37,7 +37,7 @@ A plain `fn main()` runs **headlessly**: the body executes and nothing is painte
 ### Functions
 
 ```js
-fn add(a: Int, b: Int): Int {
+fn add(a: int, b: int): int {
   a + b
 }
 ```
@@ -50,7 +50,7 @@ Use `fn` to declare functions. Parameters are typed with `:`; every parameter ty
 let x = 10               // Immutable by default
 let mut y = 20           // Assignable
 const PI = 3.14          // Compile-time constant
-let name: String = "Alice"
+let name: string = "Alice"
 ```
 
 `let` introduces an **immutable** binding — assigning to it is an error. `let mut` opts into mutation, `const` names a compile-time constant, and a type annotation, when present, follows the name separated by `:`.
@@ -58,7 +58,7 @@ let name: String = "Alice"
 ### Structs & Enums
 
 ```js
-struct Point { x: Int, y: Int }
+struct Point { x: int, y: int }
 
 enum Direction {
   Up
@@ -90,7 +90,7 @@ match direction {
 ```
 
 - `if` and `match` are expressions: an `if` with an `else` and a `match` take the common type of their branches/arms.
-- Conditions must have type `Boolean` — there is no truthiness.
+- Conditions must have type `bool` — there is no truthiness.
 - `0..<10` is a half-open range, `0...10` is closed; `for` also iterates `List`, `Map` (its keys), and `Set`.
 - A `match` must account for every case of the value it destructures.
 
@@ -123,9 +123,9 @@ fn Dashboard(): View {
 
 ## Values
 
-- **String** — `"..."` or `'...'`; only a template literal in backticks interpolates
-- **Number** — `Int` (`400`), `Float` (`1.5`); conversions are explicit with `str(x)`, because `+` never mixes strings and numbers
-- **Boolean** — `true` / `false`
+- **string** — `"..."` or `'...'`; only a template literal in backticks interpolates
+- **number** — `int` (`400`), `float` (`1.5`); conversions are explicit with `str(x)`, because `+` never mixes strings and numbers
+- **bool** — `true` / `false`
 
 ## Comments
 

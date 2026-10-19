@@ -6,46 +6,46 @@ description: Base types, type aliases, structs, enums, and traits in XULO.
 ## Base Types
 
 ```js
-Boolean        // true | false
-String         // immutable UTF-8 text
-Int            // 64-bit signed integer
-Float          // 64-bit IEEE-754 float
-Number         // Int | Float
-Null           // only value: null
-Unit           // the type of "no meaningful value"
-Unknown        // top type: every type fits it
+bool        // true | false
+string         // immutable UTF-8 text
+int            // 64-bit signed integer
+float          // 64-bit IEEE-754 float
+number         // int | float
+null           // only value: null
+unit           // the type of "no meaningful value"
+unknown        // top type: every type fits it
 View           // marker type returned by components
 Range<T>       // produced by ..< and ...
-I8..U64, F32, F64   // fixed-bit numeric types
+i8..u64, f32, f64   // fixed-bit numeric types
 ```
 
-Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `Int`; `3.14` is `Float`; `"hi"`, `'hi'`, and `` `hi ${x}` `` are `String`; `true`/`false` are `Boolean`.
+Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `int`; `3.14` is `float`; `"hi"`, `'hi'`, and `` `hi ${x}` `` are `string`; `true`/`false` are `bool`.
 
 - **No truthiness.** Numbers are not booleans: `if 0 { … }` is an error (`E0201`).
 - **Strings are not indexable.** `s[i]` is an error (`E0215`); only `"..."`/`'...'` and backtick templates interpolate.
 - **No implicit conversion.** `"count=" + 1` is an error (`E0227`) — write `` `count=${n}` `` or `str(x)`.
-- **`Number` is a union**, not a default: `Int` and `Float` promote to `Float` in mixed arithmetic, and a `Number` is not assignable to `Int` or `Float` without a check.
-- The built-in names (`Boolean`, `String`, `Int`, `Float`, `Number`, `List`, `Map`, `Set`, `Result`, `View`, …) are reserved; redeclaring one at module scope is an error (`E0106`).
+- **`number` is a union**, not a default: `int` and `float` promote to `float` in mixed arithmetic, and a `number` is not assignable to `int` or `float` without a check.
+- The built-in names (`bool`, `string`, `int`, `float`, `number`, `List`, `Map`, `Set`, `Result`, `View`, …) are reserved; redeclaring one at module scope is an error (`E0106`).
 
 ## Collections and Tuples
 
 ```js
-let xs = [1, 2, 3]               // List<Int>
-let user = { name: "lyy" }        // Map<String, String>
-let p = (10, "ten")               // (Int, String)
+let xs = [1, 2, 3]               // List<int>
+let user = { name: "lyy" }        // Map<string, string>
+let p = (10, "ten")               // (int, string)
 ```
 
 - `List<T>` is an ordered sequence addressed by `xs[i]`; `[]` needs an expected type (`E0216`).
-- `Map<K, V>` is insertion-ordered; keys must be hashable (`String`, `Int`, `Float`, `Boolean`, payload-free enums). A brace literal `{ k: v }` is a **map**, not an anonymous struct.
+- `Map<K, V>` is insertion-ordered; keys must be hashable (`string`, `int`, `float`, `bool`, payload-free enums). A brace literal `{ k: v }` is a **map**, not an anonymous struct.
 - `Set<T>` has no literal form — construct it with the prelude — and no specified iteration order.
 - Tuples have at least two elements, are read with `p.0`, and destructure with `let (a, b) = p`. They cannot be iterated (`E0213`) and have no `match` pattern form.
-- Beyond `+`, subscripts, and iteration, collections are manipulated with prelude operations: `list_size`, `list_push`, `list_remove` (out-of-range yields `null`), and `enumerate` on lists; `map_size`, `map_has_key`, `map_get` (a lookup that answers `null` instead of failing), `map_remove`, and entry conversions on maps; `set_from_list`, `set_insert`, `set_remove`, `set_contains`, and `set_size` on sets.
+- Beyond `+`, subscripts, and iteration, collections are manipulated with prelude operations: `listSize`, `listPush`, `listRemove` (out-of-range yields `null`), and `enumerate` on lists; `mapSize`, `mapHasKey`, `mapGet` (a lookup that answers `null` instead of failing), `mapRemove`, and entry conversions on maps; `setFromList`, `setInsert`, `setRemove`, `setContains`, and `setSize` on sets.
 
 ## Optionals, Unions, Intersections
 
 ```js
-let name: String? = null          // T? is exactly T | Null
-let which: String | Int = 1
+let name: string? = null          // T? is exactly T | null
+let which: string | int = 1
 fn draw(x: Area & Scalable) {}    // & joins traits only
 ```
 
@@ -59,9 +59,9 @@ fn draw(x: Area & Scalable) {}    // & joins traits only
 
 ```js
 type Status = "active" | "inactive" | "pending"
-type Handler = fn(String): Int
+type Handler = fn(string): int
 type Wrapper<T> = List<T>
-type ApiResponse<T> = { data: T?, error: String? }   // object type in type position
+type ApiResponse<T> = { data: T?, error: string? }   // object type in type position
 ```
 
 - An alias is transparent: `Status` and its right-hand side are the same type everywhere.
@@ -75,9 +75,9 @@ A `struct` is a nominal record: named fields, each with a declared type.
 
 ```js
 struct User {
-  name: String
-  age: Int
-  email: String?
+  name: string
+  age: int
+  email: string?
 }
 
 fn main() {
@@ -101,13 +101,13 @@ fn main() {
 
 ```js
 struct Rectangle {
-  w: Float,
-  h: Float
+  w: float,
+  h: float
 }
 
 impl Rectangle {
-  fn area(self): Float { self.w * self.h }
-  fn is_square(self): Boolean { self.w == self.h }
+  fn area(self): float { self.w * self.h }
+  fn is_square(self): bool { self.w == self.h }
 }
 
 fn main() {
@@ -141,14 +141,14 @@ enum Theme {
 }
 
 enum Shape {
-  Circle(Float),
-  Rect(width: Float, height: Float)
+  Circle(float),
+  Rect(width: float, height: float)
 }
 ```
 
 - Commas between variants are optional; trailing commas are allowed.
 - Variants are written with `::` — `Theme::Dark`, `Shape::Circle(2.0)` — never `Theme.Dark`. `.` is reserved for fields and methods.
-- Payloads are constructed positionally: `Shape::Rect(3.0, 4.0)`. A named payload form (`width: Float`) labels the slots for documentation only; it is not a named argument.
+- Payloads are constructed positionally: `Shape::Rect(3.0, 4.0)`. A named payload form (`width: float`) labels the slots for documentation only; it is not a named argument.
 - Within one variant all slots use the same form; across variants the forms may be mixed.
 - The value has the enum type — `Shape::Circle(2.0)` is a `Shape`, not a variant-specific type.
 - `match` over an enum must be exhaustive (`E0301`); see [Control Flow](/en/docs/reference/basics/control-flow-and-matching/).
@@ -168,15 +168,15 @@ A `trait` declares method signatures — a capability that types opt into with a
 
 ```js
 trait Area {
-  fn area(self): Float;
-  fn perimeter(self): Float
+  fn area(self): float;
+  fn perimeter(self): float
 }
 
-struct Rectangle { w: Float, h: Float }
+struct Rectangle { w: float, h: float }
 
 impl Area for Rectangle {
-  fn area(self): Float { self.w * self.h }
-  fn perimeter(self): Float { 2.0 * (self.w + self.h) }
+  fn area(self): float { self.w * self.h }
+  fn perimeter(self): float { 2.0 * (self.w + self.h) }
 }
 ```
 

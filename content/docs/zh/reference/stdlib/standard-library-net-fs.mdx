@@ -76,7 +76,7 @@ import { sleep, interval } from "std/async"
 import { AtomicI64 } from "std/sync"
 
 // 使用 HashMap（高阶数据结构，区别于内置 map 原语）
-let users = HashMap<String, User>.new()
+let users = HashMap<string, User>.new()
 users.insert("alice", User { name: "Alice" })
 
 // JSON 序列化（内置原语，无需导入）

@@ -49,7 +49,7 @@ An attribute written in `( )` is an ordinary named argument. Which attributes a 
 
 ```js
 fn Counter(): View {
-  @State let count: Int = 0
+  @State let count: int = 0
 
   VStack(spacing: 8) {
     Text(`count = ${count}`)
@@ -67,7 +67,7 @@ fn Counter(): View {
 
 ```js
 fn NameField(): View {
-  @State let name: String = ""
+  @State let name: string = ""
 
   VStack(spacing: 8) {
     Input(value: $name, placeholder: "Your name")
@@ -86,7 +86,7 @@ fn NameField(): View {
 
 ```js
 fn Counter(): View {
-  @State let count: Int = 0
+  @State let count: int = 0
 
   HStack(spacing: 4) {
     Button("-", onClick: fn() { count = count - 1 })
@@ -139,8 +139,8 @@ fn Nav(): View {
 ## Effects `@Effect`
 
 ```js
-fn UserProfile(id: String): View {
-  @State let profile: String = ""
+fn UserProfile(id: string): View {
+  @State let profile: string = ""
 
   @Effect fn() { fetchProfile(id) }, [id]
 
@@ -148,7 +148,7 @@ fn UserProfile(id: String): View {
 }
 ```
 
-- The form is `@Effect fn() { … }`: an anonymous closure of type `fn(): Unit`.
+- The form is `@Effect fn() { … }`: an anonymous closure of type `fn(): unit`.
 - An effect runs **after** the run completes and its tree is committed. With a dependency list (`… }, [id]`) it runs on mount and whenever a listed value changes; without one, after every re-run.
 - Returning a function registers it as the effect's **cleanup** — it runs before the effect runs again, and when the instance unmounts.
 - Effects are invoked in declaration order; cleanups in reverse declaration order.

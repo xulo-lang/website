@@ -9,19 +9,19 @@ XULO uses **short** style attribute names, avoiding verbose naming. Attributes a
 
 | Attribute | Type | Description | Example |
 |-----------|------|-------------|---------|
-| `color` | `String` | Text color | `color: "#ff0000"` |
-| `bg` | `String` | Background color | `bg: "#1a1a2e"` |
-| `bgImage` | `String` | Background image URL | `bgImage: "/img/hero.png"` |
-| `border` | `String` | Border color | `border: "#4a90d9"` |
-| `size` | `Number` | Text size (logical pixels) | `size: 16` |
-| `weight` | `String` | Text weight, e.g. `"bold"` | `weight: "bold"` |
-| `radius` | `Number` | Corner radius | `radius: 4` |
-| `opacity` | `Number` | Opacity (0.0–1.0) | `opacity: 0.8` |
-| `alignment` | `String` | Cross-axis alignment of children | `alignment: "center"` |
-| `justify` | `String` | Main-axis distribution of children | `justify: "space-between"` |
-| `width`, `height` | `Number` or `String` | Size | `width: 200` |
-| `padding` | `Number` | Inner spacing | `padding: 8` |
-| `margin` | `Number` | Outer spacing | `margin: 4` |
+| `color` | `string` | Text color | `color: "#ff0000"` |
+| `bg` | `string` | Background color | `bg: "#1a1a2e"` |
+| `bgImage` | `string` | Background image URL | `bgImage: "/img/hero.png"` |
+| `border` | `string` | Border color | `border: "#4a90d9"` |
+| `size` | `number` | Text size (logical pixels) | `size: 16` |
+| `weight` | `string` | Text weight, e.g. `"bold"` | `weight: "bold"` |
+| `radius` | `number` | Corner radius | `radius: 4` |
+| `opacity` | `number` | Opacity (0.0–1.0) | `opacity: 0.8` |
+| `alignment` | `string` | Cross-axis alignment of children | `alignment: "center"` |
+| `justify` | `string` | Main-axis distribution of children | `justify: "space-between"` |
+| `width`, `height` | `number` or `string` | Size | `width: 200` |
+| `padding` | `number` | Inner spacing | `padding: 8` |
+| `margin` | `number` | Outer spacing | `margin: 4` |
 
 - `size`, `weight`, and `color` apply to text; `bg`, `border`, `radius`, and `opacity` apply to the node itself.
 - Numeric sizes and spacing are **logical pixels** — device-independent, so the same source lays out the same way on every target.
@@ -32,7 +32,7 @@ XULO uses **short** style attribute names, avoiding verbose naming. Attributes a
 
 | Form | Example | Meaning |
 |------|---------|---------|
-| Number | `width: 200` | An exact size, in logical pixels |
+| number | `width: 200` | An exact size, in logical pixels |
 | `"auto"` | `height: "auto"` | The content's size: the node is sized by what it contains |
 | `"fill"` | `height: "fill"` | Take the remaining space offered along that axis |
 | Percentage | `width: "100%"` | That share of the parent's size along that axis |

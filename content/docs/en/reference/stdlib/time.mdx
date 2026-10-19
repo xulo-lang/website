@@ -5,7 +5,7 @@ description: The built-in Time namespace of clocks and async sleep in XULO.
 
 ## Overview
 
-`Time` is a built-in namespace of timestamps and async sleep. No `use` is required: `Time` is in scope in every module, and members are selected with `::` — `Time::now()`, `await Time::sleep(ms)`. Its functions return scalars only: `U64` for the clocks and a `Task<Unit>` for the delay.
+`Time` is a built-in namespace of timestamps and async sleep. No `use` is required: `Time` is in scope in every module, and members are selected with `::` — `Time::now()`, `await Time::sleep(ms)`. Its functions return scalars only: `u64` for the clocks and a `Task<unit>` for the delay.
 
 `Time` is a reserved name: a module-scope declaration may not bear it (compile-time error `E0106`). Each member has exactly one signature — no overloading, no default or named arguments.
 
@@ -13,7 +13,7 @@ See the [intrinsic `Time` chapter](/en/docs/spec/builtins/intrinsic-functions/#t
 
 ## Methods
 
-### `Time::now(): U64`
+### `Time::now(): u64`
 
 Current Unix time in **milliseconds** since 1970-01-01 00:00:00 UTC. This reads the wall clock: right for timestamps and data persistence, wrong for measuring how long something took.
 
@@ -22,7 +22,7 @@ let timestamp = Time::now()
 print(timestamp)   // milliseconds since the Unix epoch
 ```
 
-### `Time::now_nanos(): U64`
+### `Time::now_nanos(): u64`
 
 Current Unix time in **nanoseconds** since the epoch. Same wall clock as `Time::now`, at higher resolution.
 
@@ -31,7 +31,7 @@ let nanos = Time::now_nanos()
 print(nanos)       // nanoseconds since the Unix epoch
 ```
 
-### `Time::monotonic(): U64`
+### `Time::monotonic(): u64`
 
 Current reading of the monotonic clock in **milliseconds**. The clock never runs backwards and is unaffected by wall-clock changes; only the difference between two readings is meaningful — use it for elapsed time, debounce windows, and frame intervals.
 
@@ -42,7 +42,7 @@ let elapsed = Time::monotonic() - start
 print(elapsed)     // milliseconds elapsed
 ```
 
-### `Time::monotonic_nanos(): U64`
+### `Time::monotonic_nanos(): u64`
 
 Current reading of the monotonic clock in **nanoseconds**. The right clock for benchmarks and profiling.
 
@@ -53,9 +53,9 @@ let elapsed = Time::monotonic_nanos() - start
 print(elapsed)     // nanoseconds elapsed
 ```
 
-### `Time::sleep(ms: U64): Task<Unit>`
+### `Time::sleep(ms: u64): Task<unit>`
 
-Delays for at least `ms` milliseconds. The call produces a `Task<Unit>` and **must be awaited**: `await Time::sleep(ms)` suspends the enclosing async body until the delay has elapsed and yields `Unit`. `await` is legal only inside an `async` body — an `async fn` or a `spawn async { … }` block.
+Delays for at least `ms` milliseconds. The call produces a `Task<unit>` and **must be awaited**: `await Time::sleep(ms)` suspends the enclosing async body until the delay has elapsed and yields `unit`. `await` is legal only inside an `async` body — an `async fn` or a `spawn async { … }` block.
 
 ```js
 async fn later() {
@@ -73,19 +73,19 @@ spawn async {
 
 The clocks and the sleep never fail: none of them returns a `Result`, and none of them panics.
 
-- `await Time::sleep(ms)` MUST appear inside an `async` body; awaiting it elsewhere is a compile-time error. The value it produces is `Unit`, not a `Result`.
+- `await Time::sleep(ms)` MUST appear inside an `async` body; awaiting it elsewhere is a compile-time error. The value it produces is `unit`, not a `Result`.
 - The propagation operator `?` accepts only `T?` or `Result<T, E>` — writing `?` on a `Task<T>` is `E0217`. Failures around a sleep travel in a result instead, propagated after the `await`.
 
 ```js
-async fn wait_for(fetch: fn(): Result<Int, Error>): Result<Int, Error> {
-  let mut attempt: U64 = 0
+async fn wait_for(fetch: fn(): Result<int, Error>): Result<int, Error> {
+  let mut attempt: u64 = 0
   let mut outcome = fetch()
   while attempt < 2 {
     match outcome {
       Result::Ok(value) => return Result::Ok(value)
       Result::Err(_) => {
         attempt += 1
-        await Time::sleep(100 * attempt)   // backoff: U64 milliseconds
+        await Time::sleep(100 * attempt)   // backoff: u64 milliseconds
         outcome = fetch()
       }
     }
@@ -106,7 +106,7 @@ for i in 0..<1000000 {
   // Execute loop
 }
 let elapsed = Time::monotonic_nanos() - start
-print(elapsed / 1000)   // microseconds (U64 division)
+print(elapsed / 1000)   // microseconds (u64 division)
 ```
 
 ### Debounce / Throttle
@@ -126,13 +126,13 @@ fn handle_click() {
 ### Frame Intervals
 
 ```js
-let mut position: U64 = 0
-let distance_per_second: U64 = 120   // whole units per second
+let mut position: u64 = 0
+let distance_per_second: u64 = 120   // whole units per second
 let mut last_frame = Time::monotonic()
 
 fn animate() {
   let now = Time::monotonic()
-  let delta = now - last_frame       // U64: milliseconds since the previous frame
+  let delta = now - last_frame       // u64: milliseconds since the previous frame
   last_frame = now
   position = position + distance_per_second * delta / 1000
 }
@@ -141,7 +141,7 @@ fn animate() {
 ### Unique ID Generation
 
 ```js
-fn generate_id(counter: U64): U64 {
+fn generate_id(counter: u64): u64 {
   Time::now_nanos() * 1000 + counter
 }
 ```
@@ -155,13 +155,13 @@ for i in 0..<1000 {
   // ... work ...
 }
 let elapsed = Time::monotonic_nanos() - start
-print(elapsed)     // print accepts a U64: it renders any value
+print(elapsed)     // print accepts a u64: it renders any value
 
 // A timestamp on the wall clock
 let saved_at = Time::now()
 
-async fn poll(fetch: fn(): Result<Int, Error>): Result<Int, Error> {
-  let mut attempt: U64 = 0
+async fn poll(fetch: fn(): Result<int, Error>): Result<int, Error> {
+  let mut attempt: u64 = 0
   while attempt < 3 {
     await Time::sleep(50 * attempt + 50)
     let outcome = fetch()
@@ -176,8 +176,8 @@ async fn poll(fetch: fn(): Result<Int, Error>): Result<Int, Error> {
 
 ## Design Notes
 
-- **`U64`, not `Int`.** Every clock returns `U64`; arithmetic stays in `U64` (`Time::monotonic() - start`), and integer literals adapt to it in a call argument or comparison. A `U64` value does not convert to `Float` (`E0201`) — a fixed-bit type is not the user-facing numeric layer.
+- **`u64`, not `int`.** Every clock returns `u64`; arithmetic stays in `u64` (`Time::monotonic() - start`), and integer literals adapt to it in a call argument or comparison. A `u64` value does not convert to `float` (`E0201`) — a fixed-bit type is not the user-facing numeric layer.
 - **Two clocks, two jobs.** `Time::now` / `Time::now_nanos` read the wall clock — timestamps, logs, persistence. `Time::monotonic` / `Time::monotonic_nanos` measure elapsed time — benchmarks, debounce, frame deltas.
-- **Sleep is a task.** `Time::sleep(ms)` is `fn(ms: U64): Task<Unit>`; the `await` is part of the call's contract, not an option.
+- **Sleep is a task.** `Time::sleep(ms)` is `fn(ms: u64): Task<unit>`; the `await` is part of the call's contract, not an option.
 - **No random member.** Pseudo-random numbers come from the standard library's `Random` ([Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/)).
 - Further reading: [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Async Expressions](/en/docs/spec/expressions/async-expressions/), [Error Handling](/en/docs/spec/error-handling/).

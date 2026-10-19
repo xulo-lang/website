@@ -85,7 +85,7 @@ use json as JSON;
 use json::JSONError;
 
 // High-order map — distinct from the built-in Map<K, V>
-let mut users: HashMap<String, User> = HashMap::new()
+let mut users: HashMap<string, User> = HashMap::new()
 users.insert("alice", User(name: "Alice"))
 
 // JSON is a standard-library module, not a built-in
@@ -94,7 +94,7 @@ let json_str = JSON::stringify(data)
 let parsed: Result<User, JSONError> = JSON::parse(json_str)
 
 // File I/O: fallible calls return a Result
-fn save(path: String, text: String): Result<String, FsError> {
+fn save(path: string, text: string): Result<string, FsError> {
   let file = File::open(path, mode: FileMode::Write)?
   file.write(text)?
   file.close()
@@ -102,7 +102,7 @@ fn save(path: String, text: String): Result<String, FsError> {
 }
 
 // HTTP request
-fn fetch_body(url: String): Result<String, NetworkError> {
+fn fetch_body(url: string): Result<string, NetworkError> {
   let response = fetch(url)?
   Result::Ok(response.body())
 }
@@ -118,7 +118,7 @@ spawn async {
 
 Standard-library code follows the language model — there is no `throw` and no `try` / `catch`, in a library any more than in a program.
 
-- A fallible call returns `Result<T, E>`: `Result<String, FsError>`, `Result<Response, NetworkError>`, `Result<T, JSONError>`. Propagate with `?` or inspect with `match`.
+- A fallible call returns `Result<T, E>`: `Result<string, FsError>`, `Result<Response, NetworkError>`, `Result<T, JSONError>`. Propagate with `?` or inspect with `match`.
 - Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test.
 - `panic` is reserved for broken invariants; no library outcome should stop the program.
 
@@ -128,7 +128,7 @@ See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specific
 
 | Category | Language built-ins (no `use`) | Standard library (`use` required) |
 | --- | --- | --- |
-| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`map_size`, `map_get`, `list_push`, `set_insert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
+| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`mapSize`, `mapGet`, `listPush`, `setInsert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
 | **Output & assertion** | `print`, `println`, `str`, `assert` | — |
 | **Concurrency** | `spawn`, `lock`, `shared`, `Task::all` / `Task::race` / `Task::resolve` / `Task::timeout` | `async::sleep`, `async::interval`, `sync::atomic`, `sync::semaphore` |
 | **I/O** | — | `fs::file`, `fs::path`, `net::tcp`, `net::http` |
@@ -141,11 +141,11 @@ The prelude operations are unqualified functions in scope in every module, calle
 
 | Group | Operations |
 | --- | --- |
-| `Map<K, V>` | `map_size`, `map_has_key`, `map_get`, `map_remove`, `map_to_entries`, `map_from_entries` |
-| `Set<T>` | `set_from_list`, `set_insert`, `set_remove`, `set_contains`, `set_size` |
-| `List<T>` | `list_size`, `list_push`, `list_remove`, `enumerate` |
+| `Map<K, V>` | `mapSize`, `mapHasKey`, `mapGet`, `mapRemove`, `mapToEntries`, `mapFromEntries` |
+| `Set<T>` | `setFromList`, `setInsert`, `setRemove`, `setContains`, `setSize` |
+| `List<T>` | `listSize`, `listPush`, `listRemove`, `enumerate` |
 
-Iteration, subscripts, and `+` on the collections are core syntax, not prelude calls. The lookups that cannot fail are the prelude's: `map_get(m, k)` answers `null` for an absent key where `m[k]` is a runtime failure, and `list_remove(xs, i)` answers `null` for an out-of-range index where `xs[i]` panics. `list_push` and `list_remove` (like `map_remove` and `set_insert`) mutate their first argument, which must be a mutable place.
+Iteration, subscripts, and `+` on the collections are core syntax, not prelude calls. The lookups that cannot fail are the prelude's: `mapGet(m, k)` answers `null` for an absent key where `m[k]` is a runtime failure, and `listRemove(xs, i)` answers `null` for an out-of-range index where `xs[i]` panics. `listPush` and `listRemove` (like `mapRemove` and `setInsert`) mutate their first argument, which must be a mutable place.
 
 The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `use`.
 

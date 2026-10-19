@@ -26,7 +26,7 @@ Hello World
 Functions are declared with the `fn` keyword, with typed parameters:
 
 ```js
-fn greet(name: String): String {
+fn greet(name: string): string {
   `Hello, ${name}`
 }
 
@@ -41,7 +41,7 @@ Output:
 Hello, XULO
 ```
 
-The last expression in a function body is the implicit return value — no `return` needed. Types are capitalized (`String`, `Int`, `Boolean`), and a template literal in backticks interpolates while `"..."` and `'...'` never do.
+The last expression in a function body is the implicit return value — no `return` needed. Types are capitalized (`string`, `int`, `bool`), and a template literal in backticks interpolates while `"..."` and `'...'` never do.
 
 ## Structs & Methods
 
@@ -49,16 +49,16 @@ Define data structures with `struct`, add methods with `impl`:
 
 ```js
 struct Rectangle {
-  w: Int,
-  h: Int
+  w: int,
+  h: int
 }
 
 impl Rectangle {
-  fn area(self): Int {
+  fn area(self): int {
     self.w * self.h
   }
 
-  fn is_square(self): Boolean {
+  fn is_square(self): bool {
     self.w == self.h
   }
 }

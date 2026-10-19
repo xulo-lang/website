@@ -23,11 +23,11 @@ Result::Err(error)   // the operation failed
 - A function that can fail returns a `Result` instead of raising anything:
 
 ```js
-fn half(n: Int): Result<Int, String> {
+fn half(n: int): Result<int, string> {
   if n % 2 == 0 { Result::Ok(n / 2) } else { Result::Err("odd input") }
 }
 
-fn doubled_half(n: Int): Int {
+fn doubled_half(n: int): int {
   match half(n) {
     Result::Ok(v) => v * 2
     Result::Err(reason) => { print(reason); 0 }
@@ -36,13 +36,13 @@ fn doubled_half(n: Int): Int {
 ```
 
 - **Exhaustiveness applies.** A `match` over a `Result` MUST cover both variants or have a wildcard or binding arm; an uncovered `Err` (or `Ok`) is `E0301`.
-- **`Error` is the built-in base error type.** It is constructed by calling it with a message string — `Error("timed out")` — and carries one field, `message` of type `String`. `Result<T, Error>` is the conventional shape for system-level failures: file not found, connection refused, malformed input.
+- **`Error` is the built-in base error type.** It is constructed by calling it with a message string — `Error("timed out")` — and carries one field, `message` of type `string`. `Result<T, Error>` is the conventional shape for system-level failures: file not found, connection refused, malformed input.
 - **Domain failures are the program's own enums.** `Error` has no subtypes and Xulo has no inheritance, so a failure with structure is carried as an ordinary `enum` in the `E` slot and matched by name.
 
 ```js
-enum LoadError { Missing(String), Denied(String) }
+enum LoadError { Missing(string), Denied(string) }
 
-fn read_config(path: String): Result<String, LoadError> {
+fn read_config(path: string): Result<string, LoadError> {
   if path == "" { return Result::Err(LoadError::Missing(path)) }
   load(path)
 }
@@ -62,18 +62,18 @@ fn read_config(path: String): Result<String, LoadError> {
 Rules:
 
 - The enclosing function MUST have a declared return type `R`, and the failure value MUST be assignable to `R`: `null` for an optional operand (so `R` is an optional type), and the whole `Result<T, E>` for a `Result` operand. A `?` that does not fit is `E0217`.
-- The operand MUST be `T?` or `Result<T, E>` — a plain `Int`, a `Task<T>`, or an `Error` is `E0217`.
+- The operand MUST be `T?` or `Result<T, E>` — a plain `int`, a `Task<T>`, or an `Error` is `E0217`.
 - Inside an `async` body, `await` and `?` combine with parentheses: `(await t)?`. Because `await` is prefix and `?` postfix, `await t?` would propagate the *task* and is `E0217`.
 - `?` composes with optional chaining: `user?.profile?` propagates a missing profile out of a function returning an optional.
 - A `?` must not appear in a `defer` operand: control is already leaving a block when the defer runs, so there is nothing to return from (`E0229`).
 
 ```js
-fn quarter(n: Int): Result<Int, String> {
+fn quarter(n: int): Result<int, string> {
   let h = half(n)?     // Err("odd input") leaves `quarter` as-is
   half(h)              // the trailing expression, itself a Result
 }
 
-fn fetch_name(id: Int): String? {
+fn fetch_name(id: int): string? {
   let u = find_user(id)?   // null propagates: `fetch_name` returns null
   u.name
 }
@@ -83,14 +83,14 @@ fn fetch_name(id: Int): String? {
 
 `panic(message)` is an expression that stops the program where it is written.
 
-- The operand MUST be a `String` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
+- The operand MUST be a `string` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
 - **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, division by zero, arithmetic overflow, `Math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
-- The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `Unit`.
+- The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `unit`.
 
 ```js
 let label = if n > 0 { "positive" } else { panic("n must be positive") }
 
-fn double_or_stop(n: Int): Int {
+fn double_or_stop(n: int): int {
   if n < 0 { panic("negative input") }
   n * 2
 }
@@ -104,8 +104,8 @@ fn double_or_stop(n: Int): Int {
 | Type | Where it comes from | Shape |
 |------|---------------------|-------|
 | `Result<T, E>` | built-in, in the prelude | `Result::Ok(T)` or `Result::Err(E)` |
-| `Error` | built-in, in the prelude | `Error("…")` with one `message: String` field; no subtypes |
-| program enums | the program's own `enum` declarations | e.g. `LoadError::Missing(String)` |
+| `Error` | built-in, in the prelude | `Error("…")` with one `message: string` field; no subtypes |
+| program enums | the program's own `enum` declarations | e.g. `LoadError::Missing(string)` |
 | library types | standard-library modules | e.g. `JSONError` (an enum), `RegexError` — carried in the `E` slot like any other value |
 
 Compile-time diagnostics are a separate matter: they are assigned in the specification's [error table](/en/docs/spec/type-system/errors/), and no program sees them at run time.
@@ -123,7 +123,7 @@ Compile-time diagnostics are a separate matter: they are assigned in the specifi
 Unlike [`Task::all` and `Task::race`](/en/docs/spec/error-handling/), `Task::timeout` cancels the task it wraps on expiry; cancelling the combined task cancels `t` in turn.
 
 ```js
-async fn poll_with_deadline(): Result<Int, Error> {
+async fn poll_with_deadline(): Result<int, Error> {
   await Task::timeout(poll(), 2000)   // Ok(n) in time, Err("timed out") otherwise
 }
 ```
@@ -139,20 +139,20 @@ async fn poll_with_deadline(): Result<Int, Error> {
 
 ```js
 // Propagation up a call chain
-fn load_and_double(path: String): Result<Int, LoadError> {
+fn load_and_double(path: string): Result<int, LoadError> {
   let text = read_config(path)?
   Result::Ok(parse_int(text)? * 2)
 }
 
 // In async code: await first, then propagate — with parentheses
-async fn fetch_user(id: Int): Result<User, LoadError> {
+async fn fetch_user(id: int): Result<User, LoadError> {
   let raw = (await get_json(`/users/${id}`))?   // Err propagates out
   decode_user(raw)
 }
 
 // The first task to settle decides; a cancelled task stops this body
 // without producing any error value
-async fn first_wins(a: Task<Int>, b: Task<Int>): Int {
+async fn first_wins(a: Task<int>, b: Task<int>): int {
   await Task::race([a, b])
 }
 ```

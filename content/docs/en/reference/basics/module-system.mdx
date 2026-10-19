@@ -22,9 +22,9 @@ use ui::{HStack, Button};
 use type ui::User;
 pub use ui::hstack::HStack;
 
-pub struct Account { owner: User, balance: Int }
+pub struct Account { owner: User, balance: int }
 
-pub fn deposit(a: Account, amount: Int): Int { a.balance }
+pub fn deposit(a: Account, amount: int): int { a.balance }
 ```
 
 ## Module Declarations
@@ -98,8 +98,8 @@ Area::area(r)             // explicit trait dispatch
 Xulo has **no `export` keyword** — `export` is a reserved word. A declaration is exported by marking it `pub`, a module namespace by `pub mod`, and names are moved into the interface with `pub use`:
 
 ```js
-pub fn add(a: Int, b: Int): Int { a + b }
-pub struct User { pub name: String, age: Int }
+pub fn add(a: int, b: int): int { a + b }
+pub struct User { pub name: string, age: int }
 pub enum Status { Active, Inactive }
 pub const PI = 3.14
 pub mod form;             // the namespace and its pub members
@@ -159,8 +159,8 @@ Every declaration is **module-private unless marked `pub`**, and the privacy dom
 
 ```js
 // math.xulo
-pub fn add(a: Int, b: Int): Int { a + b }
-fn helper(n: Int): Int { n }
+pub fn add(a: int, b: int): int { a + b }
+fn helper(n: int): int { n }
 
 // main.xulo
 use math::{add, helper};    // error: `helper` is not public (E0602)
@@ -180,9 +180,9 @@ use math::{add, helper};    // error: `helper` is not public (E0602)
 An executable program's **root module** — the file the environment designates — declares a module-level `main`:
 
 ```js
-fn main() { … }            // headless program: Unit
+fn main() { … }            // headless program: unit
 fn main(): View { … }       // renderable program
-async fn main() { … }       // asynchronous program: Task<Unit>
+async fn main() { … }       // asynchronous program: Task<unit>
 ```
 
 `main` takes no parameters and must be declared at the root module's file scope; its return type is omitted or `View` (anything else is `E0609`); it may be `async`, and it may be marked `pub`. A program whose root module declares no `main` is `E0608`.

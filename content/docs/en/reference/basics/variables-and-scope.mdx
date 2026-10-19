@@ -10,8 +10,8 @@ XULO has two kinds of bindings: ordinary bindings (`let` / `let mut` / `const`) 
 ```js
 let count = 0                 // immutable
 let mut x = 10                // mutable
-let name: String = "Alice"    // annotated
-let maybe: String? = null     // optional type
+let name: string = "Alice"    // annotated
+let maybe: string? = null     // optional type
 let total := 0                // sugar for: let mut total = 0
 const APP_NAME = "Xulo"       // compile-time constant
 ```
@@ -34,7 +34,7 @@ const APP_NAME = "Xulo"       // compile-time constant
 ## Destructuring
 
 ```js
-struct Person { name: String, age: Int }
+struct Person { name: string, age: int }
 
 let person = Person(name: "Alice", age: 30)
 let { name, age } = person         // struct fields
@@ -59,7 +59,7 @@ xs[0] = 9
 ```
 
 - The target must be a place expression backed by a `mut` binding (or a field/subscript reached through one); anything else is `E0401`.
-- The right-hand side is evaluated first, then the place's receiver and index, then the write happens. The result of an assignment is `Unit`.
+- The right-hand side is evaluated first, then the place's receiver and index, then the write happens. The result of an assignment is `unit`.
 - Assignment is a **statement** — it produces no value to use.
 
 ## Scopes
@@ -84,7 +84,7 @@ fn main() {
   let a = helper()   // legal: module-level fn may be declared later
   print(a)
 }
-fn helper(): Int { 42 }
+fn helper(): int { 42 }
 ```
 
 ## Shadowing and `_`
@@ -96,7 +96,7 @@ fn helper(): Int { 42 }
 
 ```js
 let x = 1
-let read = fn(): Int { x }   // captures the outer x
+let read = fn(): int { x }   // captures the outer x
 if true {
   let x = 2                  // shadows only inside this block
   print(str(x))              // 2
@@ -110,7 +110,7 @@ Naming conventions (recommended, not enforced): UpperCamelCase for types and com
 
 ```js
 fn Counter(): View {
-  @State let count: Int = 0
+  @State let count: int = 0
 
   VStack {
     Text(`count = ${count}`)
@@ -159,7 +159,7 @@ fn Nav(): View {
 
 ```js
 fn Counter(): View {
-  @State let count: Int = 0
+  @State let count: int = 0
 
   @Effect fn() { print("mounted") }            // every re-run
   @Effect fn() { fetch(id) }, [id]             // on mount and when `id` changes
@@ -168,9 +168,9 @@ fn Counter(): View {
 }
 ```
 
-- The form is `@Effect fn() { … }` — an unnamed closure of type `fn(): Unit` (`E0709` for any other return type), optionally followed by `, [deps]`.
+- The form is `@Effect fn() { … }` — an unnamed closure of type `fn(): unit` (`E0709` for any other return type), optionally followed by `, [deps]`.
 - The dependency list must be a **list literal** (`E0708`); with it, the effect runs on mount and whenever a listed value changes, not otherwise.
-- An effect body may `return fn() { … }` to register a cleanup function of type `fn(): Unit`; every other returned value is discarded.
+- An effect body may `return fn() { … }` to register a cleanup function of type `fn(): unit`; every other returned value is discarded.
 - Effects run after the run completes, never contribute children, and `await` is not allowed in an effect body (`E0706`).
 
 ## Two-Way Binding `$`

@@ -17,19 +17,19 @@ const FEATURES_ZH = [
     desc: '支持数据结构与方法实现，显式 pub 可见性控制，消除过度隐式继承。',
     fileName: 'user.xulo',
     code: `pub struct User {
-    pub name: String
-    pub age: Int
+    pub name: string
+    pub age: int
     role: Role
 }
 
 impl User {
     // 构造函数
-    pub fn new(name: String, age: Int): User {
+    pub fn new(name: string, age: int): User {
         User(name: name, age: age, role: Role::Member)
     }
 
     // 实例方法（使用 pub 暴露）
-    pub fn get_name(self): String {
+    pub fn get_name(self): string {
         self.name
     }
 }`,
@@ -43,10 +43,10 @@ impl User {
     code: `pub enum Role {
     Admin,
     Member,
-    Guest(permission: String),
+    Guest(permission: string),
 }
 
-pub fn check_access(role: Role): Boolean {
+pub fn check_access(role: Role): bool {
     match role {
         Role::Admin => true,
         Role::Guest(p) => p == "read",
@@ -63,7 +63,7 @@ pub fn check_access(role: Role): Boolean {
     code: `use json as JSON;
 use net::fetch;
 
-pub async fn fetch_profile(id: String): Result<User, JSONError> {
+pub async fn fetch_profile(id: string): Result<User, JSONError> {
     let resp = await fetch("/api/users/" + id)
     // 解析失败会经由 ? 提前返回整个 Result::Err
     let user = JSON::parse(resp.body)?
@@ -76,15 +76,15 @@ pub async fn fetch_profile(id: String): Result<User, JSONError> {
     badge: '零歧义错误模型',
     desc: '没有异常：失败是普通的 Result 值，用 match 检查或用 ? 传播；panic 停止程序且没有处理器。',
     fileName: 'storage.xulo',
-    code: `enum LoadError { NotFound(path: String), Denied(user: String) }
+    code: `enum LoadError { NotFound(path: string), Denied(user: string) }
 
-fn read(path: String): Result<String, LoadError> {
+fn read(path: string): Result<string, LoadError> {
     if path == "" { return Result::Err(LoadError::NotFound(path)) }
     Result::Ok("{}")
 }
 
 // ? 传播 Err，主路径保持线性
-pub fn load(path: String): Result<String, LoadError> {
+pub fn load(path: string): Result<string, LoadError> {
     let raw = read(path)?
     Result::Ok(raw)
 }`,
@@ -99,19 +99,19 @@ const FEATURES_EN = [
     desc: 'Data structures with method implementations, explicit pub visibility, and no implicit inheritance.',
     fileName: 'user.xulo',
     code: `pub struct User {
-    pub name: String
-    pub age: Int
+    pub name: string
+    pub age: int
     role: Role
 }
 
 impl User {
     // Constructor
-    pub fn new(name: String, age: Int): User {
+    pub fn new(name: string, age: int): User {
         User(name: name, age: age, role: Role::Member)
     }
 
     // Instance method (exposed with pub)
-    pub fn get_name(self): String {
+    pub fn get_name(self): string {
         self.name
     }
 }`,
@@ -125,10 +125,10 @@ impl User {
     code: `pub enum Role {
     Admin,
     Member,
-    Guest(permission: String),
+    Guest(permission: string),
 }
 
-pub fn check_access(role: Role): Boolean {
+pub fn check_access(role: Role): bool {
     match role {
         Role::Admin => true,
         Role::Guest(p) => p == "read",
@@ -145,7 +145,7 @@ pub fn check_access(role: Role): Boolean {
     code: `use json as JSON;
 use net::fetch;
 
-pub async fn fetch_profile(id: String): Result<User, JSONError> {
+pub async fn fetch_profile(id: string): Result<User, JSONError> {
     let resp = await fetch("/api/users/" + id)
     // A parse failure early-returns the whole Result::Err via ?
     let user = JSON::parse(resp.body)?
@@ -158,15 +158,15 @@ pub async fn fetch_profile(id: String): Result<User, JSONError> {
     badge: 'Zero-Ambiguity Error Model',
     desc: 'No exceptions: failures are ordinary Result values you inspect with match or propagate with ?. panic stops the program — there is no handler.',
     fileName: 'storage.xulo',
-    code: `enum LoadError { NotFound(path: String), Denied(user: String) }
+    code: `enum LoadError { NotFound(path: string), Denied(user: string) }
 
-fn read(path: String): Result<String, LoadError> {
+fn read(path: string): Result<string, LoadError> {
     if path == "" { return Result::Err(LoadError::NotFound(path)) }
     Result::Ok("{}")
 }
 
 // ? propagates the Err; the happy path stays linear
-pub fn load(path: String): Result<String, LoadError> {
+pub fn load(path: string): Result<string, LoadError> {
     let raw = read(path)?
     Result::Ok(raw)
 }`,

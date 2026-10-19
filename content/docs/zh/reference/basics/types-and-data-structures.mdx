@@ -6,9 +6,9 @@ description: XULO 中的基础类型、类型别名、结构体、枚举和特�
 ## 基础类型
 
 ```js
-String         // 字符串
-Number         // 数字（整数和浮点统一）
-Boolean        // 布尔值
+string         // 字符串
+number         // 数字（整数和浮点统一）
+bool        // 布尔值
 List<T>        // 动态列表/数组（内置泛型）
 Map<K, V>      // 键值字典（内置泛型，基础哈希表/映射）
 Set<T>         // 集合（内置泛型，唯一值集合）
@@ -19,16 +19,16 @@ T | U          // 联合类型
 T & U          // 交叉类型
 ```
 
-`Number` 统一表示整数与浮点。`print(...)`、`List<T>`、`Map<K, V>` 和 `Set<T>` 是内建能力。`View` 是内建**标记类型**：编译器用它识别「返回该类型的函数即 UI 组件」，本身无运行时实现，具体组件由标准库 `@xulo/ui` 提供。
+`number` 统一表示整数与浮点。`print(...)`、`List<T>`、`Map<K, V>` 和 `Set<T>` 是内建能力。`View` 是内建**标记类型**：编译器用它识别「返回该类型的函数即 UI 组件」，本身无运行时实现，具体组件由标准库 `@xulo/ui` 提供。
 
 ## 类型别名（统一使用 `type`，无 `interface`）
 
 ```js
 // 对象类型
 type User = {
-  name: String
-  age: Number
-  email: String?
+  name: string
+  age: number
+  email: string?
 }
 
 // 联合类型
@@ -39,13 +39,13 @@ type Handler = fn(request: Request): Response
 
 // 交叉类型
 type UserWithRole = User & {
-  role: String
+  role: string
 }
 
 // 泛型
 type ApiResponse<T> = {
   data: T?
-  error: String?
+  error: string?
 }
 ```
 
@@ -55,9 +55,9 @@ type ApiResponse<T> = {
 
 ```js
 struct User {
-  name: String
-  age: Number
-  email: String?
+  name: string
+  age: number
+  email: string?
 }
 ```
 
@@ -84,20 +84,20 @@ user.age = 31          // 通过 `let` 绑定可修改字段
 
 ```js
 struct Rectangle {
-  w: Number
-  h: Number
+  w: number
+  h: number
 }
 
 impl Rectangle {
-  fn area(self): Number {
+  fn area(self): number {
     self.w * self.h
   }
 
-  fn perimeter(self): Number {
+  fn perimeter(self): number {
     2 * (self.w + self.h)
   }
 
-  fn is_square(self): Boolean {
+  fn is_square(self): bool {
     self.w == self.h
   }
 }
@@ -116,16 +116,16 @@ fn main() {
 
 ```js
 trait Area {
-  fn area(self): Number
+  fn area(self): number
 }
 
 impl Area for Rectangle {
-  fn area(self): Number {
+  fn area(self): number {
     self.w * self.h
   }
 }
 
-fn total_area(shapes: List<Area>): Number {
+fn total_area(shapes: List<Area>): number {
   // ...
 }
 ```
@@ -158,15 +158,15 @@ XULO 采用**字段默认私有**设计，原因如下：
 ```js
 // 普通封装结构体：字段默认私有，仅明确标记的暴露
 export struct User {
-    pub name: String    // 外部可读写
-    pub email: String   // 外部可读写
-    hash_pass: String   // 私有（仅内部可访问）
+    pub name: string    // 外部可读写
+    pub email: string   // 外部可读写
+    hash_pass: string   // 私有（仅内部可访问）
 }
 
 // 数据传输结构体（DTO/Record）：使用 export pub struct，所有字段批量公有
 export pub struct Point {
-    x: Number    // 自动为 pub
-    y: Number    // 自动为 pub
+    x: number    // 自动为 pub
+    y: number    // 自动为 pub
 }
 ```
 
@@ -176,13 +176,13 @@ export pub struct Point {
 
 ```js
 export type Location = {
-    lat: Number    // 天然公有
-    lng: Number    // 天然公有
+    lat: number    // 天然公有
+    lng: number    // 天然公有
 }
 
 export type UserDTO = {
-    name: String
-    email: String
+    name: string
+    email: string
 }
 ```
 
@@ -215,8 +215,8 @@ enum Theme {
 
 ```js
 enum Operation {
-  Success(data: Number)
-  Error(message: String)
+  Success(data: number)
+  Error(message: string)
 }
 
 enum Action {
@@ -227,11 +227,11 @@ enum Action {
 
 enum Person {
   Nobody
-  Named(String, Number)  // 多参数 payload
+  Named(string, number)  // 多参数 payload
 }
 ```
 
-payload 可以是位置形式 `Success(T)`、具名形式 `Submit(data: object)`，也支持多参数 `Named(String, Number)`；构造按位置传参。匹配时每个参数对应一个绑定，用 `_` 丢弃不需要的槽位：
+payload 可以是位置形式 `Success(T)`、具名形式 `Submit(data: object)`，也支持多参数 `Named(string, number)`；构造按位置传参。匹配时每个参数对应一个绑定，用 `_` 丢弃不需要的槽位：
 
 ```js
 Action.Submit({ message: "hi" })
@@ -277,15 +277,15 @@ match op {
 
 ```js
 trait Area {
-    fn area(self): Number
-    fn perimeter(self): Number
+    fn area(self): number
+    fn perimeter(self): number
 }
 
-type Rectangle = { w: Number, h: Number }
+type Rectangle = { w: number, h: number }
 
 impl Area for Rectangle {
-    fn area(self): Number { self.w * self.h }
-    fn perimeter(self): Number { 2 * (self.w + self.h) }
+    fn area(self): number { self.w * self.h }
+    fn perimeter(self): number { 2 * (self.w + self.h) }
 }
 ```
 
@@ -304,7 +304,7 @@ fn main() {
 类型参数可以用 `T: Trait`（行内）或 `where T: Trait` 约束。多个特征用 `&` 连接：
 
 ```js
-fn describe<T: Area>(t: T): Number {
+fn describe<T: Area>(t: T): number {
     Area.area(t)
 }
 ```
