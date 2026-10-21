@@ -29,6 +29,7 @@ fn subtract(a: int, b: int): int {
 - `return` without a value is legal only when the declared return type is `unit`; `return` outside a function or closure body is `E0214`.
 - A trailing `;` discards the block's value — `fn g(): int { 42; }` is an error.
 - Functions are not overloaded: a second declaration of the same name in one scope is a duplicate-declaration error.
+- The `extern` forms declare the same function shape under a foreign ABI: `extern "C" { fn …; }` imports signatures with no body, `pub extern "C" fn …` exports a body under that ABI. Neither form appears inside a function body; signature types, call rules, and diagnostics are in [FFI & Interop](/en/docs/reference/ecosystem/ffi-and-interop/).
 
 ```js
 fn show(x: int) { print(x) }

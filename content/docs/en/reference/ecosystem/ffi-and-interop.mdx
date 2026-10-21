@@ -1,8 +1,241 @@
 ---
 title: FFI & Interop
-description: Foreign function interface and interop with other languages.
+description: extern imports and exports, the ABI registry, ABI-safe signatures, and Ptr in XULO.
 ---
 
-<Callout type="info" title="Coming Soon">
-  This page is under construction. Check back soon for FFI and interoperability documentation.
-</Callout>
+## Overview
+
+A `.xulo` program reaches code written outside the language through **extern declarations**: an import block declares foreign symbols, and an export declaration publishes a Xulo function under a foreign ABI. Exactly two forms exist — `extern "ABI" { … }` and `pub extern "ABI" fn …` — plus the one type that names a foreign address without granting access to it, `Ptr`.
+
+**What crosses the boundary is value copies and opaque tokens: Xulo never dereferences a foreign pointer, foreign code can never reach the Xulo heap, and what foreign code does itself lies outside the specification.**
+
+The boundary carries no string, no buffer, no collection, and no callback — only the ABI-safe types listed below, and `Ptr` / `Ptr?` handles.
+
+## Importing: `extern "ABI" { … }`
+
+```js
+extern "C" {
+  fn abs(x: i32): i32
+  fn getpid(): i32
+  fn malloc(size: usize): Ptr? as cMalloc
+  fn free(p: Ptr?) as cFree
+}
+
+// ok
+```
+
+- The form is `extern AbiTag { … }` at module level or inside an inline `mod` body; the declarations it holds are **signature-only**. The block's `AbiTag` is a string literal and MUST name a registered ABI ([ABI tags](#abi-tags)); an unregistered tag is `E0902`.
+- An item has the form `fn name(params) [: Type] [as local]`. The declared `name` is the **foreign symbol**; the optional `as local` binds that symbol in this module under `local` instead — exactly as `use path::x as y` renames the local binding only. An item with no `as` binds its declared name.
+- An item carries **no body**. It also admits no `async` marker, no generic parameters, no `where` clause, no attribute list, no `self` receiver, no parameter modes (`mut`, `shared`), and no default parameter values: those positions are absent from the grammar of an extern item, and writing them is a syntax failure with no error code.
+- A block's items are ordinary module-level declarations: each introduces one name, subject to every naming rule — a duplicate is `E0103`, a collision with another header binding is `E0104`, and a prelude-reserved spelling is `E0106`.
+- An import block is **module-private unless marked `pub`**: `pub extern "C" { … }` exports every item of the block, and an item carries no individual `pub`.
+- Extern blocks appear in the body of a module, in source order with the other declarations — never inside a function body, a block, or a component body.
+
+## Exporting: `pub extern "ABI" fn …`
+
+```js
+pub extern "C" fn add(a: i32, b: i32): i32 { a + b }   // ok
+// pub extern "C" async fn tick() { }                   // error: an extern export has no `async` marker
+// extern "C" fn helper(a: i32): i32 { a }              // error: an export form carries `pub`
+```
+
+- The form is `pub extern AbiTag fn name(params) [: Type] { … }`. The declaration MUST carry `pub` — linkage with no export is not expressible.
+- The exported **symbol is the declared name**; there is no way in this version to export under a different symbol.
+- The body is an ordinary Xulo function body, and the function is an ordinary module-level `fn` for every other purpose: it may be called from Xulo code, passed as a value, and mentioned by `use`. The direct-call restriction ([Calling](#calling)) applies only to imported symbols.
+- An extern export MUST NOT be `async`, generic, bounded by a `where` clause, attributed, or declared inside an `impl` block — those positions are absent from its grammar.
+
+## Visibility and Re-export
+
+A `pub` import block exports its items, and `pub use` MAY re-export an imported name like any other binding: the linkage is the symbol's property and does not change with the name it is re-exported under. An imported name that a module never uses is reported like any other unused binding (`W0102`).
+
+## ABI Tags
+
+The ABI tag of a declaration is a string literal drawn from a **closed registry**. The registry is a checking rule, not a grammatical one: the grammar admits any string literal, and the checker validates it.
+
+| Tag | Meaning |
+|-----|---------|
+| `"C"` | the C ABI of the target platform |
+| `"system"` | the platform's default calling convention for system interfaces; where the platform's system convention is its C convention, the two tags denote the same convention |
+
+- Which platform ABI document `"C"` and `"system"` denote on a given target is implementation-defined but MUST be documented.
+- A tag outside the registry is `E0902`, whose note lists the registered set.
+- Adding a tag in a later version is a minor change: no program that compiles today changes meaning.
+
+## Types at the Boundary
+
+Only the following types may appear in an extern signature — as a parameter type or as the return type. **The list is closed.**
+
+| Xulo | Position | C counterpart |
+|------|----------|---------------|
+| `bool` | parameter, return | `_Bool`, per the platform ABI document |
+| `i8` `i16` `i32` `i64` | parameter, return | `int8_t` … `int64_t` |
+| `u8` `u16` `u32` `u64` | parameter, return | `uint8_t` … `uint64_t` |
+| `f32` `f64` | parameter, return | `float`, `double` |
+| `usize` `isize` | parameter, return | `size_t`, `ptrdiff_t` |
+| `unit` | **return only** (or omitted) | `void` |
+| `Ptr` | parameter, return | a pointer slot of the platform ABI |
+| `Ptr?` | parameter, return | a nullable pointer slot |
+
+- A type not in the table — `string`, `List`/`Map`/`Set`, `struct`, `enum`, tuples, `View`, `Task`, `Result`, `unknown`, `number`, `int`, `float`, `null`, a union, an intersection, a function type, or a type parameter — in an extern signature is `E0901`.
+- `unit` as a **parameter** type is `E0901`: no C parameter maps to it.
+- The only optional type in an extern signature is exactly `Ptr?`; `i32?`, `string?`, and `Ptr??` are `E0901`.
+- The user-facing numeric layer (`number`, `int`, `float`) is excluded deliberately: a value crossing this boundary is written in the formal layer so that its width is on the page.
+
+```js
+extern "C" {
+  fn sqrt(x: f64): f64
+  fn strlen(p: Ptr): usize
+  fn bad1(s: string): i32        // error: `string` is not allowed across an `extern "C"` boundary (E0901)
+  fn bad2(n: i32?): i32          // error: the only optional type is `Ptr?` (E0901)
+  fn bad3(n: unit): unit         // error: `unit` is return-only (E0901)
+}
+```
+
+`usize` and `isize` are the pointer-width integers: their width is the platform's pointer width `W`, which an implementation defines and must document. They are ordinary formal-layer types everywhere else ([Types](/en/docs/reference/basics/types-and-data-structures/)).
+
+## `Ptr`
+
+`Ptr` is the built-in type of an **opaque foreign handle**: a value that names an address the language never lets a program inspect.
+
+- `Ptr` takes **no type arguments** — `Ptr<u8>` is ill-formed like any application to a non-generic type (`E0230`).
+- A value of type `Ptr` is obtained only as the result of an extern call or by passing through Xulo code that received one. There is no literal, no cast, and no constructor for it.
+- `Ptr` is **non-null**. A nullable handle — every C API that may return NULL — is `Ptr?`, and `Ptr?` is the ordinary optional type: exactly `Ptr | null`, so `??`, `?.`, `is`, `match`, and comparison against `null` behave on it as on every optional type. No `Ptr`-specific null-checking operation exists.
+- The only operators on `Ptr` are `==` and `!=` (address identity). Ordering, arithmetic, and dereference are not defined on it.
+- A `Ptr` is an **ordinary value** everywhere else: it MAY be bound with `let`, stored in a `struct` field, held in a `List`, returned from a Xulo function, and compared. The collector treats it as an opaque word; a `Ptr` designates foreign storage, so no collection rule applies to what it names.
+- **A `Ptr` never converts to or from an integer**, in this version or any later one.
+
+```js
+fn roundTrip(p: Ptr): Ptr? { p }          // ok: `Ptr` is an ordinary value
+
+extern "C" {
+  fn asInt(p: Ptr): i32                   // ok
+  // fn bad(p: Ptr<u8>): i32              // error: `Ptr` takes no type arguments (E0230)
+  // fn boxed(p: Ptr): i32 { 0 }          // error: an import item has no body
+}
+```
+
+### Handling `null`
+
+`Ptr?` is checked with the ordinary optional forms:
+
+```js
+extern "C" {
+  fn malloc(size: usize): Ptr? as cMalloc
+  fn free(p: Ptr?) as cFree
+}
+
+fn store(size: usize) {
+  let p = cMalloc(size)
+  if p != null {
+    // `p` is `Ptr` here
+    cFree(p)                      // ok
+  } else {
+    print("out of memory")
+  }
+}
+
+fn mustAllocate(size: usize): Ptr {
+  let p = cMalloc(size) ?? panic("out of memory")   // ok: `p` is `Ptr`
+  p
+}
+```
+
+- **Narrowing is branch-local.** A comparison against `null` narrows the binding inside the branch that tests it; there is no flow-sensitive narrowing that survives an early exit:
+
+```js
+fn attempt(size: usize) {
+  let p = cMalloc(size)
+  if p == null { return }
+  cFree(p)                        // error: `p` is `Ptr?` here (E0201)
+}
+```
+
+  The accepted repairs rebind (`?? panic(…)` above) or move the use into the non-null branch. A `match` supplies both at once when each arm produces a value:
+
+```js
+fn touch(size: usize): string {
+  match cMalloc(size) {
+    Ptr p => { cFree(p); "freed" }    // ok: `p` is `Ptr` within this arm
+    null => "allocation failed"
+  }
+}
+```
+
+## Calling
+
+An imported symbol is callable in **direct call position** only: `cMalloc(64)` is a call; binding it, storing it, or passing it as a value is `E0903`. The reason is structural — an Xulo value of function type carries no ABI, so a call through it would use Xulo's own convention on a foreign symbol. A function type that carries a foreign ABI does not exist.
+
+```js
+fn apply(f: fn(i32): i32, x: i32): i32 { f(x) }
+
+extern "C" { fn abs(x: i32): i32 }
+
+fn main() {
+  let n = abs(-1)                 // ok: direct call
+  // let g = abs;                // error: `abs` is an extern import and can only be called directly (E0903)
+  // print(apply(abs, -1))       // error: same (E0903)
+}
+```
+
+Everything else about a call is unchanged: subexpressions and arguments evaluate left to right, named arguments and omitted optional parameters are accepted as for any declared function — an omitted `Ptr?` parameter binds `null` — and an argument is borrowed for the call's duration as in any other call.
+
+## The Foreign Boundary
+
+A call to an imported symbol transfers control to code the specification does not define. Accordingly:
+
+- **The declaration side is fully checked.** The checker guarantees that an extern signature contains only ABI-safe types (`E0901`), that its ABI tag is registered (`E0902`), that imported names obey the naming rules, and that imports are called directly (`E0903`).
+- **The callee side is outside the specification.** What foreign code reads, writes, allocates, or crashes during an extern call is not governed here. What it cannot do by construction is reach the Xulo heap or the bindings of a program: the arguments it receives are value copies and `Ptr` tokens, and it is never given a reference to Xulo-managed storage.
+- This is the one carve-out from the language's "no undefined behavior" guarantee ([Memory & Concurrency](/en/docs/reference/architecture/memory-and-concurrency-model/)); the Xulo side of every extern call — argument expressions, conversion to an ABI-safe type, the result conversion — remains fully specified.
+- A foreign callee reaches Xulo code only by calling an exported symbol; such a reentrant call is an ordinary call and follows ordinary rules.
+
+## Not In Scope
+
+The following constructs do **not** exist in this version, and each absence is deliberate:
+
+- **Linking and loading** — which library a symbol is taken from, when it is opened, and how a manifest maps a package to a path are host and tooling concerns; the language defines the declaration, not the resolution.
+- **Strings, buffers, and collections across the boundary** — no `string`, `List`, or `Map` parameter or return, and no borrowed buffer type.
+- **Function pointers with a foreign ABI** — foreign code cannot call back into Xulo through a value; it can only call an exported symbol.
+- **Symbol names that differ from the declared name on export**, including symbols whose spelling is a Xulo keyword.
+- **Struct layout**, and any type whose layout the language does not otherwise specify.
+- **ABI tags other than `"C"` and `"system"`** — including `"c++"`, which is not expected to be registered, and `"wasm"`, which awaits a compilation target. C++ interop and calling into managed runtimes remain library and host concerns.
+- **Any conversion between `Ptr` and an integer, and any operation that dereferences a `Ptr`.**
+
+## Error Summary
+
+| Code | Violation |
+|------|-----------|
+| `E0901` | a type that is not ABI-safe appears in an extern signature; `unit` as a parameter; an optional type other than `Ptr?` |
+| `E0902` | an ABI tag outside the registry (`"C"`, `"system"`) |
+| `E0903` | an imported symbol referenced outside direct call position |
+
+Positions absent from an extern form's grammar — a body on an import item, `async` on either form, a parameter mode, a private export — are syntax failures raised before the checker runs and carry no code.
+
+## Example
+
+```js
+extern "C" {
+  fn abs(x: i32): i32
+  fn malloc(size: usize): Ptr? as cMalloc
+  fn free(p: Ptr?) as cFree
+}
+
+pub extern "C" fn sum(xs: i32, n: i32): i32 {
+  let mut total: i32 = 0
+  let mut i: i32 = 0
+  while i < n {
+    total = total + abs(xs + i)   // ok: direct calls on both symbols
+    i = i + 1
+  }
+  total
+}
+
+fn withBuffer(size: usize, body: fn(Ptr): i32): i32 {
+  let p = cMalloc(size) ?? panic("out of memory")
+  let result = body(p)            // Xulo closure over a `Ptr`: ordinary call
+  cFree(p)
+  result
+}
+// ok
+```
+
+See also: [FFI (spec)](/en/docs/spec/ffi/), [Primitive Types (spec)](/en/docs/spec/types/primitive-types/), [Diagnostics (spec)](/en/docs/spec/type-system/errors/), and [Memory & Concurrency](/en/docs/reference/architecture/memory-and-concurrency-model/).

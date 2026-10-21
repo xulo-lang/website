@@ -17,6 +17,8 @@ unknown        // top type: every type fits it
 View           // marker type returned by components
 Range<T>       // produced by ..< and ...
 i8..u64, f32, f64   // fixed-bit numeric types
+usize, isize   // pointer-width integers (W bits: the platform pointer width)
+Ptr            // opaque foreign handle (FFI only: no literal, no cast)
 ```
 
 Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `int`; `3.14` is `float`; `"hi"`, `'hi'`, and `` `hi ${x}` `` are `string`; `true`/`false` are `bool`.
@@ -25,7 +27,9 @@ Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `int`; `3.1
 - **Strings are not indexable.** `s[i]` is an error (`E0215`); only `"..."`/`'...'` and backtick templates interpolate.
 - **No implicit conversion.** `"count=" + 1` is an error (`E0227`) — write `` `count=${n}` `` or `str(x)`.
 - **`number` is a union**, not a default: `int` and `float` promote to `float` in mixed arithmetic, and a `number` is not assignable to `int` or `float` without a check.
-- The built-in names (`bool`, `string`, `int`, `float`, `number`, `List`, `Map`, `Set`, `Result`, `View`, …) are reserved; redeclaring one at module scope is an error (`E0106`).
+- **Fixed-bit types keep their own type.** `i8`…`u64`, `f32`, `f64`, `usize`, and `isize` never convert to the user-facing layer or to another width (`E0201`); `usize`/`isize` have the platform's pointer width, which an implementation defines and must document.
+- **`Ptr` exists only at the FFI boundary.** It has no literal, no cast, and no type arguments, and it is reserved like any other built-in name; it is covered with the rest of the foreign interface in [FFI & Interop](/en/docs/reference/ecosystem/ffi-and-interop/).
+- The built-in names (`bool`, `string`, `int`, `float`, `number`, `List`, `Map`, `Set`, `Result`, `View`, `Ptr`, …) are reserved; redeclaring one at module scope is an error (`E0106`).
 
 ## Collections and Tuples
 
