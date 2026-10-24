@@ -24,7 +24,7 @@ Ptr            // opaque foreign handle (FFI only: no literal, no cast)
 Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `int`; `3.14` is `float`; `"hi"`, `'hi'`, and `` `hi ${x}` `` are `string`; `true`/`false` are `bool`.
 
 - **No truthiness.** Numbers are not booleans: `if 0 { … }` is an error (`E0201`).
-- **Strings are not indexable.** `s[i]` is an error (`E0215`); only `"..."`/`'...'` and backtick templates interpolate.
+- **Strings are not indexable.** `s[i]` is an error (`E0215`); inspection is done with the prelude functions `stringSize`, `stringCodeAt`, and `stringSlice`, and bytes are reached with `stringBytes`. Only `"..."`/`'...'` and backtick templates interpolate.
 - **No implicit conversion.** `"count=" + 1` is an error (`E0227`) — write `` `count=${n}` `` or `str(x)`.
 - **`number` is a union**, not a default: `int` and `float` promote to `float` in mixed arithmetic, and a `number` is not assignable to `int` or `float` without a check.
 - **Fixed-bit types keep their own type.** `i8`…`u64`, `f32`, `f64`, `usize`, and `isize` never convert to the user-facing layer or to another width (`E0201`); `usize`/`isize` have the platform's pointer width, which an implementation defines and must document.
@@ -97,6 +97,7 @@ fn main() {
 - Construction uses named arguments. Every non-optional field is required (`E0205`); an optional field may be omitted and is then `null`.
 - Fields are accessed with `.`. Assigning to a field requires a mutable base — `let mut` or a `mut` parameter — otherwise `E0401`.
 - Structs are nominal: two declarations with identical fields are still unrelated types, and a struct never converts to or from a `Map`.
+- Field types compose into the struct's value: the declaring type must not be reachable from its own fields through field positions, tuple elements, and alias expansion without an intervening indirection — `List<T>`, `Map<K, V>`, `Set<T>`, `T?`, a function type, or an enum payload. `struct Node { node: Node }` and the mutual pair `struct A { b: B }` / `struct B { a: A }` are errors (`E0113`); `struct Node { next: Node?, children: List<Node> }` is well-formed.
 - Structs do not inherit. Shared behavior is attached with `impl` blocks and `trait` implementations.
 - Fields are private by default; `pub` opens one field to modules that can already see the struct. Reading, writing, or constructing a private field from another module is `E0602`.
 - Structs may be generic: `struct Pair<A, B> { first: A, second: B }`.
@@ -153,6 +154,7 @@ enum Shape {
 - Commas between variants are optional; trailing commas are allowed.
 - Variants are written with `::` — `Theme::Dark`, `Shape::Circle(2.0)` — never `Theme.Dark`. `.` is reserved for fields and methods.
 - Payloads are constructed positionally: `Shape::Rect(3.0, 4.0)`. A named payload form (`width: float`) labels the slots for documentation only; it is not a named argument.
+- A variant payload may mention the enum being declared: `enum Tree { Leaf(int), Node(Tree, Tree) }` is well-formed — payload recursion needs no indirection, and the field-composition cycle rule (`E0113`) governs struct fields only.
 - Within one variant all slots use the same form; across variants the forms may be mixed.
 - The value has the enum type — `Shape::Circle(2.0)` is a `Shape`, not a variant-specific type.
 - `match` over an enum must be exhaustive (`E0301`); see [Control Flow](/en/docs/reference/basics/control-flow-and-matching/).

@@ -210,7 +210,9 @@ A runtime failure stops the program where it occurs: it is a `panic` raised by t
 |-----------|----------------|
 | List index out of bounds | reading or writing `xs[i]` where `i` is negative or at or past the list's length |
 | Absent map key | reading `m[k]` for a key with no binding |
+| String index out of range | `stringCodeAt` with an index outside `0 … stringSize(s) − 1`, or `stringSlice` with bounds outside `0 … stringSize(s)` or with `start > end` |
 | Division or remainder by zero | `/` or `%` on non-constant operands whose value is zero |
+| Shift amount out of range | `<<` or `>>` whose amount is negative or at or past the operands' bit width, on non-constant operands |
 | Arithmetic overflow | an `int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
 | `Math::toFixed` digits out of range | `Math::toFixed` is called with `digits` outside `0...=15` |
 | Unprovided environment key | reading an `@Environment` key no provision supplies |
@@ -218,7 +220,14 @@ A runtime failure stops the program where it occurs: it is a `panic` raised by t
 | Lock misuse | a task acquires a `lock` it already holds (locks are not reentrant) |
 | Task exhaustion | the runtime's limit on live tasks is exceeded while spawning |
 
-The recursion and live-task limits behind the exhaustion rows are implementation-defined, as is how a failure is presented (message, stream, exit status). Expected failures are not runtime failures: they travel as `Result` values and are handled with `match` or `?`.
+The recursion and live-task limits behind the exhaustion rows are implementation-defined, as is how a failure is presented (message text, stream, and the exact nonzero exit status). Expected failures are not runtime failures: they travel as `Result` values and are handled with `match` or `?`.
+
+## Exit status
+
+The language has no I/O and no `exit` function; how a program ends is nevertheless pinned:
+
+- A program that terminates normally — `main` returns `unit`, the task returned by an `async` `main` settles, or the presentation target of a `View` program closes — exits with status **0**.
+- A runtime failure that ends the program — a panic, and with it any condition of the table above — exits with a **nonzero** status. The exact nonzero values, and how the failure is presented to the environment, are implementation-defined.
 
 ## Tasks
 
@@ -450,6 +459,6 @@ Programs are deterministic when they do not depend on the unspecified items — 
 
 Exactly one boundary sits outside that promise: during an [extern call](/en/docs/reference/ecosystem/ffi-and-interop/), what the foreign code itself does — memory it touches, values it produces, effects it has on the host — is neither specified nor checked here. The Xulo side of that call stays inside the promise: every argument expression, every conversion to an ABI-safe type, and the result conversion are fully specified. Nothing else in the language crosses this boundary.
 
-Four choices are implementation-defined and MUST be documented: the recursion and live-task limits, how exhaustion of resources the language does not model (available memory above all) is detected and reported, how a runtime failure is presented to its environment — message text, stream, exit status — since the language itself has no I/O, and which ABI document each registered tag (`"C"`, `"system"`) denotes on the target platform — and therefore the pointer width that `usize` and `isize` have.
+Four choices are implementation-defined and MUST be documented: the recursion and live-task limits, how exhaustion of resources the language does not model (available memory above all) is detected and reported, how a runtime failure is presented to its environment — message text, stream, and the exact nonzero exit status — since the language itself has no I/O, and which ABI document each registered tag (`"C"`, `"system"`) denotes on the target platform — and therefore the pointer width that `usize` and `isize` have.
 
 See also: [Memory and Runtime](/en/docs/spec/memory-and-runtime/), [Concurrency](/en/docs/spec/concurrency/), and [Error Handling](/en/docs/spec/error-handling/) in the specification, [FFI & Interop](/en/docs/reference/ecosystem/ffi-and-interop/), and [Async & Tasks](/en/docs/reference/architecture/async-and-tasks/) for `async`, `await`, and `Task` utilities.

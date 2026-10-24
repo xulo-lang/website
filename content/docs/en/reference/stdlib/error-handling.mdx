@@ -84,7 +84,7 @@ fn fetch_name(id: int): string? {
 `panic(message)` is an expression that stops the program where it is written.
 
 - The operand MUST be a `string` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
-- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, division by zero, arithmetic overflow, `Math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
+- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, a string index out of range, division by zero, a shift amount out of range, arithmetic overflow, `Math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
 - The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `unit`.
 
 ```js

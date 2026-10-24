@@ -116,7 +116,7 @@ let wide = n << 2
 - Integer division truncates toward zero (`-7 / 2` is `-3`); `%` takes the sign of the dividend (`-7 % 2` is `-1`).
 - Mixed `int`/`float` promotes to `float`; fixed-bit types stay in their own type, and other mixtures are errors (`E0201`). Constant overflow is `E0210`, a literal out of range is `E0209`.
 - Division or remainder by zero is a compile-time error on constants (`E0210`) and a runtime trap otherwise.
-- Bitwise and shift operators take integers of the same type; `<<`/`>>` bind tighter than `&`, so `a < b | c` groups as `a < (b | c)`.
+- Bitwise and shift operators take integers of the same type. A shift amount must be a non-negative integer strictly less than the operand type's width — 64 for `int`, the platform pointer width for `usize`/`isize`: a constant amount outside that range is `E0210`, a runtime trap otherwise, and inside the range a shift never overflows. `<<`/`>>` bind tighter than `&`, so `a < b | c` groups as `a < (b | c)`.
 
 ## string and List `+`
 

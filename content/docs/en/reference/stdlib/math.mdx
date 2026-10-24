@@ -220,6 +220,79 @@ Math::exp(0)          // 1.0
 Math::exp(1)          // 2.718281828459045
 ```
 
+## Integer functions
+
+These members work on `int` — its 64-bit two's-complement representation — and never trap.
+
+### `Math::wrappingAdd(a: int, b: int): int`
+
+`a + b` modulo 2⁶⁴, reinterpreted as two's complement. Where the `+` operator overflows into a trap, `Math::wrappingAdd` wraps.
+
+```js
+Math::wrappingAdd(9223372036854775807, 1)   // -9223372036854775808
+```
+
+### `Math::wrappingSub(a: int, b: int): int`
+
+`a − b` modulo 2⁶⁴, reinterpreted as two's complement.
+
+```js
+Math::wrappingSub(-9223372036854775808, 1)  // 9223372036854775807
+```
+
+### `Math::wrappingMul(a: int, b: int): int`
+
+`a × b` modulo 2⁶⁴, reinterpreted as two's complement.
+
+```js
+Math::wrappingMul(4294967296, 4294967296)   // 0: 2⁶⁴ wraps to 0
+```
+
+### `Math::popCount(x: int): int`
+
+The number of 1 bits in `x`.
+
+```js
+Math::popCount(255)    // 8
+Math::popCount(-1)     // 64: every bit of the two's-complement form is set
+```
+
+### `Math::countLeadingZeros(x: int): int`
+
+The number of leading 0 bits in `x` — 64 when `x` is 0.
+
+```js
+Math::countLeadingZeros(1)     // 63
+Math::countLeadingZeros(0)     // 64
+```
+
+### `Math::countTrailingZeros(x: int): int`
+
+The number of trailing 0 bits in `x` — 64 when `x` is 0.
+
+```js
+Math::countTrailingZeros(8)    // 3
+Math::countTrailingZeros(0)    // 64
+```
+
+### `Math::rotateLeft(x: int, amount: u64): int`
+
+`x` rotated left by `amount` modulo 64. An amount of 0 or 64 is the identity.
+
+```js
+Math::rotateLeft(1, 1)         // 2
+Math::rotateLeft(-1, 5)        // -1: all bits set rotates to itself
+```
+
+### `Math::rotateRight(x: int, amount: u64): int`
+
+`x` rotated right by `amount` modulo 64.
+
+```js
+Math::rotateRight(2, 1)        // 1
+Math::rotateRight(1, 1)        // -9223372036854775808: the sign bit wraps to the bottom
+```
+
 ## Formatting
 
 `str`, `print`, `println`, and `${…}` render a `float` as the shortest positional decimal numeral that reads back as the same `float`: a whole value has no fractional part (`3.0` renders as `3`), no trailing fractional zeros appear (`0.50` renders as `0.5`), scientific notation is never used (`0.0000001` is written in full), and the special values render as `NaN`, `Infinity`, and `-Infinity`.
@@ -243,6 +316,8 @@ Math members never return a `Result`: trouble is reported as an IEEE-754 value, 
 - `Math::sqrt` of a negative value yields `NaN`; `Math::log`, `Math::log2`, and `Math::log10` yield `-Infinity` at `0` and `NaN` for a negative argument; `Math::asin` and `Math::acos` yield `NaN` outside `-1.0...1.0`.
 - `Math::floor`, `Math::ceil`, `Math::round`, and `Math::trunc` return `int`, so a `float` reaches an integer only through one of them — there is no implicit narrowing.
 - `Math::abs`, `Math::min`, and `Math::max` are declared over `number`: an `int` or `float` operand is accepted, and a fixed-bit operand (`i8`…`u64`, `f32`, `f64`) is not.
+- The `wrapping*` functions never trap: their result is the unique `int` congruent to the given sum, difference, or product modulo 2⁶⁴, taken as two's complement — the operator overflow rule does not apply to them.
+- `Math::popCount`, `Math::countLeadingZeros`, and `Math::countTrailingZeros` count bits of the 64-bit two's-complement representation of their argument; `Math::rotateLeft` and `Math::rotateRight` rotate that same representation and take their `amount` modulo 64, so an amount of 0 or 64 is the identity and every amount is in domain.
 - `Math::toFixed` with `digits` outside `0...=15` is a runtime failure: the program stops, uncaught ([Error Handling](/en/docs/reference/stdlib/error-handling/)).
 
 A program that must decide on a non-finite result tests it with `NaN != NaN` or a comparison against `Math::INFINITY`; it does not wait for an error value.
@@ -312,7 +387,7 @@ print(`area=${area} hypotenuse=${hypotenuse}`)
 ## Design Notes
 
 - **One signature each.** An intrinsic is not overloaded: the argument count and argument types MUST match the signature, and type parameters are inferred at the call site unless the call writes them explicitly, all-or-nothing per call.
-- **`number` vs `float`.** `Math::abs`, `Math::min`, and `Math::max` take `number` (`int | float`); every other member reads and writes `float`, except the four rounding functions, which return `int`. An `int` value does not implicitly become a `float` — arithmetic promotes, assignment does not.
+- **`number` vs `float`.** `Math::abs`, `Math::min`, and `Math::max` take `number` (`int | float`); the four rounding functions and the integer functions return `int`; every other member reads and writes `float`. An `int` value does not implicitly become a `float` — arithmetic promotes, assignment does not.
 - **No random member.** `Math` has no random function: pseudo-random numbers come from the standard library's `Random` ([Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/)).
 - **Reserved name.** `Math` may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow it for the duration of that scope.
 - Further reading: [Numeric Types](/en/docs/spec/types/primitive-types/#numeric-types), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Prelude](/en/docs/spec/builtins/prelude/).
