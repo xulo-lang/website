@@ -1,3 +1,6 @@
 [submodule "content/spec"]
 	path = content/spec
 	url = https://github.com/xulo-lang/spec.git
+[submodule "content/std-spec"]
+	path = content/std-spec
+	url = https://github.com/xulo-lang/std-spec.git
