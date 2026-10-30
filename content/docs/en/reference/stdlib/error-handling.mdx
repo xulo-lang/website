@@ -37,6 +37,7 @@ fn doubled_half(n: int): int {
 
 - **Exhaustiveness applies.** A `match` over a `Result` MUST cover both variants or have a wildcard or binding arm; an uncovered `Err` (or `Ok`) is `E0301`.
 - **`Error` is the built-in base error type.** It is constructed by calling it with a message string — `Error("timed out")` — and carries one field, `message` of type `string`. `Result<T, Error>` is the conventional shape for system-level failures: file not found, connection refused, malformed input.
+- **Message text is informative, never a discriminator.** Every `Err` of a `Result<T, Error>` has the same shape, so a caller cannot recover a failure *class* by matching `message` — a program or test MUST NOT branch on it. Branch only on what the API offers as data: a field such as a `code`, an absence (`Ok(null)`), a probe, or a function whose `E` slot is a domain enum matched by name.
 - **Domain failures are the program's own enums.** `Error` has no subtypes and Xulo has no inheritance, so a failure with structure is carried as an ordinary `enum` in the `E` slot and matched by name.
 
 ```js
@@ -84,7 +85,7 @@ fn fetch_name(id: int): string? {
 `panic(message)` is an expression that stops the program where it is written.
 
 - The operand MUST be a `string` — build it with a template literal or the intrinsic `str`. The operand is evaluated exactly once, then the program stops; nothing after the call runs, in any frame.
-- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list index out of bounds, an absent map key, a string index out of range, division by zero, a shift amount out of range, arithmetic overflow, `Math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
+- **There is no handler.** `panic` cannot be caught, intercepted, or resumed. A runtime failure — a list or array index out of range, a list length outside a member's stated bounds, a string index out of range, division by zero, a shift amount out of range, arithmetic overflow, `std::math::toFixed` with `digits` outside `0...=15` — is the same event, raised by the implementation.
 - The expression may be given **any type the context requires**, so a branch that cannot produce the branch type can stop instead; in statement position it checks against `unit`.
 
 ```js
@@ -106,7 +107,7 @@ fn double_or_stop(n: int): int {
 | `Result<T, E>` | built-in, in the prelude | `Result::Ok(T)` or `Result::Err(E)` |
 | `Error` | built-in, in the prelude | `Error("…")` with one `message: string` field; no subtypes |
 | program enums | the program's own `enum` declarations | e.g. `LoadError::Missing(string)` |
-| library types | standard-library modules | e.g. `JSONError` (an enum), `RegexError` — carried in the `E` slot like any other value |
+| library types | standard-library modules | e.g. `RegexError` — carried in the `E` slot like any other value |
 
 Compile-time diagnostics are a separate matter: they are assigned in the specification's [error table](/en/docs/spec/type-system/errors/), and no program sees them at run time.
 

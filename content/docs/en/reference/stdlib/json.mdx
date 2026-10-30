@@ -1,132 +1,150 @@
 ---
 title: JSON
-description: JSON serialization and parsing with the standard-library JSON module in XULO.
+description: JSON parsing, serialization, and validation with std::json in XULO.
 ---
 
 ## Overview
 
-JSON is a standard-library API, not a language built-in. The specification places JSON (with regular expressions and I/O) outside the language: nothing named `JSON` is part of the prelude or of the intrinsics, so a module that binds no names has no `JSON` in scope. Bind the module as a namespace with `use`:
+JSON is a standard-library API, not a language built-in: nothing named `JSON` or `Json` is part of the prelude or the intrinsics. The module is `std::json`, and its qualified path needs no import:
 
 ```js
-use json as JSON;        // the namespace: JSON::stringify, JSON::parse
-use json::JSONError;     // the error type, where an annotation names it
+std::json::parse("[1, 2, 3]")       // Result<any, Error>
+std::json::stringify({ a: 1 })      // Result<string, Error>
+std::json::valid("{}")              // bool
 ```
 
-`use json as JSON;` binds the namespace; members are then selected with `::`. Parsing never throws. `JSON::parse` returns a `Result<T, JSONError>`, which the caller inspects with `match` or propagates with `?`. The type argument `T` is inferred at the call site from the expected type; a call may also write it explicitly, all-or-nothing — `JSON::parse<User>(raw)` ([Generics](/en/docs/spec/types/generics/)).
+The six `use` forms bind it like any other module — `use std::json;` then `json::parse(…)`, `use std::json as JSON;`, or `use std::json::{parse, stringify, valid};`. A bare `json::parse(…)` head and a capital `Json::parse(…)` are `E0607`.
 
-## Methods
+The module has exactly three functions and no types of its own. Failures are values: `parse` and `stringify` return `Result<_, Error>`, while `valid` is total. No `std::json` member stops the program on the program's own inputs.
 
-### `JSON::stringify<T>(value: T): string`
+## The Value Model
 
-Serializes a value into a JSON string.
+`parse` maps JSON onto runtime values, and `stringify` maps them back:
+
+| JSON | Runtime value |
+|------|---------------|
+| `null` | `null` |
+| `true` / `false` | a `bool` |
+| `string` | a `string` |
+| `number` | a `number` — binary64 |
+| `array` | a `list`, elements in order |
+| `object` | an `object` with the same members |
+
+- **Numbers are binary64.** A value within ±2⁵³ round-trips exactly; beyond that a parse-then-stringify round trip may change the decimal representation. JSON has no spelling for `NaN` or the infinities: such a document is a syntax error, and those values only arise from computation.
+- **Object members are ordered by UTF-8 byte order in both directions.** `parse` builds members in that order, so the input document's key order is not preserved; duplicate keys keep the last occurrence. `stringify` emits members in the same sorted order.
+- **Nesting is bounded.** Both directions share one ceiling of 128 levels; a deeper document or value is `Err`, never a partial result and never a trap.
+- **Lists and tuples are arrays.** A list serializes in order; a tuple serializes as the array of its elements. `parse` reads an array as a `list`, so a tuple's type is not carried by the text.
+- **Maps are objects.** A `Map<string, V>` and an object literal emit their entries as members under the sorted-members rule. Keys of other types are textified on the way out: an `int` by its decimal form, a finite `float` by its JSON number form (`1.0` keys as `1`), a `bool` as `true` or `false`. Two keys that textify to the same string, a non-finite `float` key, and an enum key are `Err`. Textified keys come back as `string` keys from `parse`.
+- **Sets are arrays in a defined order.** `stringify` emits the elements sorted by their compact JSON text in UTF-8 byte order; `parse` reads a `list`, and `Set::fromList` restores the set.
 
 ```js
-let data = { name: "Alice", age: 30, active: true }
-let json_str = JSON::stringify(data)
-// '{"name":"Alice","age":30,"active":true}'
-
-let list = [1, 2, 3]
-let json_list = JSON::stringify(list)
-// '[1,2,3]'
+std::json::stringify(Set::fromList(["b", "a"]))   // ["a","b"]
+std::json::stringify(Map<int, string>{ 1: "x" }) // {"1":"x"}
+std::json::stringify((1, "x"))                   // [1,"x"]
 ```
 
-### `JSON::parse<T>(input: string): Result<T, JSONError>`
+## Parsing
 
-Deserializes a JSON string. `T` is inferred from the expected type: annotate the binding, or let the enclosing function's declared return type supply it.
+### `std::json::parse(text: string): Result<any, Error>`
+
+Reads the single JSON value `text` describes. The success value is typed `any`: the checker does not look inside, and member access, indexing, and arithmetic on it are the program's business.
+
+- Leading and trailing whitespace around the value are fine; any other trailing content is `Err`, as are the empty string and whitespace-only text.
+- `Err` classes: a syntax error (with a position in the informative message), unexpected end of input, trailing content, a number outside binary64 range (`1e400`), and nesting past the depth ceiling.
+- There is no size limit beyond the depth ceiling.
+- `parse` never uses `null` as a stand-in for failure: a `null` it yields is JSON's `null`, inside `Ok`.
 
 ```js
-let raw = '{"name":"Alice","age":30}'
-
-// T from the annotation on the binding
-let outcome: Result<User, JSONError> = JSON::parse(raw)
-
-// T from the declared return type
-fn load_user(raw: string): Result<User, JSONError> {
-  JSON::parse(raw)
+match std::json::parse("{\"b\": 2, \"a\": 1}") {
+  Result::Ok(v) => print(v.a)          // 1 — `any` admits the member access
+  Result::Err(e) => print(e.message)
 }
 ```
 
-### `JSON::parse_async<T>(input: string): Task<Result<T, JSONError>>`
+## Stringifying
 
-Async variant of `parse`. The call yields a `Task`; `await` it to reach the `Result`. Combine `await` and `?` with parentheses: `(await …)?`.
+### `std::json::stringify(value: any, indent: number? = null): Result<string, Error>`
+
+Writes `value` as JSON text — compact by default, or indented when `indent` is given.
+
+- The default — `indent` omitted, `null`, or `0` — is one compact line with only `,` and `:` as separators: `{"a":[1,"two"],"b":2.5}`.
+- `indent` in **`1 …= 8`** produces one line per array/object, each level indented `indent` spaces, `: ` after a key, and `\n` between items; an empty object or array stays `{}` or `[]`. The text ends with the value: no trailing newline.
+- The `indent` domain is **`0 …= 8`**; a fractional value truncates toward zero. A value outside the domain — negative, above 8, non-finite — is `Err`, checked before the value is walked.
+- Members are emitted sorted by UTF-8 byte order, so indentation never disturbs determinism.
+- Numbers print without a needless fractional part: `2.0` prints `2`, negative zero prints `0`, and other values print in the shortest decimal form that restores the same binary64 (scientific notation is allowed for very large magnitudes).
+- Text escapes only what JSON requires (`\"`, `\\`, `\n`, `\r`, `\t`, `\b`, `\f`, `\u00XX` for other controls); other non-ASCII text is emitted as raw UTF-8.
+- `Err` classes: an `indent` outside the domain; `NaN` or an infinity at any depth; values JSON cannot represent (functions, enum values, `Ptr`, signals, promises); map keys that do not textify distinctly; cycles; and nesting past the depth ceiling.
 
 ```js
-async fn load_user_async(raw: string): Result<User, JSONError> {
-  let user: User = (await JSON::parse_async(raw))?
-  Result::Ok(user)
+match std::json::stringify({ name: "x", n: 3 }) {
+  Result::Ok(text) => print(text)       // {"n":3,"name":"x"}
+  Result::Err(e) => print(e.message)
 }
+
+std::json::stringify({ name: "x" }, 2)
+// {
+//   "name": "x"
+// }
+
+std::json::stringify(std::math::NAN)
+// Result::Err: cannot serialize NaN as JSON
 ```
+
+## Validating
+
+### `std::json::valid(text: string): bool`
+
+Whether `text` is a well-formed JSON document.
+
+- Total for every `string`: `true` or `false`, never a `Result`, `null`, or a runtime failure.
+- `valid(text)` is `true` exactly when `parse(text)` yields `Ok` — one grammar, one depth ceiling, one binary64 range, and the same trailing-content rule.
+
+```js
+std::json::valid("{\"a\": 1}")    // true
+std::json::valid("{\"a\": }")     // false
+std::json::valid("")              // false
+```
+
+## Structs
+
+A struct value is an ordinary member set for `stringify`: **every field the value carries becomes a member of the JSON object, private fields included.** `pub` is a compile-time name rule, not part of a value, so it cannot hide a field from serialization.
+
+```js
+struct User { name: string, age: int, passwordHash: string }
+
+let alice = User(name: "Alice", age: 30, passwordHash: "5e88…")
+std::json::stringify(alice)
+// {"age":30,"name":"Alice","passwordHash":"5e88…"} — every field
+```
+
+To choose the members, hand over an object literal or implement an inherent `toJson` returning the value to serialize:
+
+```js
+impl User {
+  pub fn toJson(self): any { ({ name: self.name, age: self.age }) }
+}
+
+std::json::stringify(alice.toJson())     // the chosen members only
+```
+
+`stringify` never calls `toJson` itself: the program calls it. On the way back, `parse` yields the plain object the document describes — never a struct — and the constructor restores the type: `User(name: v.name, age: v.age)`.
 
 ## Error Handling
 
-Failures are values. There is no `throw` and no `try` / `catch`: a malformed document arrives as `Result::Err(JSONError)`.
-
-`JSONError` is the JSON module's own error enum — a domain failure carried in the `E` slot, exactly as a program's own enums are:
-
-| Variant | Meaning |
-|---------|---------|
-| `JSONError::SyntaxError(msg, line, col)` | the document is not well-formed JSON |
-| `JSONError::TypeMismatch(expected, actual)` | a value does not fit the requested type |
-| `JSONError::UnexpectedEof` | the input ended unexpectedly |
+Both failures are ordinary `Result::Err` values carrying the built-in `Error { message }`; the module introduces no error type of its own. A `parse` failure is about the text; a `stringify` failure is about the value. Message text is informative.
 
 ```js
-let outcome: Result<User, JSONError> = JSON::parse(raw)
+fn load_user(raw: string): Result<User, Error> {
+  let v = std::json::parse(raw)?
+  Result::Ok(User(name: v.name, age: v.age))
+}
 
-match outcome {
-  Result::Ok(user) => print("Welcome, " + user.name)
-  Result::Err(reason) => match reason {
-    JSONError::SyntaxError(msg, line, col) => print(`JSON error at ${line}:${col}: ${msg}`)
-    JSONError::TypeMismatch(expected, actual) => print("expected " + expected + ", got " + actual)
-    JSONError::UnexpectedEof => print("input ended unexpectedly")
-  }
+fn save_user(user: User): Result<string, Error> {
+  std::json::stringify(user)
 }
 ```
 
-Inside a function that already returns a `Result`, propagate instead of matching:
-
-```js
-fn user_name(raw: string): Result<string, JSONError> {
-  let user: User = JSON::parse(raw)?
-  Result::Ok(user.name)
-}
-```
-
-## Use Cases
-
-- **Data Exchange**: serialize and deserialize data when communicating with external APIs
-- **Persistence**: save values as JSON files
-- **Configuration Parsing**: read JSON-format configuration files
-- **Debugging**: render values as readable strings
-
-## Examples
-
-```js
-use json as JSON;
-use json::JSONError;
-use fs::File;
-
-// Serialize
-fn save_user(user: User) {
-  let json_str = JSON::stringify(user)
-  File::write("user.json", json_str)
-}
-
-// Deserialize: the Err case travels up untouched
-fn load_user(raw: string): Result<User, JSONError> {
-  JSON::parse(raw)
-}
-
-// Interact with an HTTP API: propagate with `?`
-fn fetch_data(raw: string): Result<ApiResponse, JSONError> {
-  let data: ApiResponse = JSON::parse(raw)?
-  Result::Ok(data)
-}
-```
-
-## Design Notes
-
-- **Errors are data.** `JSON::parse` returns `Result<T, JSONError>`; Xulo has no exceptions, so nothing is thrown and nothing is caught ([Error Handling](/en/docs/spec/error-handling/)).
-- **`JSONError` is a library enum.** The only built-in error type is `Error` — constructed as `Error("…")`, carrying one `message: string` field, with no subtypes and no inheritance. `Result<T, Error>` is the conventional shape for system-level failures; a failure with structure is an ordinary enum.
-- **Type arguments are inferred unless written.** `parse<T>` is written `T` in the signature only; at the call site the expected type usually supplies it (`let outcome: Result<User, JSONError> = JSON::parse(raw)`), and a call may write the type arguments explicitly, all-or-nothing per call.
-- **`use` required.** `JSON` is neither a prelude name nor an intrinsic; see [Prelude](/en/docs/spec/builtins/prelude/) and the specification's [scope statement](/en/docs/spec/introduction/).
-- Further reading: [Error Handling](/en/docs/spec/error-handling/), [Calls](/en/docs/spec/expressions/calls/), [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/).
+- **No exceptions.** There is no `throw` and no `try` / `catch`; propagate with `?` in a function returning `Result<_, Error>`, or inspect with `match`.
+- **No type arguments.** No `std` member takes a type parameter in version 0.1, so `std::json::parse<int>(…)` is `E0807`.
+- **`use` or `std::` required.** `std::json` is neither a prelude name nor an intrinsic; a bare `json::parse` or `Json::parse` is `E0607`.
+- Further reading: [Error Handling](/en/docs/spec/error-handling/), [Calls](/en/docs/spec/expressions/calls/), [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/), and the [standard-library specification](https://github.com/xulo-lang/std-spec).

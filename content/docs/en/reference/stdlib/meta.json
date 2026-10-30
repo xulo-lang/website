@@ -1,4 +1,18 @@
 {
   "title": "Built-ins & Stdlib",
-  "pages": ["json", "math", "time", "regular-expressions", "error-handling", "standard-library-net-fs"]
+  "pages": [
+    "standard-library-net-fs",
+    "io",
+    "fs",
+    "path",
+    "os",
+    "process",
+    "net",
+    "http",
+    "json",
+    "math",
+    "time",
+    "regular-expressions",
+    "error-handling"
+  ]
 }

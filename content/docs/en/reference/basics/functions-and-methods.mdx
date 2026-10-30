@@ -157,8 +157,9 @@ fn main() {
 
 - Methods live in an `impl` block. The first parameter is the receiver, written `self` (immutable borrow) or `mut self`; a method that assigns to `self` or a field must declare `mut self`.
 - At the call site the receiver is not written as an argument: `c.increment()` supplies `c`.
-- **Resolution order:** `value.method(…)` resolves first to an inherent method of the receiver's type, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait::method(receiver)`.
+- **Resolution order:** `value.method(…)` resolves first to a **built-in inherent member** of the receiver's type (for `List`, `Array`, `Map`, `Set`, and `string`), then to an inherent method declared in an `impl` block, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait::method(receiver)`.
 - A receiver that may be `null` uses optional chaining: `receiver?.method()` evaluates to `null` instead of calling.
+- **Static members.** `Map::fromEntries(entries)`, `Set::fromList(values)`, and `Array::filled<T, const N: int>(value: T)` are associated members of the built-in types, reached through `::` like the associated names of an `impl` block. They have no receiver and are never selected by `.`.
 
 ## Trait Methods
 
@@ -175,15 +176,19 @@ Trait methods are signature-only, separated by `;`, and **must** declare a retur
 
 ```js
 fn first<T>(xs: List<T>): T { xs[0] }
+fn repeat<const N: int>(value: int): int { N * value }
 fn areaOf<T: Area>(shape: T): float { Area::area(shape) }
 fn perimeterOf<T>(shape: T): float where T: Area { shape.perimeter() }
 
 fn main() {
   let n = first([1, 2, 3])        // T = int
   let s = first(["a", "b"])       // T = string
+  let three = repeat<3>(7)        // N = 3, written at the call
 }
 ```
 
-Type arguments are inferred from the arguments and the expected type unless the call writes them explicitly — `first<int>(…)` — and every argument, written or inferred, must satisfy the parameter's bounds. Inline `<T: …>` and `where T: …` are equivalent; multiple bounds are joined with `+`.
+A generic parameter list holds type parameters (`<T>`), const parameters of type `int` (`<const N: int>`), or both. Type arguments are inferred from the arguments and the expected type unless the call writes them explicitly — `first<int>(…)`. **Const arguments are never inferred**: a callee with a const parameter must write the full list (`E0816`), and the list is all-or-nothing across type and const parameters (`E0808`). Every type argument, written or inferred, must satisfy the parameter's bounds (`E0801`); a const supplied where a type is expected, or the reverse, is `E0813`. Inline `<T: …>` and `where T: …` are equivalent; multiple bounds are joined with `+`.
+
+A generic declaration's const parameter is a compile-time `int` value usable in ordinary expressions in the body. A function with const parameters cannot be used as a bare function value in version 1 — there is no value-position syntax for its const arguments — so write a closure that supplies them: `let f = fn(x: int): int { repeat<3>(x) }`.
 
 Full rules for generics, traits, and dispatch are in [Generics & Traits](/en/docs/reference/basics/generics-and-traits/); the declaration and parameter forms are specified in the [functions spec](/en/docs/spec/functions/).

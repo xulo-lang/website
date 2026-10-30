@@ -1,115 +1,89 @@
 ---
 title: Standard Library
-description: The structure of the XULO standard library (std) and how it differs from the language built-ins in XULO.
+description: The structure of the XULO standard library (std) and the modules it provides.
 ---
 
 ## Overview
 
-The XULO standard library (`std`) provides high-order data structures, file system and network I/O, async runtime control, and other core capabilities.
+The XULO standard library (`std`) is a built-in namespace root: the compiler provides it, no file or manifest declares it, and every program reaches it without an import. Version 0.1 defines eleven modules — `math`, `time`, `io`, `fs`, `path`, `os`, `net`, `http`, `process`, `json`, and `regex` — under the single head `std`. A member is named `std::<module>::<member>`; the qualified path needs no `use`.
 
-The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the prelude operations, and the namespaces `Math`, `Time`, `Task` — plus the **intrinsics** `print`, `println`, `str`, and `assert`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without a `use`. Everything else, JSON and regular expressions included, is a library API in `std/*` and must be named by an explicit `use`.
+The language side is fixed by the specification: the **prelude** — the built-in types `List<T>`, `Array<T, N>`, `Map<K, V>`, `Set<T>`, the `ToString` protocol, the inherent members those types expose, and the `Task` namespace — plus the **intrinsics** `print`, `println`, `str`, and `assert`, and the language constructs `spawn`, `lock`, and `shared`. Those names are in scope in every module without a `use`. `Math` and `Time` are not prelude names: their members live in `std::math` and `std::time`. Everything else is a library API in `std/*` and must be named by an explicit `use` or a qualified path.
 
 ## Design Principles
 
 1. **Zero Contamination & Cross-Platform**: `std/*` guarantees consistent behavior across all targets (native OS, embedded, WebAssembly) without platform-specific logic in the source.
-2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are named with `use` alongside them and never replace them.
+2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are named with `use` or `std::` alongside them and never replace them.
+3. **Text and bytes**: every `string` in the library is UTF-8 text, and the streams carry text only — the `std::io` readers and `std::fs::read` require valid UTF-8 and fail otherwise, while `std::net::sockRead` and `std::http` bodies decode lossily, replacing each invalid sequence with U+FFFD. Arbitrary content crosses the **file** boundary through [`std::fs`](fs.mdx)'s byte twins — `readBytes`, `writeBytes`, `appendBytes` — whose unit is `List<u8>` and which never decode. Bytes become text only when a text reader accepts them as valid UTF-8; a byte-level surface for the streams is a roadmap candidate.
 
-## Module Directory
+## Module Inventory
 
-```
-std/
-├── collections.xulo      // High-order data structures
-│   ├── HashMap<K, V>     // Custom hasher & memory layout
-│   ├── BTreeMap<K, V>    // Ordered key-value mapping
-│   ├── HashSet<T>        // Unique value collection
-│   └── Deque<T>          // Double-ended queue / concurrent queue
-│
-├── json.xulo             // JSON serialization
-│   └── JSON              // namespace: JSON::stringify, JSON::parse
-│
-├── fs.xulo               // File system & I/O (async/sync)
-│   ├── File              // File handle, read / write API
-│   └── Path              // Path concatenation, extraction & normalization
-│
-├── net.xulo              // Network communication basics
-│   ├── TcpStream         // TCP stream
-│   ├── TcpListener       // TCP listener
-│   ├── UdpSocket         // UDP socket
-│   ├── fetch()           // HTTP client request
-│   └── HttpListener      // HTTP server listener
-│
-├── async.xulo            // Async & coroutine runtime control
-│   ├── sleep(ms)         // Async sleep
-│   ├── interval(ms)      // Timer
-│   ├── handle            // Task handle control: cancel, join
-│   └── channel           // Async MPSC / Broadcast channels
-│
-├── thread.xulo           // Low-level OS physical thread control
-│   ├── Builder           // Thread config (stack size, thread name, etc.)
-│   └── current           // Thread ID & context management
-│
-├── sync.xulo             // Low-level & high-level concurrency primitives
-│   ├── AtomicBool        // Atomic boolean
-│   ├── AtomicI64         // Atomic 64-bit integer
-│   ├── Semaphore         // Semaphore
-│   └── Barrier           // Barrier & condition variables
-│
-├── process.xulo          // System-level process & environment interaction
-│   ├── Command           // External system command execution & sandbox dispatch
-│   └── env::args()       // Environment variable reading & command-line argument parsing
-│
-├── math.xulo             // Advanced math (the Math namespace is built in)
-│   ├── Random            // Pseudo-random number generator (with seed support)
-│   ├── Matrix            // Matrix operations
-│   ├── Vector            // Vector operations
-│   └── Complex           // Complex number operations
-│
-└── time.xulo             // Advanced time features (the Time namespace is built in)
-    ├── Instant           // High-precision monotonic timestamp
-    ├── Duration          // Duration
-    └── DateTime          // Formatting & parsing
+| Module | Contents |
+|--------|----------|
+| `std::math` | constants `PI`, `E`, `TAU`, `INFINITY`, `NAN`; `abs`, `min`, `max`, `sign`, `sqrt`, `cbrt`, `pow`, `hypot`, `clamp`, `floor`, `ceil`, `round`, `trunc`, `toFixed`, the trigonometric, logarithmic, and exponential functions, `random`, `randomInt`, and the wrapping and bit functions |
+| `std::time` | `now`, `nowNanos`, `monotonic`, `monotonicNanos`, `sleep`, `format`, `parse`, `parts`, `fromParts`, `weekday` |
+| `std::io` | `print`, `println`, `eprint`, `eprintln`, `flush`, `readLine`, `read`, `readN`, `stdinIsTTY`, `stdoutIsTTY` |
+| `std::fs` | `read`, `readBytes`, `write`, `writeBytes`, `append`, `appendBytes`, `createNew`, `touch`, `setTimes`, `setMode`, `exists`, `realpath`, `stat`, `copy`, `rename`, `remove`, `mkdir`, `readDir`, `walk`, `removeDir`, `tempFile`, `tempFileIn`, `tempDir`, `tempDirIn` |
+| `std::path` | `isAbsolute`, `join`, `dirname`, `basename`, `split`, `ext`, `stem`, `withExt`, `normalize`, `relative` |
+| `std::os` | `getenv`, `setenv`, `unsetenv`, `cwd`, `chdir`, `tmpDir`, `homeDir`, `pid`, `platform`, `arch`, `hostName`, `userName`, `execPath`, `cpuCount` |
+| `std::net` | `tcpListen`, `tcpAccept`, `tcpConnect`, `sockRead`, `sockWrite`, `sockShutdown`, `sockShutdownWrite`, `sockClose`, `sockLocalAddr`, `sockPeerAddr` |
+| `std::http` | `fetch`, `request`, `listen`; types `Request`, `Response`, `Server` |
+| `std::process` | `exit`, `args`, `run`, `exec`, `launch`; types `Command`, `Child` |
+| `std::json` | `parse`, `stringify`, `valid` |
+| `std::regex` | types `RegExp`, `RegexError`, `RegexMatch` |
+
+The module set is closed: an unknown module under `std` is `E0607`, and an unknown member is `E0601`. Every member follows lowerCamelCase, the network members (`tcpListen`, `sockRead`) included.
+
+## Reaching the Library
+
+A qualified path needs no import:
+
+```js
+let z = std::math::sqrt(2.25)       // 1.5
+std::io::println("hello")            // the flushing stream write
 ```
 
-Regexps live in `std/regex` ([Regular Expressions](/en/docs/reference/stdlib/regular-expressions/)).
+`use` binds a module, one member, a group, or a module's face:
+
+```js
+use std::json;                       // then json::parse(...)
+use std::math::floor;                // then floor(3.7)
+use std::io::{flush, eprint};        // a group of members
+use type std::regex::RegExp;         // a name for a type only
+```
+
+`std` and a module path are not values (`E0607`), and `std::regex` has no value namespace — import its types by name. Two members are special: `std::io::print` and `std::io::println` are reached through the qualified path or a namespace alias, not through a `use` binding, because their local names are the prelude intrinsics.
 
 ## Usage Examples
 
 ```js
-// Bind standard-library modules
-use collections::{HashMap, BTreeMap, HashSet, Deque};
-use fs::{File, Path, FileMode, FsError};
-use net::{fetch, NetworkError};
-use async::{sleep, interval};
-use sync::AtomicI64;
-use json as JSON;
-use json::JSONError;
-
-// High-order map — distinct from the built-in Map<K, V>
-let mut users: HashMap<string, User> = HashMap::new()
-users.insert("alice", User(name: "Alice"))
-
-// JSON is a standard-library module, not a built-in
-let data = { name: "Alice", age: 30 }
-let json_str = JSON::stringify(data)
-let parsed: Result<User, JSONError> = JSON::parse(json_str)
+use std::fs;
+use std::http;
+use std::json;
 
 // File I/O: fallible calls return a Result
-fn save(path: string, text: string): Result<string, FsError> {
-  let file = File::open(path, mode: FileMode::Write)?
-  file.write(text)?
-  file.close()
-  Result::Ok(path)
+fn save(path: string, text: string): Result<unit, Error> {
+  fs::write(path, text)
 }
 
-// HTTP request
-fn fetch_body(url: string): Result<string, NetworkError> {
-  let response = fetch(url)?
-  Result::Ok(response.body())
+fn load(path: string): Result<string, Error> {
+  fs::read(path)
+}
+
+// HTTP request; Response.body is a field
+fn fetch_body(url: string): Result<string, Error> {
+  let response = http::fetch(url)?
+  Result::Ok(response.body)
+}
+
+// JSON is a standard-library module, not a built-in
+fn encode(): Result<string, Error> {
+  let data = { name: "Alice", age: 30 }
+  json::stringify(data)
 }
 
 // Async timer
 spawn async {
-  await sleep(1000)
+  await std::time::sleep(1000)
   print("1 second later")
 }
 ```
@@ -118,41 +92,46 @@ spawn async {
 
 Standard-library code follows the language model — there is no `throw` and no `try` / `catch`, in a library any more than in a program.
 
-- A fallible call returns `Result<T, E>`: `Result<string, FsError>`, `Result<Response, NetworkError>`, `Result<T, JSONError>`. Propagate with `?` or inspect with `match`.
-- Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test.
+- A fallible call returns `Result<T, Error>`: `Result<string, Error>`, `Result<Response, Error>`, `Result<unit, Error>`. Propagate with `?` or inspect with `match`.
+- The one exception is `std::regex::RegExp::compile`, whose failure payload is the module's own `RegexError` — read with `e.message` exactly like `Error`.
+- Failure classes say what an `Err` may mean, not what a caller can detect: every `Err` has the same shape, and message text is never a discriminator — a program or test MUST NOT recover a class by matching it. Branch only on what a member offers as data: a field such as a `code`, an absence (`Ok(null)`), a probe such as `exists`/`stat`, or a byte twin such as `readBytes`.
+- Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test. `std::json::parse` returns the JSON `null` inside `Ok`, never as a stand-in for failure.
 - `panic` is reserved for broken invariants; no library outcome should stop the program.
 
 See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specification's [Error Handling](/en/docs/spec/error-handling/) chapter.
 
 ## Built-ins vs Standard Library
 
-| Category | Language built-ins (no `use`) | Standard library (`use` required) |
+| Category | Language built-ins (no `use`) | Standard library (`use` or `std::`) |
 | --- | --- | --- |
-| **Collections** | `List<T>`, `Map<K, V>`, `Set<T>` + prelude operations (`mapSize`, `mapGet`, `listPush`, `setInsert`, …) | `HashMap`, `BTreeMap`, `HashSet`, `Deque` |
-| **Output & assertion** | `print`, `println`, `str`, `assert` | — |
-| **Concurrency** | `spawn`, `lock`, `shared`, `Task::all` / `Task::race` / `Task::resolve` / `Task::timeout` | `async::sleep`, `async::interval`, `sync::atomic`, `sync::semaphore` |
-| **I/O** | — | `fs::file`, `fs::path`, `net::tcp`, `net::http` |
-| **Data** | — | `JSON::stringify`, `JSON::parse` |
-| **System** | — | `process::command`, `process::env` |
-| **Math** | `Math::PI`, `Math::sqrt`, `Math::sin`, … | `Random`, `Matrix`, `Vector`, `Complex` |
-| **Time** | `Time::now`, `Time::monotonic`, `Time::sleep` | `Instant`, `Duration`, `DateTime` |
+| **Collections** | `List<T>`, `Array<T, N>`, `Map<K, V>`, `Set<T>` with inherent members (`.push`, `.get`, `.slice`, …) | — in version 0.1 |
+| **Output & assertion** | `print`, `println`, `str`, `assert` | `std::io::{eprint, eprintln, flush, readLine, read, readN}` |
+| **Concurrency** | `spawn`, `lock`, `shared`, `Task::all` / `Task::race` / `Task::resolve` / `Task::timeout` | `std::time::sleep` |
+| **I/O** | — | `std::fs`, `std::path`, `std::net`, `std::http`, `std::io` |
+| **Data** | — | `std::json`, `std::regex` |
+| **System** | — | `std::os`, `std::process` |
+| **Math** | — | `std::math` — constants and functions over `float` and `int` |
+| **Time** | — | `std::time` — wall and monotonic clocks, sleep, and the UTC calendar |
 
-The prelude operations are unqualified functions in scope in every module, called like any other function:
+## Built-in Collection and String Members
 
-| Group | Operations |
+The built-in collections and `string` expose **inherent members** — they are part of the type, not prelude functions, and no local binding shadows them:
+
+| Type | Members |
 | --- | --- |
-| `Map<K, V>` | `mapSize`, `mapHasKey`, `mapGet`, `mapRemove`, `mapToEntries`, `mapFromEntries` |
-| `Set<T>` | `setFromList`, `setInsert`, `setRemove`, `setContains`, `setSize` |
-| `List<T>` | `listSize`, `listPush`, `listRemove`, `enumerate` |
-| `string` | `stringSize`, `stringCodeAt`, `stringSlice`, `stringBytes` |
+| `List<T>` | `.len`, `.push`, `.pop`, `.shift`, `.unshift`, `.splice`, `.resize`, `.truncate`, `.clear`, `.slice`, `.indexOf`, `.lastIndexOf`, `.includes`, `.join`, `.reverse`, `.entries`, `.forEach`, `.map`, `.filter`, `.find`, `.findIndex`, `.some`, `.every`, `.reduce`, `.sort` |
+| `Array<T, N>` | the read, callback, and sort members of `List`; `.len` is always `N`; `.slice`/`.filter` return `List<T>`, `.map` returns `Array<U, N>`; no growth or shrink members |
+| `Map<K, V>` | `.size`, `.get`, `.set`, `.has`, `.remove`, `.keys`, `.values`, `.entries`; static `Map::fromEntries` |
+| `Set<T>` | `.size`, `.has`, `.insert`, `.remove`; static `Set::fromList` |
+| `string` | `.len`, `.byteLen`, `.codeAt`, `.slice`, `.bytes()` |
 
-Iteration, subscripts, and `+` on the collections are core syntax, not prelude calls. The lookups that cannot fail are the prelude's: `mapGet(m, k)` answers `null` for an absent key where `m[k]` is a runtime failure, and `listRemove(xs, i)` answers `null` for an out-of-range index where `xs[i]` panics. `listPush` and `listRemove` (like `mapRemove` and `setInsert`) mutate their first argument, which must be a mutable place. Strings are inspected the same way: `s[i]` on a `string` is a compile-time error (`E0215`), so `stringSize`, `stringCodeAt`, and `stringSlice` do the work — by Unicode scalar index — and `stringBytes` yields the UTF-8 bytes as a `List<u8>`; an out-of-range index or bounds is a runtime failure.
+Iteration, subscripts, and `+` on lists are core syntax, not members. A map key is read with `m.get(k)` — absence is `null`, not a failure — and there is no `m[k]` or `m.key` entry form. A mutating member requires a mutable place. Strings are inspected through their members: `s[i]` is a compile-time error (`E0215`), and `s.codeAt(i)` / `s.slice(start, end)` index by Unicode scalar value; an out-of-range index or bounds is a runtime failure.
 
-The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `use`.
+The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `use` or a `std::` path.
 
 ## Design Notes
 
-- **Namespaces vs members.** Built-in members are reached only through their namespace (`Math::max`, `Time::now`, `Task::all`); the bare names (`max`, `now`, `all`) are in scope nowhere. `.` reaches into a value — a field, a method, a map entry — never a namespace. A library namespace behaves the same way: `use json as JSON;` binds it, and members are then selected with `::` — `JSON::parse(…)`.
-- **Reserved names are absolute.** `print`, `str`, `assert`, `List`, `Map`, `Set`, `Task`, `Result`, `Error`, `Math`, `Time`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
-- **Sync shapes.** Examples above show synchronous `File` and `fetch` calls with `?`; whether a given `std` function is `async` is a property of its own signature — an `async fn` returns a `Task<T>` and is awaited.
-- Further reading: [Prelude](/en/docs/spec/builtins/prelude/), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Import & Export](/en/docs/spec/modules/import-export/), [Error Handling](/en/docs/spec/error-handling/).
+- **Namespaces vs members.** Built-in members are reached only through their namespace (`Task::all`); the bare name (`all`) is in scope nowhere. `.` reaches into a value — a field, a method, a collection member — never a namespace. A library namespace behaves the same way: `use std::json;` binds it, and members are then selected with `::` — `json::parse(…)`; `use std::math;` likewise gives `math::max(…)`.
+- **Reserved names are absolute.** `print`, `str`, `assert`, `List`, `Array`, `Map`, `Set`, `Task`, `Result`, `Error`, … may not be redeclared at module scope (`E0106`); an inner-scope `let` may shadow them for the duration of that scope.
+- **Failures are values.** Except for `RegexError`, every fallible `std` member returns `Result<T, Error>`; no member throws, catches, or panics on the program's own inputs.
+- Further reading: [Prelude](/en/docs/spec/builtins/prelude/), [Intrinsic Functions](/en/docs/spec/builtins/intrinsic-functions/), [Import & Export](/en/docs/spec/modules/import-export/), [Error Handling](/en/docs/spec/error-handling/), and the [standard-library specification](https://github.com/xulo-lang/std-spec).

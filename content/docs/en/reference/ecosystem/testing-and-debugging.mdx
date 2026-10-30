@@ -15,7 +15,7 @@ A test is a function marked with `#Test`. It appears at file scope, among a modu
 #Test
 fn mapGetAnswersNull() {
   let m = { a: 1 }
-  assert(mapGet(m, "z") == null, "absent key is null")
+  assert(m.get("z") == null, "absent key is null")
 }
 ```
 
@@ -57,12 +57,12 @@ A test whose body suspends is marked `async`; the marker follows `#Test` and its
 ```js
 #Test
 async fn delayedTaskFinishes() {
-  await Time::sleep(1) // ok: an async test body is an async context
+  await std::time::sleep(1) // ok: an async test body is an async context
 }
 
 #Test
 fn awaitNeedsTheAsyncMarker() {
-  await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
+  await std::time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 ```
 
@@ -80,8 +80,8 @@ With the marker the body is an `async` context exactly as an `async fn(): unit` 
 
 ```js
 let xs = [2, 4, 6]
-assert(listSize(xs) == 3, "three items") // ok: no effect
-assert(listSize(xs) == 4, "not four")    // false: stops with panic("not four")
+assert(xs.len == 3, "three items") // ok: no effect
+assert(xs.len == 4, "not four")    // false: stops with panic("not four")
 ```
 
 `assert` is how a `#Test` body states a requirement. It is an intrinsic, like `print`, `println`, and `str`: available without `use`, exactly one signature, and the name is reserved — a module-scope declaration MUST NOT bear it (`E0106`).
@@ -125,12 +125,12 @@ fn noTitle() {
 // The pair differs only in the marker: rejected at check time vs. accepted
 #Test
 fn awaitNeedsTheAsyncMarker() {
-  await Time::sleep(1) // error: `await` outside of an `async` context (E0501)
+  await std::time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 
 #Test
 async fn awaitWithTheAsyncMarker() {
-  await Time::sleep(1) // ok: the test passes when its task completes
+  await std::time::sleep(1) // ok: the test passes when its task completes
 }
 
 #Test
@@ -149,15 +149,15 @@ The last test is well-formed on its own; the call in `main` is rejected (`E0107`
 #Test
 fn listOpsRoundTrip() {
   let mut xs = ["a", "b"]
-  listPush(xs, "c")
-  assert(listSize(xs) == 3, "three items")
-  assert(listRemove(xs, 0) == "a", "removed head")
-  assert(listSize(xs) == 2, "two remain")
+  xs.push("c")
+  assert(xs.len == 3, "three items")
+  assert(xs.shift() == "a", "removed head")
+  assert(xs.len == 2, "two remain")
 }
 
 #Test
 async fn deadlineReportsTimeout() {
-  let outcome = await Task::timeout(Time::sleep(5000), 50)
+  let outcome = await Task::timeout(std::time::sleep(5000), 50)
   match outcome {
     Result::Err(e) => assert(e.message == "timed out", "Err carries the timeout message")
     Result::Ok(_) => panic("deadline did not expire")
@@ -165,4 +165,4 @@ async fn deadlineReportsTimeout() {
 }
 ```
 
-See also: [Testing (spec)](/en/docs/spec/testing/), [Intrinsic Functions (spec)](/en/docs/spec/builtins/intrinsic-functions/), [Error Handling](/en/docs/reference/stdlib/error-handling/), and [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/) for the prelude operations used above.
+See also: [Testing (spec)](/en/docs/spec/testing/), [Intrinsic Functions (spec)](/en/docs/spec/builtins/intrinsic-functions/), [Error Handling](/en/docs/reference/stdlib/error-handling/), and [Standard Library](/en/docs/reference/stdlib/standard-library-net-fs/) for the built-in collection members used above.

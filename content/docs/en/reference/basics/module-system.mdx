@@ -81,7 +81,7 @@ lsp-server::run()         // package member; hyphens stay unwspaced
 Theme::Dark               // enum variant, type, or trait name
 self::cache               // current module
 super::fields             // parent module
-Math::PI                  // built-in namespace
+std::math::PI              // standard-library member
 Area::area(r)             // explicit trait dispatch
 ```
 
@@ -90,7 +90,7 @@ Area::area(r)             // explicit trait dispatch
 - Bare paths are package-root-absolute: `form::validate` starts at this package's root. There is no `crate` prefix and no leading `::`.
 - A path needs no prior `use` — `use` exists to bind the short name, not to grant access.
 - The first segment resolves as a dependency of this package (the manifest mapping), then as a root module of this package; a spelling that would be both is `E0104`. Later segments resolve inside whatever the previous reached.
-- The hyphen rule keeps packages unambiguous in expression position: `lsp-server::run()` is a qualified call, while `total - Math::PI` is subtraction.
+- The hyphen rule keeps packages unambiguous in expression position: `lsp-server::run()` is a qualified call, while `total - std::math::PI` is subtraction.
 - An unresolvable head is `E0607`; an unresolvable later segment is `E0101` or `E0601` (local name vs module).
 
 ## Exports: `pub`, Not `export`
@@ -143,7 +143,7 @@ clap       = { version = "4.6.6", alias = "clap_lib" }
 - An `alias` **replaces** the key entirely as the dependency's only name in source; a path that spells the replaced key is `E0607`.
 - Two dependencies with the same path name are a manifest error. The manifest format itself (TOML shape, versions, sources) is tooling; the compiler consumes the mapping.
 
-Standard-library modules are manifest packages too: `use json as JSON;` binds `JSON` for `JSON::parse(…)`, `use net::fetch;` is an ordinary path use, and `use regex::{RegExp, RegexError};` an ordinary group use.
+Standard-library paths follow the same rules: `use std::json as JSON;` binds `JSON` for `JSON::parse(…)`, `use std::http::fetch;` is an ordinary path use, and `use std::regex::{RegExp, RegexError};` an ordinary group use.
 
 ## Initialization Order
 

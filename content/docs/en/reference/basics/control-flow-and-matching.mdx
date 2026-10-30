@@ -104,7 +104,7 @@ match value {
 
 ### Exhaustiveness and Reachability
 
-- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `bool`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Map`, and `unknown`. Or-pattern alternatives cover together (`true | false` covers `bool`, and union members may be split across alternatives); a **guarded arm never covers**, because its guard may be false, so exhaustiveness counts only unguarded arms.
+- A `match` must be exhaustive for the scrutinee's type (`E0301`): every `enum` variant; `true` and `false` for `bool`; every testable member of a union (a covering arm is required as soon as any member is not testable); and a covering arm (`_`, a binding, or an exact type pattern) for anything else — including `List<T>`, `Array<T, N>`, `Map`, and `unknown`. Or-pattern alternatives cover together (`true | false` covers `bool`, and union members may be split across alternatives); a **guarded arm never covers**, because its guard may be false, so exhaustiveness counts only unguarded arms.
 - An arm that can never be selected is an error (`E0302`): anything after an unguarded wildcard or binding arm, a repeated literal, or a type already covered by earlier unguarded arms. A guarded arm never makes a later arm unreachable — its guard may fail — and an or-pattern does so only when every value its alternatives match was already selected by earlier unguarded arms.
 
 ```js
@@ -138,7 +138,8 @@ for i in 0..<10 {
 | Iterable | Loop binding | Order |
 |----------|--------------|-------|
 | `List<T>` | `T` | index order |
-| `Map<K, V>` | `K` (keys; read values with `m[k]`) | insertion order |
+| `Array<T, N>` | `T` | index order |
+| `Map<K, V>` | `K` (keys; read values with `m.get(k)`) | insertion order |
 | `Set<T>` | `T` | unspecified — do not depend on it |
 | `Range<T>` | `T` | ascending from `start` |
 

@@ -1,0 +1,199 @@
+---
+title: Path
+description: The std::path module of portable POSIX path string operations in XULO.
+---
+
+## Overview
+
+`std::path` holds pure string operations on `/`-separated paths: joining, testing for an absolute path, taking the parent, the final component, its stem and extension, splitting those apart, replacing an extension, normalizing away redundancy, and naming one path relative to another. Every member answers every input — `""`, all slashes, and a lone `..` each have a defined answer — so the module has no `Result` and no runtime failure; [relative](#relative) alone may return `null`, for the two relations no string can name. It is the portable companion to [Filesystem](fs.mdx): it applies POSIX rules on every host, while `std::fs` follows the host's conventions.
+
+The qualified path needs no import:
+
+```js
+std::path::join("var/log", "app.log")    // ok: a single string
+print(std::path::basename("/etc/hosts")) // runs: hosts
+```
+
+All six `use` forms bind it like any other module:
+
+```js
+use std::path::*;               // every function of the face
+use std::path as p;
+p::normalize("a//b/./c/")       // ok: "a/b/c"
+use std::path::{join, ext};
+```
+
+## Domain
+
+Each member is a pure string operation over POSIX path syntax. Four rules bind the whole module:
+
+- **The separator is `/` alone.** A backslash is an ordinary character, never a separator: `join("a", "b\\c")` yields `"a/b\\c"`, and no member treats `\` specially.
+- **Trailing slashes are ignored** before a component is taken, so `"a/b/"` has final component `"b"` and `"dir.d/"` has extension `".d"`.
+- **Nothing is resolved.** No member reads the host filesystem, follows a symlink, or maps `.` and `..` onto host directories — they stay ordinary string components until [normalize](#normalization) collapses them.
+- **Results are identical on every host.** A program that must be host-independent builds its paths here and hands them to [`std::fs`](fs.mdx).
+
+## Absolute
+
+### `std::path::isAbsolute(path: string): bool`
+
+Whether `path` names an absolute location.
+
+- The test is the first character alone: a leading `/` — the one separator this module recognizes — makes the path absolute, and nothing else can: `"a/b"`, `""`, `".."`, and a host-style `"C:\\x"` are all relative.
+- It never consults the host: absolute here means "written with a root" in POSIX syntax, not "exists" or "resolves".
+
+```js
+print(std::path::isAbsolute("/etc/hosts"))   // runs: true
+print(std::path::isAbsolute("etc/hosts"))    // runs: false
+let bare = std::path::isAbsolute("")         // ok: false
+```
+
+## Joining
+
+### `std::path::join(a: string, b: string): string`
+
+`b` appended to `a`.
+
+- An absolute `b` — one starting with `/` — **replaces `a` entirely**; the result is `b` alone.
+- An empty `a` contributes no separator: the result is `b` itself.
+- An `a` ending in `/` is concatenated with `b` with no extra separator; otherwise the result is `a + "/" + b`.
+- `join` never collapses `.` or `..` — that is [normalize](#normalization)'s job — and `join("a", "")` is `"a/"`, because the empty `b` still follows the separator rule.
+
+```js
+print(std::path::join("var/log", "app.log"))  // runs: var/log/app.log
+print(std::path::join("a/", "b"))             // runs: a/b
+print(std::path::join("", "b"))               // runs: b
+print(std::path::join("a", "/b"))             // runs: /b
+print(std::path::join("a", ""))               // runs: a/
+let empty = std::path::join("", "")           // ok: ""
+```
+
+## Parent and Name
+
+| Member | Signature | Meaning |
+|--------|-----------|---------|
+| `std::path::dirname` | `fn(path: string): string` | everything before the last `/`, trailing slashes ignored |
+| `std::path::basename` | `fn(path: string): string` | the final component, trailing slashes ignored |
+| `std::path::split` | `fn(path: string): { dir: string, base: string, ext: string }` | `dirname`, `basename`, and `ext` of `path` in one record |
+
+- All members here trim trailing slashes first and then look for the last `/`.
+- `dirname` yields `""` when the path names no parent — `"a"` and `""` — and `"/"` both for a name directly under the root (`"/a"`) and for the root itself (`"/"`, `"///"`).
+- `basename` yields `""` when the path names no component: `""`, `"/"`, and `"///"`.
+- The three fields of `split` are exactly the three members' answers for the same input — one call and one binding instead of three. Edge inputs follow the three: `split("/")` is `{ dir: "/", base: "", ext: "" }`, and `split("a")` is `{ dir: "", base: "a", ext: "" }`.
+
+```js
+print(std::path::dirname("/a/b/c.txt"))   // runs: /a/b
+print(std::path::dirname("a/b/"))         // runs: a
+print(std::path::dirname("/a"))           // runs: /
+let none = std::path::dirname("a")        // ok: "" — there is no parent
+let root = std::path::dirname("/")        // ok: "/" — the root is its own parent
+print(std::path::basename("/a/b/"))       // runs: b
+print(std::path::basename("file"))        // runs: file
+let bare = std::path::basename("/")       // ok: "" — no component is named
+let s = std::path::split("/var/log/app.log")
+print(`${s.dir} ${s.base} ${s.ext}`)      // runs: /var/log app.log .log
+```
+
+## Extension
+
+| Member | Signature | Meaning |
+|--------|-----------|---------|
+| `std::path::ext` | `fn(path: string): string` | the extension of the final component, including the dot |
+| `std::path::stem` | `fn(path: string): string` | the final component without its extension |
+| `std::path::withExt` | `fn(path: string, ext: string): string` | `path` with the final component's extension replaced |
+
+- The result of `ext` **includes the dot**: `"a.txt"` yields `".txt"`, and only the last dot counts, so `"a.tar.gz"` yields `".gz"`.
+- `ext` yields `""` when there is no extension. A dot at the start of the name is a hidden-file marker, not an extension (`".bashrc"` → `""`), and a trailing dot carries no extension text (`"file."` → `""`).
+- The extension is taken from the basename, so a dot in a directory component never counts (`"dir.d/f"` → `""`); trailing slashes are already gone by then, so `"dir.d/"` yields `".d"`.
+- `stem` is `basename` minus exactly what `ext` reports: `"archive.tar.gz"` → `"archive.tar"`, `"file"` → `"file"`, and `".bashrc"` → `".bashrc"`. When `ext` is `""` nothing is removed, so `"file."` → `"file."`.
+- `withExt` replaces that extension: the argument takes **one optional leading dot** — `".md"` and `"md"` name the same extension — and the new final component is the `stem` plus the extension (the `stem` alone when the extension argument is empty, which is how an extension is removed). A name with no extension gains one; hidden files included (`".bashrc"` → `".bashrc.md"`). Only the final component changes; trailing slashes follow the module rule (`withExt("dir.d/", ".txt")` → `"dir.txt"`).
+
+```js
+print(std::path::ext("report.pdf"))           // runs: .pdf
+print(std::path::ext("archive.tar.gz"))       // runs: .gz
+let hidden = std::path::ext(".bashrc")        // ok: ""
+let trailing = std::path::ext("file.")        // ok: ""
+print(std::path::ext("dir.d/"))               // runs: .d
+print(std::path::stem("archive.tar.gz"))      // runs: archive.tar
+let hiddenStem = std::path::stem(".bashrc")   // ok: .bashrc
+print(std::path::withExt("report.txt", ".md"))   // runs: report.md
+print(std::path::withExt("report.txt", "md"))    // runs: report.md — the dot is optional
+print(std::path::withExt("report.txt", ""))      // runs: report — the extension is removed
+let added = std::path::withExt("notes", ".md")   // ok: notes.md
+```
+
+## Normalization
+
+### `std::path::normalize(path: string): string`
+
+`path` with duplicate slashes, `.` components, and resolvable `..` components collapsed.
+
+- Duplicate slashes collapse to one, `.` components disappear, and `..` pops the component before it. Trailing slashes are removed.
+- A `..` with nothing left to pop is **dropped at the root** of an absolute path (`"/../a"` → `"/a"`) but **kept in a relative path** — it may exist once directories appear (`"../a/../b"` → `"../b"`).
+- A result with nothing left is `"."` for a relative input and `"/"` for an absolute one. Leading double slashes collapse to a single `/`, and the only result that ends in `/` is the root `"/"` itself.
+
+```js
+print(std::path::normalize("a//b/./c/"))     // runs: a/b/c
+print(std::path::normalize("/a/b/../../c"))  // runs: /c
+print(std::path::normalize("/../a"))         // runs: /a
+print(std::path::normalize("../a/../b"))     // runs: ../b
+print(std::path::normalize("a/.."))          // runs: .
+print(std::path::normalize(""))              // runs: .
+print(std::path::normalize("///"))           // runs: /
+```
+
+## Relative
+
+### `std::path::relative(from: string, to: string): string?`
+
+The path that walks from `from` to `to`, or `null` when no such string exists.
+
+- Both inputs are normalized first, then their shared leading components are cancelled; each component left in `from` becomes `..`, followed by what is left of `to`. Two absolute paths always answer — they share the root — so `relative("/a/b", "/a/c")` yields `"../c"`.
+- `null` is **absence, not failure**, and it arises in exactly two cases, each meaning no string can name the relation: one side is absolute and the other relative (`relative("/a", "b")`); both are relative, but after cancelling, `from` still has a `..` left — climbing above the shared anchor would need the anchor's own name, which the two strings do not carry (`relative("../a", "b")`). A `..` left in `to` needs no name and stays a `..` in the answer.
+- A result with nothing left is `"."` for relative inputs and `"/"` for absolute ones — the normalization rule.
+- The answer is what a program joins onto `from`: normalizing `join(from, relative(from, to))` reproduces `to`.
+
+```js
+print(std::path::relative("/var/log", "/etc"))  // runs: ../../etc
+print(std::path::relative("a/x", "b"))          // runs: ../../b
+print(std::path::relative("a/b", "a/c"))        // runs: ../c
+std::path::relative("/a", "b")                  // ok: null — one absolute, one relative
+std::path::relative("../a", "b")                // ok: null — `from` would climb above the anchor
+```
+
+### Relationship to `std::fs`
+
+`std::fs` takes raw path strings and follows the host's conventions; `std::path` is portable string semantics over `/`. A program that must be host-independent builds and splits its paths here, then passes the resulting strings to [`std::fs`](fs.mdx) — and the host then interprets them by its own rules. The two modules agree on one host, but `std::path` alone does not predict what `fs` will do on another.
+
+## Totality (Whole Module)
+
+No `std::path` member returns `Result`, touches the filesystem, or stops the program on the program's own inputs: every degenerate argument — `""`, an all-slash path, a lone `..`, an absolute right operand to `join` — has a defined answer. Nine members return a string for every input; `relative` returns a string or `null`, and its `null` is the absence the standard library defines, never an `Err`. Every answer is fixed for its input and identical on every host.
+
+## Failure Model
+
+| Kind | Members |
+|------|---------|
+| Total | every member except `relative` — `isAbsolute`, `join`, `dirname`, `basename`, `split`, `ext`, `stem`, `withExt`, `normalize` |
+| Runtime failure | none |
+| Fallible (`Result`) | none |
+| Absence (`null`) | `relative` when no relative path exists — one side absolute and the other relative, or `from` would climb above the shared anchor |
+
+## Checked Call Examples
+
+```js
+std::path::join("a", "b")                 // ok
+std::path::join("a")                      // error[E0207]: expected 2 arguments, found 1
+std::path::join("a", 1)                   // error[E0202]: expected `string`, found `int`
+std::path::withExt("a")                   // error[E0207]: expected 2 arguments, found 1
+std::path::stem(1)                        // error[E0202]: expected `string`, found `int`
+std::path::relative("/a", "b")            // ok: null — the two frames do not share one
+std::path::relative("/a/b")               // error[E0207]: expected 2 arguments, found 1
+Path::join("a", "b")                      // error[E0607]: `Path` lives under `std`: use `std::path::join`
+```
+
+## Design Notes
+
+- **One signature each.** A member is not overloaded: the argument count and argument types MUST match the signature, and there are no default or named arguments.
+- **Pure strings.** No member reads the host filesystem, follows a symlink, or maps `.` and `..` onto host directories — they stay ordinary string components until `normalize` collapses them.
+- **Total by construction.** Every degenerate argument has a defined answer; the only `null` in the module is `relative`'s absence case.
+- **Host-independent.** Results are identical on every host, exactly as the standard library requires; portable programs build paths here and hand them to [`std::fs`](fs.mdx).
+- Further reading: [Filesystem](fs.mdx), [Standard Library](standard-library-net-fs.mdx), and the [standard-library specification](https://github.com/xulo-lang/std-spec).

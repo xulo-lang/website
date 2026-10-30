@@ -3,14 +3,15 @@ title: Generics & Traits
 description: Generic types, trait bounds, and trait implementations in XULO.
 ---
 
-## Type Parameters
+## Generic Parameters
 
-A generic declaration writes `<…>` immediately after its name. Functions, `struct`s, `enum`s, `type` aliases, and `impl` blocks may all be parameterized; a `trait` never is (see [Traits](#traits)).
+A generic declaration writes `<…>` immediately after its name. Functions, `struct`s, `enum`s, `type` aliases, and `impl` blocks may all be parameterized by **type parameters**, whose names stand for types, by **const parameters**, whose names stand for compile-time `int` values, or by both; a `trait` never is (see [Traits](#traits)).
 
 ```js
 fn first<T>(xs: List<T>): T { xs[0] }
+fn repeat<const N: int>(value: int): int { N * value }
 struct Pair<K, V> { key: K, value: V }
-enum Either<L, R> { Left(L), Right(R) }
+enum Packet<const N: int, T> { Fixed(T) }
 type Wrapper<T> = List<T>
 
 struct Holder<T> { value: T }
@@ -21,10 +22,11 @@ impl<T> Holder<T> {
 
 **Rules:**
 
-- One parameter list per declaration, comma-separated with distinct names — `<T, T>` is ill-formed.
-- A parameter list has **no default type arguments**: every argument of an application is written or inferred; there is no `T = int` form.
-- A parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position — and never a constructor: applying a type parameter, `T<int>`, is ill-formed (`E0230`).
-- Naming convention: a single letter (`T`, `U`, `K`, `V`) or an UpperCamelCase descriptive name.
+- One parameter list per declaration, comma-separated with distinct names across both kinds — `<T, T>` and `<T, const T: int>` are ill-formed.
+- A parameter list has **no default arguments**: every argument of an application is written or — for type parameters only — inferred; there is no `T = int` and no `N = 3` form. A const argument is never inferred (`E0816`).
+- A type parameter is in scope for the whole signature and body (and every field, payload, or aliased type). It is a type name, never a value: no runtime representation and no expression position — and never a constructor: applying a type parameter, `T<int>`, is ill-formed (`E0230`).
+- A const parameter is a compile-time `int` value, not a type. `N` may appear in a generic argument, in a constant expression, and in an ordinary expression in the declaration's body. `int` is the only admitted const type (`E0812`); const parameters have no bounds and no defaults.
+- Naming convention: a single letter (`T`, `U`, `K`, `V`) or an UpperCamelCase descriptive name for a type parameter; a single uppercase letter (`N`, `M`) for a const parameter. These are conventions, not grammar rules.
 - Generic method and variant access use ordinary spelling: `x.method()` with `.`, variants with `::` (`Either::Left(1)`).
 
 ### Nested Angle Brackets
@@ -42,20 +44,40 @@ let nested: List<Map<string, List<int> > > = []
 
 ### Type Applications
 
-A type application `Name<Args>` may be written wherever a type is expected — an annotation, a field, a payload, an alias, a parameter or return type, a pattern's type. Four rules make it well-formed; all violations are `E0230`:
+A type application `Name<Args>` may be written wherever a type is expected — an annotation, a field, a payload, an alias, a parameter or return type, a pattern's type. These rules make it well-formed:
 
-- The argument count must equal the declaration's parameter count: `Map<string>` and `Pair<int, string, int>` are ill-formed.
-- A generic name never appears without its arguments: `let xs: List = []` is ill-formed, not shorthand for anything.
-- A non-generic name takes no arguments: `int<string>` is ill-formed.
-- A type parameter is never applied: `T<int>` stands for a proper type, not a family of them.
+- The argument count must equal the declaration's **generic** parameter count, type and const combined: `Map<string>` and `Pair<int, string, 3>` are ill-formed (`E0230`).
+- A generic name never appears without its arguments: `let xs: List = []` is ill-formed, not shorthand for anything (`E0230`).
+- A non-generic name takes no arguments: `int<string>` is ill-formed (`E0230`).
+- A type parameter is never applied: `T<int>` stands for a proper type, not a family of them (`E0230`).
+- A const argument must be an integer literal, a `const` binding, or a const parameter name — a type supplied for a const parameter, or a const supplied for a type parameter, is `E0813`.
 
 ```js
 let ok: Map<string, int> = {}         // well-formed
-// let bad: Map<string> = {}          // error: `Map` expects 2 type arguments, found 1 (E0230)
-// let bare: List = []                // error: `List` expects 1 type argument, found 0 (E0230)
+let names: Array<string, 3> = ["a", "b", "c"]
+// let bad: Map<string> = {}          // error: `Map` expects 2 generic arguments, found 1 (E0230)
+// let bare: List = []                // error: `List` expects 1 generic argument, found 0 (E0230)
+// let mixed: Array<string, int> = …  // error: `int` is not a const argument (E0813)
 ```
 
-Type arguments written in a type application differ from inferred ones only in syntax — they are unified and bound-checked exactly the same way. A call site may write its own list; see [Explicit Type Arguments](#explicit-type-arguments).
+Type arguments written in a type application differ from inferred ones only in syntax — they are unified and bound-checked exactly the same way. A call site may write its own list; see [Explicit Generic Arguments](#explicit-generic-arguments).
+
+## Const Parameters
+
+A generic parameter list may contain **const parameters** of type `int`, written `const N: int`:
+
+```js
+fn count<const N: int>(): int { N }
+fn repeat<const N: int>(value: int): int { N * value }
+struct Tagged<const N: int, T> { value: T }
+```
+
+- `N` is a compile-time value of type `int`, not a type. It may appear as a generic argument, in a constant expression, and in an ordinary expression in the declaration's body; it is substituted at each instantiation.
+- `int` is the only admitted const parameter type (`E0812`). Const parameters have no bounds and no default values.
+- A call to a function with const parameters **must** write the full generic-argument list — `count<3>()`; omitting it is `E0816`. A type application such as `Tagged<3, string>` writes every parameter too, and a missing argument there is `E0230`. Version 1 has no const inference and no partial written list.
+- An `impl` is not called: its const parameters are determined by matching the implemented type, as [Traits](#traits) specifies.
+- A const argument is an integer literal, a `const` binding (module-level or block-level), or a const parameter name. A negative value is written through a `const` binding (`const M = -1` then `Tagged<M, int>`), because `-1` is a unary expression rather than a literal. Const arithmetic is not a type argument in version 1: write a `const` binding for a computed value.
+- A const argument is evaluated at compile time; type identity uses the value: `count<3>` and `count<M>` with `const M = 3` are the same instantiation, while `count<3>` and `count<4>` differ.
 
 ## Bounds
 
@@ -83,7 +105,7 @@ let ok = Palette(shape: rect)       // T = Rect, and Rect: Area
 
 ## Inference
 
-A call that writes no type-argument list is checked by inference: arguments are determined by unification against the declared parameter types, and an expected type may supply what the arguments leave open. A call MAY also write the list itself — see [Explicit Type Arguments](#explicit-type-arguments).
+A call that writes no generic-argument list is checked by inference: type arguments are determined by unification against the declared parameter types, and an expected type may supply what the arguments leave open. A call MAY also write the list itself — see [Explicit Generic Arguments](#explicit-generic-arguments). A callee with a const parameter cannot omit the list (`E0816`), because const arguments are never inferred.
 
 ```js
 let n = first([1, 2, 3])        // T = int
@@ -106,24 +128,26 @@ let t = both([1], ["x"])   // error: T is int from `a`; `List<string>` does not 
 - Under-constrained inference is repaired by writing the type list — `empty<int>()` — or by annotating the context.
 - Each distinct assignment of type arguments is a separate instantiation: the program behaves **as if** a non-generic copy were written for each, and no operation observes a type argument at runtime.
 
-## Explicit Type Arguments
+## Explicit Generic Arguments
 
-A call MAY write the type arguments of a generic callee explicitly, in a list between the callee and the argument list:
+A call MAY write the generic arguments of a generic callee explicitly, in a list between the callee and the argument list:
 
 ```js
 let n = first<int>([1, 2, 3])      // T = int, written at the call
+let three = count<3>()              // N = 3, a const argument is always written
+let a = Array::filled<int, 3>(0)    // type and const arguments together
 let m = Map<string, int>()          // constructor with written arguments
-let all = Task::all<int>([t1, t2])  // namespace member
 
-// let bad = first<int, string>([1, 2, 3])  // error: expected 1 type argument, found 2 (E0808)
-// let none = double<int>(21)               // error: `double` accepts no type arguments (E0807)
+// let bad = first<int, 3>([1, 2, 3]) // error: expected 1 generic argument, found 2 (E0808)
+// let none = double<int>(21)         // error: `double` accepts no generic arguments (E0807)
+// let kind = count<int>()            // error: `int` is not a const argument (E0813)
 ```
 
-- The list is written `<` … `>` immediately before the argument list, and it is **all or nothing**: a call writes every type parameter of its callee or writes none.
-- The number of written arguments must equal the number the callee declares — a longer or shorter list is `E0808`; a list before a callee that declares no type parameters — a function value, a constructor — is `E0807`.
-- Each written argument must satisfy the parameter's bounds (`E0801`).
+- The list is written `<` … `>` immediately before the argument list, and it is **all or nothing**: a call writes every generic parameter of its callee — type and const combined — or writes none. A callee with a const parameter cannot omit the list (`E0816`).
+- The number of written arguments must equal the number the callee declares — a longer or shorter list is `E0808`; a list before a callee that declares no generic parameters — a function value, a constructor — is `E0807`.
+- Each written type argument must satisfy the parameter's bounds (`E0801`); a written const argument has no bound. Supplying a type argument for a const parameter, or a const argument for a type parameter, is `E0813`.
 - When the list is written, inference is suppressed for those parameters and an expected type cannot override a written argument. Value arguments are checked against the parameter types with the written arguments substituted — a mismatch is the ordinary argument error (`E0202`) — and the call's type is the declared return type so substituted (an assignment mismatch is `E0201`).
-- Whether a `<` after a callee begins such a list is decided by the [calls spec](/en/docs/spec/expressions/calls/): the material to the matching `>` must parse as a comma-separated type list, and the next token must be `(`; otherwise the `<` is a comparison. Nested generics keep the spacing rule: `first<Map<string, int> >(m)` is well-formed; `first<Map<string, int>>(m)` is not.
+- Whether a `<` after a callee begins such a list is decided by the [calls spec](/en/docs/spec/expressions/calls/): the material to the matching `>` must parse as a comma-separated generic-argument list, and the next token must be `(`; otherwise the `<` is a comparison. Nested generics keep the spacing rule: `first<Map<string, int> >(m)` is well-formed; `first<Map<string, int>>(m)` is not.
 
 ## Traits
 
@@ -143,7 +167,7 @@ impl Area for Rectangle {
 
 **Declaration:**
 
-- A trait declares **no type parameters**: `trait Convert<T> { … }` is a compile-time error (`E0810`), and a trait's method signatures therefore never mention type parameters. A type that should convert to several targets implements one trait per target, not one parameterized trait.
+- A trait declares **no generic parameters**: `trait Convert<T> { … }` and `trait Sized<const N: int> { … }` are compile-time errors (`E0810`), and a trait's method signatures therefore never mention type or const parameters. A type that should convert to several targets implements one trait per target, not one parameterized trait.
 - Method signatures are separated by `;` (a trailing `;` is optional).
 - A trait method is signature-only — **no default implementations**, and every method must declare a return type.
 - The receiver is `self` or `mut self`; an implementation must use the same form, and remaining parameters must be annotated.
@@ -154,7 +178,7 @@ impl Area for Rectangle {
 - Every declared method must be present (`E0802`) with mutually assignable signatures (`E0803`), and no extra methods may be declared (`E0804`) — extra behavior belongs in an inherent `impl`.
 - Two implementations of the same trait for the same type in the same module are `E0805`.
 - An `impl` applies within the module that contains it: **`use`-ing a type or trait never brings an `impl`**.
-- **A generic `impl` applies to a type** only when its parameters can be instantiated so the implemented type equals that type **and** its bounds are satisfied by that same instantiation — recursively, an impl whose bounds name other traits applies only when those bounds hold in turn. An impl that does not apply contributes **nothing**: no members through member lookup (a lookup left with only it is `E0102`) and no trait implementation for explicit dispatch or bound checking (`E0801`).
+- **A generic `impl` applies to a type** only when its type and const parameters can be instantiated so the implemented type equals that type **and** its type bounds are satisfied by that same instantiation — recursively, an impl whose bounds name other traits applies only when those bounds hold in turn. Matching the implemented type determines the const values; this is not a call and is not const inference. A const parameter must occur in the implemented type (`E0817`), and two impls that can apply to the same type after substitution conflict (`E0805`). An impl that does not apply contributes **nothing**: no members through member lookup (a lookup left with only it is `E0102`) and no trait implementation for explicit dispatch or bound checking (`E0801`).
 
 ```js
 struct Palette<T> { shape: T }
@@ -246,7 +270,7 @@ print(`${Shape::Circle(2.5)}`)   // Shape::Circle(2.5)
 
 - A field or payload type with no string form fails the derive at that type with `E0801`.
 - The expansion is an ordinary impl: a hand-written `impl ToString` for the same type, or a second `#Derive(ToString)`, is the conflicting-impl error `E0805`.
-- `#Derive` on a generic type is `E0112` — no bound means "base type or implements `ToString`", so the expansion cannot be written for an open `T`; a generic type keeps its hand-written impl.
+- `#Derive` on a type that declares generic parameters is `E0112` — no bound means "base type or implements `ToString`", so the expansion cannot be written for an open parameter; a generic type keeps its hand-written impl.
 - Derive targets are a closed registry: the only registered target is `ToString`; `Display` and `Debug` are reserved, unregistered names — written as targets they are `E0111`.
 
 ### `#Test`

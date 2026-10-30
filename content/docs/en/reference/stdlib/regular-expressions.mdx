@@ -1,167 +1,149 @@
 ---
 title: Regular Expressions
-description: Pattern matching and text replacement with the standard-library RegExp module in XULO.
+description: Pattern matching, replacement, and splitting with std::regex in XULO.
 ---
 
 ## Overview
 
-Regular expressions are a standard-library API. The specification places regular expressions (together with JSON and I/O) outside the language, and the grammar has no `/pattern/flags` literal: in expression position `/` is division. Patterns are ordinary `string` values handed to the `RegExp` type, which comes from a module that must be named by an explicit `use` before use — no regex name is part of the prelude.
+Regular expressions are a standard-library API in `std::regex`. The grammar has no `/pattern/flags` literal: in expression position `/` is division, and patterns are ordinary `string` values. `std::regex` exports **three types and no values** — `RegExp`, `RegexError`, and `RegexMatch` — so `RegExp::compile(…)` is reached through the imported type name, not through a module namespace:
 
 ```js
-use regex::{RegExp, RegexError};   // the type, its compile function, and the error type
+use std::regex::{RegExp, RegexError};   // the canonical form
+use std::regex::RegExp;                 // one type under its own name
+use std::regex::*;                      // RegExp, RegexError, RegexMatch
 ```
 
-Compiling never throws: `RegExp::compile` returns `Result<RegExp, RegexError>`, so an illegal pattern is a value the caller handles with `match` or `?`.
+`use std::regex;` and `use std::regex as R;` are `E0607` — there is no value namespace to bind. The three type names also resolve in annotation position without an import, while expressions that name them need the binding.
 
-## Methods
+Compiling never throws: `RegExp::compile` returns `Result<RegExp, RegexError>`, so an illegal pattern or flag is a value the caller handles with `match` or `?`.
 
-### `RegExp::compile(pattern: string, flags: string = ""): Result<RegExp, RegexError>`
+## Compiling
 
-Compiles a pattern string, optionally with [flags](#flags). The default for `flags` is the empty string.
+### `RegExp::compile(pattern: string, flags: string? = null): Result<RegExp, RegexError>`
+
+Compiles a pattern string with optional flags. Zero or three arguments are `E0207`, a non-`string` argument is `E0202`, and named arguments are rejected.
+
+Failure — an unknown flag or a pattern the engine cannot parse — is `Result::Err(RegexError)`, never a panic and never the built-in `Error`. Success carries an immutable `RegExp` that every matching member reads.
 
 ```js
 match RegExp::compile("[a-z]+", "i") {
-  Result::Ok(re) => print("pattern compiled")
-  Result::Err(reason) => print("Illegal pattern: " + reason.message)
+  Result::Ok(re) => print(re.test("ABC123"))   // true
+  Result::Err(e) => print(e.message)
 }
 ```
 
-### `test(input: string): bool`
+### Flags
 
-Whether the pattern matches anywhere in `input`.
+| Flag | Effect |
+|------|--------|
+| `i` | case-insensitive matching, by Unicode case folding |
+| `m` | multi-line: `^` and `$` also match at line edges |
+| `g` | remembered by the pattern: `string.replace` substitutes every match instead of the first |
+| `u` | accepted and a no-op — Unicode matching is the engine's default and only mode |
+| `s` | dotall: `.` also matches a newline |
 
-```js
-match RegExp::compile("^[a-z0-9]+$") {
-  Result::Ok(re) => print(re.test("abc123"))   // true
-  Result::Err(reason) => print(reason.message)
-}
-```
+The flag string is scanned left to right; the first character outside `i g m u s` fails compilation with ``unknown flag `x` ``. The omitted or empty flags string means no flags. `g` changes nothing for `test`, `find`, or `findAll`.
 
-### `find(input: string): RegexMatch?`
+### Engine Contract
 
-First match in `input`, or `null` when there is none. The optional is read with a null test (which narrows the binding) or with `??` — there is no `if let` and no non-null assertion (`!` is logical negation, not an unwrap).
+- Matching is over Unicode scalar values, and `.` matches any scalar except a newline unless `s` is set.
+- At the leftmost position where a match exists, the engine prefers the alternative the pattern orders first: `a|ab` finds `a` in `"ab"`.
+- Look-around assertions and back-references are **not supported**: `(?=…)`, `(?<=…)`, and `\1` are compile-time failures delivered as `Err(RegexError)`.
+- Any other malformed pattern — an unclosed group or class, an unrecognized escape — fails the same way with the engine's parse-error text.
 
-```js
-fn first_group(re: RegExp, input: string): string? {
-  let m = re.find(input)
-  if m != null {
-    print("Full match: " + m.value)
-    m.group(1) ?? ""                          // m is narrowed inside the branch
-  } else {
-    null
-  }
-}
-```
-
-### `find_all(input: string): List<RegexMatch>`
-
-Every match in `input`, in order.
-
-```js
-fn all_matches(re: RegExp, input: string): List<RegexMatch> {
-  let matches = re.find_all(input)
-  for m in matches {
-    print("Found: " + m.value)
-  }
-  matches
-}
-```
-
-### `RegexMatch` members
+## Matching
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `value` | `string` (field) | the text that matched |
-| `group` | `group(index: int): string?` | capture group `index`; `null` when the group did not participate |
+| `RegExp::test` | `fn(input: string): bool` | whether the pattern matches anywhere in `input` |
+| `RegExp::find` | `fn(input: string): RegexMatch?` | the first (leftmost) match, or `null` |
+| `RegExp::findAll` | `fn(input: string): List<RegexMatch>` | every non-overlapping match, left to right |
+
+`find` reports absence as `null` — ordinary data, not a failure. `findAll` returns matches in order and non-overlapping, regardless of `g`; an empty match is a match, and the scan always advances, so the list is finite.
+
+```js
+match RegExp::compile("(\\d+)-(\\d+)") {
+  Result::Ok(re) => {
+    let m = re.find("room 42-7")
+    if m != null {
+      print(`${m.value} ${m.group(1)} ${m.group(2)}`)   // 42-7 42 7
+      print(`${m.index} ${m.end}`)                       // 5 9
+    }
+    for hit in re.findAll("x 42-7 y 8-9") {
+      print(hit.value)                                   // 42-7, then 8-9
+    }
+  }
+  Result::Err(e) => print(e.message)
+}
+```
+
+### `RegexMatch`
+
+| Member | Type | Meaning |
+|--------|------|---------|
+| `value` | `string` | the matched text |
+| `index` | `int` | where the match starts, in Unicode scalar indices |
+| `end` | `int` | one past the match's last scalar |
+| `group(ref: number \| string)` | `string?` | capture group `ref`, 1-based or by name |
+
+- `index` and `end` count Unicode scalar values, so `input.slice(m.index, m.end)` is exactly `m.value` and `end == index + m.value.len`. An empty match has `index == end`.
+- A numeric `group` is **1-based**: `group(1)` is the first parenthesised group. There is no `group(0)` — the whole match is `value` — and an out-of-range index or a group that did not participate returns `null`.
+- A string `group` reads a **named** group: `(?P<name>…)` captures like a numbered group, and `group("name")` returns its text. `group("1")` asks for a group named `1`, not index 1. A name no group has returns `null`.
+
+## Substitution
 
 ### `string.replace(pattern: RegExp, replacer: string | fn(RegexMatch): string): string`
 
-A `string` method that substitutes matches of `pattern`. The replacer is either a literal string — `$1`, `$2`, … name capture groups — or a closure that receives each match.
+A method on `string`, not a module function. The receiver is the text, and the argument is a compiled pattern.
+
+- With `g` the substitution covers every match; without it, only the first. A pattern that does not match returns the input unchanged.
+- A **string** replacer is a template expanded per match: `$1`… expand capture groups, `$0` expands the whole match, `$name` and `${name}` expand a named group, `$$` is a literal `$`, and a `$` that begins none of these stays literal.
+- A **function** replacer receives the `RegexMatch` and returns the replacement text.
+- A function replacer that returns a non-string, a replacer that is neither string nor function, and a pattern argument that is not a compiled `RegExp` are runtime failures.
 
 ```js
-fn format_date(text: string): Result<string, RegexError> {
-  let re = RegExp::compile("(\\d{4})-(\\d{2})-(\\d{2})")?
-  Result::Ok(text.replace(re, "$2/$3/$1"))     // "2026-09-07" → "09/07/2026"
+match RegExp::compile("(\\w+)@(\\w+)") {
+  Result::Ok(re) => print("ada@example".replace(re, "$2.$1"))   // example.ada
+  Result::Err(e) => print(e.message)
 }
 
-fn upper_words(text: string): Result<string, RegexError> {
-  let re = RegExp::compile("[a-z]+", "g")?
-  Result::Ok(text.replace(re, (m) => m.value.to_uppercase()))
+match RegExp::compile("oo", "g") {
+  Result::Ok(re) => print("foo boo".replace(re, fn(m) { "[" + m.value + "]" }))   // f[oo] b[oo]
+  Result::Err(e) => print(e.message)
 }
 ```
 
-## Flags
+## Splitting
 
-| Flag | Description |
-|------|-------------|
-| `i` | case-insensitive matching |
-| `g` | global matching: find all matches instead of only the first |
-| `m` | multiline mode: `^` and `$` match line starts and ends |
-| `u` | Unicode mode |
+### `string.split(re: RegExp): List<string>`
 
-Flags are passed to `compile`, not written after a pattern: `RegExp::compile("^[a-z0-9]+$", "i")`.
+A method on `string`, like substitution. The pieces are the text before the first match, between consecutive matches, and after the last, from the same left-to-right non-overlapping scan `findAll` runs, regardless of `g`.
 
-## Error Handling
-
-The only failure is compilation, and it is a value: `RegExp::compile` yields `Result<RegExp, RegexError>`. There is no `throw` and no `try` / `catch` — a bad pattern leaves the function as `Result::Err`, propagated with `?` or inspected with `match`.
-
-`RegexError` is the regex module's error value; it carries a `message: string`, the same shape as the built-in `Error` ([Error Handling](/en/docs/spec/error-handling/)).
+- A match at index 0 gives an empty first piece; a match ending at the end gives an empty last piece.
+- A pattern that does not match returns a one-element list holding the input.
+- A pattern argument that is not a compiled `RegExp` is a runtime failure.
 
 ```js
-fn compile_or_fail(pattern: string): Result<RegExp, RegexError> {
-  RegExp::compile(pattern)          // an illegal pattern travels up as Err
-}
-
-fn describe(pattern: string): string {
-  match RegExp::compile(pattern) {
-    Result::Ok(_) => "compiled"
-    Result::Err(reason) => "illegal pattern: " + reason.message
-  }
+match RegExp::compile("\\s*,\\s*") {
+  Result::Ok(re) => print("a , b,c".split(re))   // [a, b, c]
+  Result::Err(e) => print(e.message)
 }
 ```
 
-Matching itself cannot fail: `test`, `find`, `find_all`, and `replace` return ordinary values, and an absent match is `null` — absence, not failure.
+## Failure Model
 
-## Use Cases
+| Kind | Members |
+|------|---------|
+| Fallible (`Result`) | `RegExp::compile` — `Result<RegExp, RegexError>`, the module's own error type |
+| Total | `RegExp::test`, `find`, `findAll`; `string.replace` and `string.split` for their declared argument types |
+| Absence (`null`) | `find` with no match; `group` at index 0, out of range, not participating, or by an unknown name |
+| Runtime failure | `replace`'s function replacer returning a non-string; a replacer that is neither string nor function; a `replace` or `split` pattern argument that is not a compiled `RegExp` |
 
-- **Data Validation**: validate email, phone, and ID-card formats
-- **Text Extraction**: pull specific patterns out of a string
-- **Text Replacement**: batch-replace text matching a pattern
-- **Log Analysis**: parse key information from log files
-
-## Examples
-
-```js
-// Validate an email address
-fn is_valid_email(email: string): bool {
-  match RegExp::compile("^[a-zA-Z0-9_.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") {
-    Result::Ok(re) => re.test(email)
-    Result::Err(_) => false
-  }
-}
-
-// Extract the domain from a URL
-fn extract_domain(url: string): Result<string?, RegexError> {
-  let re = RegExp::compile("https?://([^/]+)")?
-  let m = re.find(url)                 // RegexMatch?
-  if m != null {
-    Result::Ok(m.group(1) ?? "")       // m is narrowed inside the branch
-  } else {
-    Result::Ok(null)
-  }
-}
-
-// Extract every email address in a text
-fn find_emails(text: string): Result<List<RegexMatch>, RegexError> {
-  let re = RegExp::compile("([a-zA-Z0-9_.-]+)@([a-zA-Z0-9.-]+)", "g")?
-  Result::Ok(re.find_all(text))
-}
-```
+`RegexError` has the same one-field shape as the built-in `Error` — `{ message: string }` — but it is the module's own type, the one exception to `Result<T, Error>`. Read it as `e.message` in a `Result::Err` arm.
 
 ## Design Notes
 
-- **No regex literal.** The grammar defines only integer, float, string, template, boolean, and null literals; `/…/` is not one of them. Patterns are strings, and the compiler checks them only when `compile` runs.
-- **No exceptions.** Compilation failure is a `Result`; use `?` in a function that returns `Result<T, RegexError>` and `match` at a boundary. `panic` is for broken invariants, never for a user-supplied pattern.
-- **Optionals, not `!`.** `find` returns `RegexMatch?` and `group` returns `string?`; a null test narrows the binding and `??` supplies a default. The propagation operator `?` on an optional is legal only where the enclosing function's return type admits `null`.
-- **Spec type spellings.** `string`, `bool`, `List<RegexMatch>` — not `string`, `boolean`, or `list<…>`.
-- Further reading: [Error Handling](/en/docs/spec/error-handling/), [Optional Types](/en/docs/spec/types/composite-types/), [Calls](/en/docs/spec/expressions/calls/).
+- **No regex literal.** The grammar defines only integer, float, string, template, boolean, and null literals; `/…/` is not one of them.
+- **Optionals, not `!`.** `find` returns `RegexMatch?` and `group` returns `string?`; a null test narrows the binding and `??` supplies a default.
+- **Type arguments are rejected.** No `std` member takes a type parameter; `RegExp::compile<int>(…)` is `E0807`.
+- Further reading: [Error Handling](/en/docs/spec/error-handling/), [Optional Types](/en/docs/spec/types/composite-types/), [Calls](/en/docs/spec/expressions/calls/), and the [standard-library specification](https://github.com/xulo-lang/std-spec).

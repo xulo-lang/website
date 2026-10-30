@@ -19,7 +19,7 @@ Every type has one of two categories, and the category decides what a binding de
 
 | Category | Types | `let x = e` and assignment |
 |----------|-------|----------------------------|
-| **Value** | `bool`, `string`, `int`, `float`, `number`, fixed-bit numerics, `null`, `unit`, `struct`, `enum`, `Range<T>`, tuples | a fresh, independent copy of `e`'s value; a `struct`, `enum`, or tuple copy is shallow — each field or element is copied by its own category |
+| **Value** | `bool`, `string`, `int`, `float`, `number`, fixed-bit numerics, `null`, `unit`, `struct`, `enum`, `Array<T, N>`, `Range<T>`, tuples | a fresh, independent copy of `e`'s value; a `struct`, `enum`, `Array`, or tuple copy is shallow — each field or element is copied by its own category |
 | **Reference** | `List<T>`, `Map<K, V>`, `Set<T>` | the same value, shared: `x` and `e` then denote the one underlying value |
 
 Four further values carry **identity** rather than content — function values (closures), `Task<T>`, `View`, and `Error` — and behave as references to a single, distinct thing: two such values are equal only when they are the same value. `copy` of an identity-carrying value is the same value, so there is no way to clone a task in flight or to split a closure's captured storage by copying it.
@@ -45,7 +45,7 @@ Consequences:
 - Reference values are shared: a write through any mutable place naming the value is visible through every other binding naming it. Independence is obtained explicitly with `copy`.
 - Arguments are independent of this table: a parameter *borrows* its argument and never copies it, whatever the category.
 
-`==` compares by content for every value-carrying type — element-wise for tuples, following references for collections, terminating on cyclic values — and by identity for the four identity-carrying values. A comparison of unrelated types is a compile-time error (`E0211`).
+`==` compares by content for every value-carrying type — element-wise for tuples and `Array`, following references for collections, terminating on cyclic values — and by identity for the four identity-carrying values. Arrays of different lengths are different types, so comparing them is `E0211`. A comparison of unrelated types is a compile-time error (`E0211`).
 
 ## Ownership with `move`
 
@@ -76,7 +76,7 @@ The one place where `move` is *required* is capture into a `spawn` block (see [C
 
 `copy` produces an independent deep copy of its operand's value: a fresh value in which every reachable content-bearing part has been duplicated, so later writes through either copy are invisible to the other.
 
-- Deep copying follows references through `List`, `Map`, and `Set` values, through `struct` and `enum` fields, and through tuple elements. Copying a cyclic structure terminates: the copy graph mirrors the original.
+- Deep copying follows references through `List`, `Map`, and `Set` values, through `struct` and `enum` fields, through tuple elements, and through `Array` elements. Copying a cyclic structure terminates: the copy graph mirrors the original.
 - Identity-carrying values — function values, `Task<T>`, `View`, `Error` — are not duplicated: the copy is the same value.
 - `copy` accepts any expression as its operand and, like `move`, appears only as a `let` initializer, a call argument, or a `return` operand. `copy` of an already value-semantic value is redundant but legal.
 
@@ -208,13 +208,13 @@ A runtime failure stops the program where it occurs: it is a `panic` raised by t
 
 | Condition | When it occurs |
 |-----------|----------------|
-| List index out of bounds | reading or writing `xs[i]` where `i` is negative or at or past the list's length |
-| Absent map key | reading `m[k]` for a key with no binding |
-| String index out of range | `stringCodeAt` with an index outside `0 … stringSize(s) − 1`, or `stringSlice` with bounds outside `0 … stringSize(s)` or with `start > end` |
+| List index or length out of range | a subscript `xs[i]` with `i` negative or at or past the list's length; a `splice` or `slice` index/count outside its stated bounds; or a negative `resize`/`truncate` length |
+| Array index out of bounds | reading or writing `a[i]` where `i` is negative or at or past `N` |
+| String index out of range | `s.codeAt(i)` with an index outside `0 … s.len − 1`, or `s.slice(start, end)` with bounds outside `0 … s.len` or with `start > end` |
 | Division or remainder by zero | `/` or `%` on non-constant operands whose value is zero |
 | Shift amount out of range | `<<` or `>>` whose amount is negative or at or past the operands' bit width, on non-constant operands |
 | Arithmetic overflow | an `int` or fixed-bit operation whose result exceeds its type, on non-constant operands |
-| `Math::toFixed` digits out of range | `Math::toFixed` is called with `digits` outside `0...=15` |
+| `std::math::toFixed` digits out of range | `std::math::toFixed` is called with `digits` outside `0...=15` |
 | Unprovided environment key | reading an `@Environment` key no provision supplies |
 | Stack or task exhaustion | recursion depth or the runtime's task limit is exceeded |
 | Lock misuse | a task acquires a `lock` it already holds (locks are not reentrant) |

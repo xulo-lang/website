@@ -98,7 +98,7 @@ let ok = data is string
 if size is not int { print("other") }
 ```
 
-- Equality is structural for primitives, `List`, `Map`, `Set`, tuples, structs, and enums; both operands must have a common type (`E0211`), so there is no cross-type equality.
+- Equality is structural for primitives, `List`, `Array`, `Map`, `Set`, tuples, structs, and enums; both operands must have a common type (`E0211`), so there is no cross-type equality. An `Array` compares element-wise in index order, and arrays of different lengths are different types (`E0211`).
 - `null == null` is `true`; comparing `null` with a value requires that value's type to be optional.
 - `is` / `is not` yield `bool` and are non-associative. The right side must be a **testable type** — a base type, a non-generic struct/enum, `unknown`, or a union/optional of testable types (`E0222`).
 - As the condition of an `if`, `x is T` narrows `x` in the branches; in every other `bool` position it is an ordinary test.
@@ -126,13 +126,15 @@ print("count=" + str(count))
 let all = head + tail
 ```
 
-`string + string` yields `string`; `List<T> + List<U>` yields `List<T | U>`. Mixing a string with a non-string is an error (`E0227`) — convert explicitly with `str(x)` or a template. There is no implicit conversion anywhere.
+`string + string` yields `string`; `List<T> + List<U>` yields `List<T | U>`. Mixing a string with a non-string is an error (`E0227`) — convert explicitly with `str(x)` or a template. `Array<T, N>` is not an operand of `+` or of any arithmetic operator: `Array + Array`, `Array + List`, and `arr * 2` are `E0201`. There is no implicit conversion anywhere.
 
 ## Access, Optional Chaining, Spread
 
 ```js
-user.name                // member access (struct field, map key, method)
-xs[0]                    // subscript
+user.name                // member access (struct field or method)
+counts.get("a")          // map entry (there is no `counts.a` entry form)
+xs[0]                    // list element
+a[0]                     // array element
 p.0                      // tuple position
 user?.name               // optional member access
 session?.refresh()       // null receiver short-circuits the whole chain
@@ -143,7 +145,7 @@ let merged = { ...base, active: true }
 
 - `?.` is the only optional-chaining form — there is no optional subscript. Each `?.` step adds one optional layer, and when the receiver is `null` the rest of the chain (including call arguments) is not evaluated.
 - `??` requires an optional left operand: `T? ?? T` is `T`, `T? ?? U` is `T | U`. It reacts only to `null`, never to `false`, `0`, or `""`.
-- Prefix `...` appears only inside list and map literals, with a `List` operand in a list and a `Map` operand in a map; a later duplicate key wins.
+- Prefix `...` appears only inside list and map literals, with a `List` operand in a list and a `Map` operand in a map; a later duplicate key wins. A spread is not accepted in an array literal checked against `Array<T, N>` (`E0818`), because its runtime length cannot be proven to equal `N`.
 
 ## Calls
 
