@@ -129,12 +129,14 @@ fn Dashboard(): View {
 
 ## Comments
 
-`//` starts a line comment, up to the end of the line; `/* … */` is a block comment. Comments carry no meaning to the language.
+`//` starts a line comment, up to the end of the line; `/* … */` is a block comment. Comments carry no meaning to the language — there is no documentation-comment syntax, and the compiler reads none.
 
 ```js
 // This is a comment
 println("Hello")
 ```
+
+Documentation tooling MAY read comment text by convention: `///` and `/** … */` document the declaration that follows, `//!` and `/*! … */` document the file's module, and both a documentation generator and an IDE consume the same structured model. The convention is informative — see the specification's [Documentation Comments](/en/docs/spec/documentation-comments/) chapter.
 
 ## What's Inside
 
