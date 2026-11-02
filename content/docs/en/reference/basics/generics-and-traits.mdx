@@ -211,7 +211,7 @@ fn main() {
 ```
 
 - **Explicit dispatch** `Trait::method(receiver)` resolves directly to the implementation of `Trait` for the receiver's static type; if none is visible, that is `E0801`.
-- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait::method(receiver)`.
+- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait::method(receiver)`. When neither step finds a candidate and the receiver's type implements `Display`, `value.toString(…)` resolves to the derived action of that impl — `display` at the default `Format` — without appearing in any trait's declared members; an inherent `toString` or one declared by another in-scope trait still wins.
 - All dispatch is static. There is no dynamic dispatch on a value's runtime type and no reflection over type arguments.
 
 ### Inside a Bound
@@ -230,21 +230,23 @@ fn describe<T: Area>(shape: T): float {
 
 - A type satisfies a trait **only through an `impl`**. Matching field shapes never implies satisfaction.
 - A `type` alias is transparent: it never causes a type to implement a trait, and no `impl` may be declared *for an alias* — implementations attach to the type it expands to.
-- `ToString` is built in: interpolating a value in a template requires a base type (`int`, `float`, `bool`, `string`) or `impl ToString` (`E0212`).
+- `Display`, `Debug`, and the struct `Format` are built in: interpolating a value in a template requires a base type (`int`, `float`, `bool`, `string`) or `impl Display` (`E0212`). `Display` is how a type is shown; `Debug` is what a type shows of itself; `Format` carries a directive's `precision` and `alternate` to a `display` or `debug` call.
 
 ```js
 struct User { name: string, age: int }
 
-impl ToString for User {
-  fn toString(self): string {
+impl Display for User {
+  fn display(self, format: Format): string {
     `${self.name} (${self.age})`
   }
 }
 ```
 
+Every `Display` impl also provides the derived action `value.toString()` — `display` at the default `Format`, `Format(precision: null, alternate: false)` — which no `impl` declares: writing `fn toString` inside `impl Display` is `E0804`. Consumers that render with no directive — interpolation, `str`, `print`, `List.join` — pass that default `Format`.
+
 ## Attributes
 
-`#` is the declaration-attribute marker. The form is `#Name`, or `#Name(Arg, …)` where the arguments are identifiers only; the attribute list is written outermost, before `pub` and `async`. An attribute on its own line, directly above the declaration, is **RECOMMENDED**; a shared line — `#Derive(ToString) struct User { … }` — is equally well-formed.
+`#` is the declaration-attribute marker. The form is `#Name`, or `#Name(Arg, …)` where the arguments are identifiers only; the attribute list is written outermost, before `pub` and `async`. An attribute on its own line, directly above the declaration, is **RECOMMENDED**; a shared line — `#Derive(Debug) struct User { … }` — is equally well-formed.
 
 - The registry is **closed**, and every attribute written in source is interpreted by the checker: there are no inert attributes and no macros. An unregistered name is `E0108` (`` attribute `Inline` is not defined ``).
 - Attributes go on exactly five item forms — `fn`, `struct`, `enum`, `trait`, and `impl` — plus the test form `#Test` (see [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/)), and on nothing else: not on `type` aliases, `let`, `const`, trait method signatures, or components.
@@ -254,24 +256,24 @@ Exactly two attributes are registered.
 
 ### `#Derive`
 
-`#Derive(ToString)`, on a `struct` or an `enum` only, generates the structural `impl ToString`: a struct renders as `S(f1: …, f2: …)` — the fields in declaration order, a fieldless struct as `S()` — and an enum variant as `E::V` or `E::V(p, …)`, with payload slots positional even when the variant names them.
+`#Derive(Debug)`, on a `struct` or an `enum` only, generates the structural `impl Debug`: a struct renders as `S(f1: …, f2: …)` — the fields in declaration order, a fieldless struct as `S()` — and an enum variant as `E::V` or `E::V(p, …)`, with payload slots positional even when the variant names them. The generated `debug` takes the `Format` parameter like every `Debug` method and forwards it to the `debug` calls it makes on user-declared fields; the structural form itself is fixed.
 
 ```js
-#Derive(ToString)
+#Derive(Debug)
 struct User { name: string, age: int }
 
-#Derive(ToString)
+#Derive(Debug)
 enum Shape { Circle(float), Rect(float, float) }
 
 let s = User(name: "Alice", age: 30)
-print(str(s))                    // User(name: Alice, age: 30)
-print(`${Shape::Circle(2.5)}`)   // Shape::Circle(2.5)
+print(s)                          // User(name: Alice, age: 30)
+print(Shape::Circle(2.5))         // Shape::Circle(2.5)
 ```
 
-- A field or payload type with no string form fails the derive at that type with `E0801`.
-- The expansion is an ordinary impl: a hand-written `impl ToString` for the same type, or a second `#Derive(ToString)`, is the conflicting-impl error `E0805`.
-- `#Derive` on a type that declares generic parameters is `E0112` — no bound means "base type or implements `ToString`", so the expansion cannot be written for an open parameter; a generic type keeps its hand-written impl.
-- Derive targets are a closed registry: the only registered target is `ToString`; `Display` and `Debug` are reserved, unregistered names — written as targets they are `E0111`.
+- A field or payload is rendered by its type: a `struct` renders through its `debug` — without a `Debug` impl the derive fails at that type with `E0801` (`` `User` does not implement `Debug` ``), a struct never renders directly; an `enum` renders through its `debug` when it implements one and otherwise by the output table's enum row; any other type renders directly by the output table's rules. A value typed `unknown` in a field or any structural position is `E0212`. The rules recurse through structural positions — a container's elements, an optional's `T`, a tuple's elements, a `Result`'s slots, an enum's payloads — so `List<User>`, `User?`, `(User, int)`, and `Result<User, string>` each need `User`'s `Debug`.
+- The expansion is an ordinary impl: a hand-written `impl Debug` for the same type, or a second `#Derive(Debug)`, is the conflicting-impl error `E0805`.
+- `#Derive` on a type that declares generic parameters is `E0112` — no bound means "is not a struct, or implements `Debug`", so the expansion cannot be written for an open parameter; a generic type keeps its hand-written impl.
+- Derive targets are a closed registry: the only registered target is `Debug`; `Display` and `ToString` are reserved, unregistered names — written as targets they are `E0111`. `Display` is never a derive target: the user-visible string form is an author's decision.
 
 ### `#Test`
 

@@ -13,6 +13,7 @@
     "math",
     "time",
     "regular-expressions",
+    "fmt",
     "error-handling"
   ]
 }

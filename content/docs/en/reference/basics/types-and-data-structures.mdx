@@ -200,6 +200,6 @@ impl Area for Rectangle {
 - Calls use explicit dispatch — `Area::area(r)` — or, for a member call, the resolution order inherent methods first, then trait implementations in scope.
 - Satisfaction is **nominal**: only an `impl` makes a type implement a trait; matching field shapes never does.
 - `pub trait` exports the trait; importers normally bring it in with `use type form::Area;` and implement it locally — `use`-ing a trait never brings an `impl`.
-- `ToString` is built in: interpolating a value in a template requires a base type or `impl ToString` (`E0212`).
+- `Display` is built in: interpolating a value in a template requires a base type or `impl Display` (`E0212`); `print` accepts `Display` and `Debug`.
 
 Bounds, generics, and dispatch are specified in [Generics & Traits](/en/docs/reference/basics/generics-and-traits/). Base types, optionals, and collections follow the [type spec](/en/docs/spec/types/primitive-types/).
