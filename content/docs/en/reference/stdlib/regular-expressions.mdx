@@ -42,7 +42,7 @@ match RegExp::compile("[a-z]+", "i") {
 | `u` | accepted and a no-op — Unicode matching is the engine's default and only mode |
 | `s` | dotall: `.` also matches a newline |
 
-The flag string is scanned left to right; the first character outside `i g m u s` fails compilation with ``unknown flag `x` ``. The omitted or empty flags string means no flags. `g` changes nothing for `test`, `find`, or `findAll`.
+The flag string is scanned left to right; the first character outside `i g m u s` fails compilation with ``unknown flag `x` ``. The omitted or empty flags string means no flags. `g` changes nothing for `test`, `find`, or `find_all`.
 
 ### Engine Contract
 
@@ -57,9 +57,9 @@ The flag string is scanned left to right; the first character outside `i g m u s
 |--------|-----------|---------|
 | `RegExp::test` | `fn(input: string): bool` | whether the pattern matches anywhere in `input` |
 | `RegExp::find` | `fn(input: string): RegexMatch?` | the first (leftmost) match, or `null` |
-| `RegExp::findAll` | `fn(input: string): List<RegexMatch>` | every non-overlapping match, left to right |
+| `RegExp::find_all` | `fn(input: string): List<RegexMatch>` | every non-overlapping match, left to right |
 
-`find` reports absence as `null` — ordinary data, not a failure. `findAll` returns matches in order and non-overlapping, regardless of `g`; an empty match is a match, and the scan always advances, so the list is finite.
+`find` reports absence as `null` — ordinary data, not a failure. `find_all` returns matches in order and non-overlapping, regardless of `g`; an empty match is a match, and the scan always advances, so the list is finite.
 
 ```js
 match RegExp::compile("(\\d+)-(\\d+)") {
@@ -69,7 +69,7 @@ match RegExp::compile("(\\d+)-(\\d+)") {
       print(`${m.value} ${m.group(1)} ${m.group(2)}`)   // 42-7 42 7
       print(`${m.index} ${m.end}`)                       // 5 9
     }
-    for hit in re.findAll("x 42-7 y 8-9") {
+    for hit in re.find_all("x 42-7 y 8-9") {
       print(hit.value)                                   // 42-7, then 8-9
     }
   }
@@ -117,7 +117,7 @@ match RegExp::compile("oo", "g") {
 
 ### `string.split(re: RegExp): List<string>`
 
-A method on `string`, like substitution. The pieces are the text before the first match, between consecutive matches, and after the last, from the same left-to-right non-overlapping scan `findAll` runs, regardless of `g`.
+A method on `string`, like substitution. The pieces are the text before the first match, between consecutive matches, and after the last, from the same left-to-right non-overlapping scan `find_all` runs, regardless of `g`.
 
 - A match at index 0 gives an empty first piece; a match ending at the end gives an empty last piece.
 - A pattern that does not match returns a one-element list holding the input.
@@ -135,7 +135,7 @@ match RegExp::compile("\\s*,\\s*") {
 | Kind | Members |
 |------|---------|
 | Fallible (`Result`) | `RegExp::compile` — `Result<RegExp, RegexError>`, the module's own error type |
-| Total | `RegExp::test`, `find`, `findAll`; `string.replace` and `string.split` for their declared argument types |
+| Total | `RegExp::test`, `find`, `find_all`; `string.replace` and `string.split` for their declared argument types |
 | Absence (`null`) | `find` with no match; `group` at index 0, out of range, not participating, or by an unknown name |
 | Runtime failure | `replace`'s function replacer returning a non-string; a replacer that is neither string nor function; a `replace` or `split` pattern argument that is not a compiled `RegExp` |
 

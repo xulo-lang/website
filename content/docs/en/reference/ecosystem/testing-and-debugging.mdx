@@ -13,7 +13,7 @@ A test is a function marked with `#Test`. It appears at file scope, among a modu
 
 ```js
 #Test
-fn mapGetAnswersNull() {
+fn map_get_answers_null() {
   let m = { a: 1 }
   assert(m.get("z") == null, "absent key is null")
 }
@@ -41,12 +41,12 @@ The form carries no other attributes — `#Derive #Test fn` is not a test. A `#T
 
 ```js
 #Test
-fn referenceIsForbidden() {
+fn reference_is_forbidden() {
   assert(true, "runs only under a tool")
 }
 
 fn main() {
-  referenceIsForbidden() // error: `referenceIsForbidden` is a test function and cannot be referenced (E0107)
+  reference_is_forbidden() // error: `reference_is_forbidden` is a test function and cannot be referenced (E0107)
 }
 ```
 
@@ -56,12 +56,12 @@ A test whose body suspends is marked `async`; the marker follows `#Test` and its
 
 ```js
 #Test
-async fn delayedTaskFinishes() {
+async fn delayed_task_finishes() {
   await std::time::sleep(1) // ok: an async test body is an async context
 }
 
 #Test
-fn awaitNeedsTheAsyncMarker() {
+fn await_needs_the_async_marker() {
   await std::time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 ```
@@ -113,33 +113,33 @@ The language guarantees only that a test body is inert until a tool runs it and 
 
 ```js
 #Test("parse test")
-fn testParse() {
+fn test_parse() {
   assert(true, "parses")
 }
 
 #Test()
-fn noTitle() {
+fn no_title() {
   assert(true, "the empty group means no title")
 }
 
 // The pair differs only in the marker: rejected at check time vs. accepted
 #Test
-fn awaitNeedsTheAsyncMarker() {
+fn await_needs_the_async_marker() {
   await std::time::sleep(1) // error: `await` outside of an `async` context (E0501)
 }
 
 #Test
-async fn awaitWithTheAsyncMarker() {
+async fn await_with_the_async_marker() {
   await std::time::sleep(1) // ok: the test passes when its task completes
 }
 
 #Test
-fn referenceIsForbidden() {
+fn reference_is_forbidden() {
   assert(true, "runs only under a tool")
 }
 
 fn main() {
-  referenceIsForbidden() // error: `referenceIsForbidden` is a test function and cannot be referenced (E0107)
+  reference_is_forbidden() // error: `reference_is_forbidden` is a test function and cannot be referenced (E0107)
 }
 ```
 
@@ -147,7 +147,7 @@ The last test is well-formed on its own; the call in `main` is rejected (`E0107`
 
 ```js
 #Test
-fn listOpsRoundTrip() {
+fn list_ops_round_trip() {
   let mut xs = ["a", "b"]
   xs.push("c")
   assert(xs.len == 3, "three items")
@@ -156,7 +156,7 @@ fn listOpsRoundTrip() {
 }
 
 #Test
-async fn deadlineReportsTimeout() {
+async fn deadline_reports_timeout() {
   let outcome = await Task::timeout(std::time::sleep(5000), 50)
   match outcome {
     Result::Err(e) => assert(e.message == "timed out", "Err carries the timeout message")

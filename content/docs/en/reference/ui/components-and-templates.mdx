@@ -134,10 +134,10 @@ Field(label: "Password") { Input() }
 
 ```js
 VStack {
-  if loggedIn {
+  if logged_in {
     Text("Welcome back!")
   } else {
-    Button("Sign in", onClick: fn() { signIn() })
+    Button("Sign in", onClick: fn() { sign_in() })
   }
 }
 ```
@@ -169,7 +169,7 @@ VStack {
 | string | `"…"`, `'…'`, `` `…` `` | a text node |
 | `if` / `else` | `if cond { … } else { … }` | the children of the selected branch |
 | `for` | `for x in xs { … }` | one child per element |
-| `View` expression | `makeRow(item)` | one child |
+| `View` expression | `make_row(item)` | one child |
 | `List<View>` expression | `rows` | one child per element, in list order |
 
 Anything else is a compile-time error (`E0702`): in particular a binding declaration, an assignment, a `return`, or an expression of any other type — `int`, `List<int>`, `Map<K, V>` — must not appear as a child item. Blocks nest without limit, and an empty block (`Card { }`) contributes no children. State, effects, and environment are covered in [Props & State](/en/docs/reference/ui/props-and-state/).

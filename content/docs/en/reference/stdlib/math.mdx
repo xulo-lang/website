@@ -12,7 +12,7 @@ The qualified path needs no import:
 ```js
 std::math::floor(3.7)                  // 3
 std::math::PI                          // an ordinary float value
-print(std::math::toFixed(3.14159, 2))  // 3.14
+print(std::math::to_fixed(3.14159, 2))  // 3.14
 ```
 
 All six `use` forms bind it like any other module:
@@ -21,7 +21,7 @@ All six `use` forms bind it like any other module:
 use std::math::*;               // the constants and every function
 use std::math as m;
 m::sqrt(2.25)                   // 1.5
-use std::math::{floor, toFixed};
+use std::math::{floor, to_fixed};
 ```
 
 `Math` alone is not this module: a bare `Math::PI` is `E0607`. The module has no namespace-level types or `Result` members.
@@ -39,7 +39,7 @@ use std::math::{floor, toFixed};
 The constants are ordinary `float` values: they read, compare, and print like any other. `str` and interpolation render them as `NaN` and `Infinity` (`-Infinity` when negative), and a negative zero prints as `0`.
 
 ```js
-let halfPi = std::math::PI / 2
+let half_pi = std::math::PI / 2
 let big = std::math::INFINITY         // Infinity
 let nope = std::math::NAN             // NaN — and nope != nope is true
 ```
@@ -98,29 +98,29 @@ let huge = std::math::floor(1e308)     // runtime failure: outside int's range
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `std::math::wrappingAdd` | `fn(a: int, b: int): int` | `a + b` modulo 2⁶⁴, as two's complement |
-| `std::math::wrappingSub` | `fn(a: int, b: int): int` | `a − b` modulo 2⁶⁴, as two's complement |
-| `std::math::wrappingMul` | `fn(a: int, b: int): int` | `a × b` modulo 2⁶⁴, as two's complement |
-| `std::math::popCount` | `fn(x: int): int` | the number of 1 bits in `x` |
-| `std::math::countLeadingZeros` | `fn(x: int): int` | leading 0 bits — 64 when `x` is 0 |
-| `std::math::countTrailingZeros` | `fn(x: int): int` | trailing 0 bits — 64 when `x` is 0 |
-| `std::math::rotateLeft` | `fn(x: int, amount: u64): int` | `x` rotated left by `amount` modulo 64 |
-| `std::math::rotateRight` | `fn(x: int, amount: u64): int` | `x` rotated right by `amount` modulo 64 |
+| `std::math::wrapping_add` | `fn(a: int, b: int): int` | `a + b` modulo 2⁶⁴, as two's complement |
+| `std::math::wrapping_sub` | `fn(a: int, b: int): int` | `a − b` modulo 2⁶⁴, as two's complement |
+| `std::math::wrapping_mul` | `fn(a: int, b: int): int` | `a × b` modulo 2⁶⁴, as two's complement |
+| `std::math::pop_count` | `fn(x: int): int` | the number of 1 bits in `x` |
+| `std::math::count_leading_zeros` | `fn(x: int): int` | leading 0 bits — 64 when `x` is 0 |
+| `std::math::count_trailing_zeros` | `fn(x: int): int` | trailing 0 bits — 64 when `x` is 0 |
+| `std::math::rotate_left` | `fn(x: int, amount: u64): int` | `x` rotated left by `amount` modulo 64 |
+| `std::math::rotate_right` | `fn(x: int, amount: u64): int` | `x` rotated right by `amount` modulo 64 |
 
 - The `wrapping*` functions never trap: their result is the unique `int` congruent to the given sum, difference, or product modulo 2⁶⁴, taken as two's complement. The operator overflow rule does not apply to them.
-- `popCount`, `countLeadingZeros`, and `countTrailingZeros` count bits of the 64-bit two's-complement representation of their argument.
+- `pop_count`, `count_leading_zeros`, and `count_trailing_zeros` count bits of the 64-bit two's-complement representation of their argument.
 - The rotations take that same representation and interpret `amount` **modulo 64**, so `0` and `64` are the identity and every `u64` is in domain — no amount is rejected.
 
 ```js
-let maxInt = 9223372036854775807
-print(std::math::wrappingAdd(maxInt, 1))   // -9223372036854775808
-print(std::math::countLeadingZeros(0))     // 64
-print(std::math::rotateLeft(1, 64))        // 1
+let max_int = 9223372036854775807
+print(std::math::wrapping_add(max_int, 1))   // -9223372036854775808
+print(std::math::count_leading_zeros(0))     // 64
+print(std::math::rotate_left(1, 64))        // 1
 ```
 
 ## Formatting
 
-### `std::math::toFixed(x: float, digits: int): string`
+### `std::math::to_fixed(x: float, digits: int): string`
 
 The decimal numeral of `x` with exactly `digits` digits after the decimal point.
 
@@ -131,12 +131,12 @@ The decimal numeral of `x` with exactly `digits` digits after the decimal point.
 - If scaling the operand by `10^digits` overflows to infinity, the operand is formatted directly at the requested width instead of being rounded.
 
 ```js
-print(std::math::toFixed(3.14159, 2))   // 3.14
-print(std::math::toFixed(2.5, 0))       // 3
-print(std::math::toFixed(-2.5, 0))      // -3
-print(std::math::toFixed(3.1, 2))       // 3.10
-print(std::math::toFixed(std::math::NAN, 4))   // NaN
-let bad = std::math::toFixed(1.5, 16)   // runtime failure: digits outside 0 …= 15
+print(std::math::to_fixed(3.14159, 2))   // 3.14
+print(std::math::to_fixed(2.5, 0))       // 3
+print(std::math::to_fixed(-2.5, 0))      // -3
+print(std::math::to_fixed(3.1, 2))       // 3.10
+print(std::math::to_fixed(std::math::NAN, 4))   // NaN
+let bad = std::math::to_fixed(1.5, 16)   // runtime failure: digits outside 0 …= 15
 ```
 
 ## Trigonometric Functions
@@ -184,18 +184,18 @@ print(std::math::expm1(1e-17))   // 1e-17 — where exp(1e-17) - 1 rounds to 0
 | Member | Signature | Meaning |
 |--------|-----------|---------|
 | `std::math::random` | `fn(): float` | the next pseudo-random value in `[0.0, 1.0)` |
-| `std::math::randomInt` | `fn(lo: int, hi: int): int` | the next pseudo-random integer in `lo … hi`, both ends included |
+| `std::math::random_int` | `fn(lo: int, hi: int): int` | the next pseudo-random integer in `lo … hi`, both ends included |
 
 - The stream starts at a seed drawn from system entropy when the process starts; successive calls yield successive values of one generator, each 53 random bits scaled by 2⁻⁵³ — `0.0` is possible, `1.0` is not.
 - The sequence is **not cryptographic** and not reproducible across runs; do not use it for security, salts, or anything that needs a predictable seed.
-- `randomInt` draws from that **same stream**: interleaving it with `random` advances one sequence. Every integer in `lo … hi` is equally likely — uniform over the range, from a full 64-bit draw.
+- `random_int` draws from that **same stream**: interleaving it with `random` advances one sequence. Every integer in `lo … hi` is equally likely — uniform over the range, from a full 64-bit draw.
 - **`lo` greater than `hi` is a runtime failure** — an empty range has no member to draw.
 
 ```js
 let r = std::math::random()
-let inRange = r >= 0.0 && r < 1.0    // always true
-let roll = std::math::randomInt(1, 6)   // an int in 1 …= 6
-std::math::randomInt(6, 1)              // runtime failure: lo greater than hi
+let in_range = r >= 0.0 && r < 1.0    // always true
+let roll = std::math::random_int(1, 6)   // an int in 1 …= 6
+std::math::random_int(6, 1)              // runtime failure: lo greater than hi
 ```
 
 ## Failure Model
@@ -203,7 +203,7 @@ std::math::randomInt(6, 1)              // runtime failure: lo greater than hi
 | Kind | Members |
 |------|---------|
 | Total | every member — constants, `abs`/`min`/`max`, `sqrt`/`cbrt`/`pow`/`hypot`/`sign`, the four rounding functions, the eight integer/bit functions, the trigonometric and logarithmic groups, `random` |
-| Runtime failure | `toFixed` with `digits` outside `0 …= 15`; a rounding function whose integral result falls outside `int`'s range; `clamp` and `randomInt` with `lo` greater than `hi` |
+| Runtime failure | `to_fixed` with `digits` outside `0 …= 15`; a rounding function whose integral result falls outside `int`'s range; `clamp` and `random_int` with `lo` greater than `hi` |
 | Fallible (`Result`) | none |
 
 Every `float` parameter and result follows IEEE-754 binary64: an operation outside its domain yields `NaN`, an overflow yields the appropriate infinity, and the special values propagate through further operations. `NaN` and the infinities *are* the module's failure handling for floats; the only failures are the argument domains above.

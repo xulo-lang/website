@@ -211,7 +211,7 @@ fn main() {
 ```
 
 - **Explicit dispatch** `Trait::method(receiver)` resolves directly to the implementation of `Trait` for the receiver's static type; if none is visible, that is `E0801`.
-- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait::method(receiver)`. When neither step finds a candidate and the receiver's type implements `Display`, `value.toString(…)` resolves to the derived action of that impl — `display` at the default `Format` — without appearing in any trait's declared members; an inherent `toString` or one declared by another in-scope trait still wins.
+- **Member calls** `value.method(…)` resolve in a fixed order: inherent `impl` methods of the receiver's type first, then trait methods in scope. No candidate is `E0102`; more than one is `E0809` and must be disambiguated with `Trait::method(receiver)`. When neither step finds a candidate and the receiver's type implements `Display`, `value.to_string(…)` resolves to the derived action of that impl — `display` at the default `Format` — without appearing in any trait's declared members; an inherent `to_string` or one declared by another in-scope trait still wins.
 - All dispatch is static. There is no dynamic dispatch on a value's runtime type and no reflection over type arguments.
 
 ### Inside a Bound
@@ -242,7 +242,7 @@ impl Display for User {
 }
 ```
 
-Every `Display` impl also provides the derived action `value.toString()` — `display` at the default `Format`, `Format(precision: null, alternate: false)` — which no `impl` declares: writing `fn toString` inside `impl Display` is `E0804`. Consumers that render with no directive — interpolation, `str`, `print`, `List.join` — pass that default `Format`.
+Every `Display` impl also provides the derived action `value.to_string()` — `display` at the default `Format`, `Format(precision: null, alternate: false)` — which no `impl` declares: writing `fn to_string` inside `impl Display` is `E0804`. Consumers that render with no directive — interpolation, `str`, `print`, `List.join` — pass that default `Format`.
 
 ## Attributes
 

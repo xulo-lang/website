@@ -7,7 +7,7 @@ description: The std::fs module of whole-file operations, directories, and tempo
 
 `std::fs` holds the whole-file filesystem operations: read a file as one string or one list of bytes, write, append, touch, or set its time or permission bits, create a file exclusively, probe existence, resolve, inspect, copy, and remove a file, create, list, walk, and remove a directory, rename a file or a directory, and make a temporary file or directory. Every path is a **host path string** — the module follows the host's path conventions (separator characters, case handling, the characters a path may contain), which makes it host-dependent. For portable POSIX path *string* semantics that give the same answer on every machine, see [Path](path.mdx). Version 0.1 has no open file handles and no incremental I/O.
 
-Text is the default: every string here is UTF-8 and [`read`](#reading-a-file) refuses bytes that are not valid UTF-8. Content that is not text has its own members — [`readBytes`](#byte-content), [`writeBytes`](#byte-content), and [`appendBytes`](#byte-content) carry a `List<u8>` — so an object file or an image crosses this module as bytes, never as a decoded string.
+Text is the default: every string here is UTF-8 and [`read`](#reading-a-file) refuses bytes that are not valid UTF-8. Content that is not text has its own members — [`read_bytes`](#byte-content), [`write_bytes`](#byte-content), and [`append_bytes`](#byte-content) carry a `List<u8>` — so an object file or an image crosses this module as bytes, never as a decoded string.
 
 The qualified path needs no import:
 
@@ -34,7 +34,7 @@ The whole file as one UTF-8 string.
 - `read` yields the file's entire contents as a single string, decoded as UTF-8. There are no offsets, no partial reads, and no streaming.
 - An empty file yields `Ok("")` — the empty string is content, not absence. `read` never yields `null`.
 - Each of the following is `Err`: the file does not exist; the file cannot be read (permissions, I/O error); the path names a directory; the file's bytes are not valid UTF-8.
-- The byte twin is [`readBytes`](#byte-content): the same file and the same path failures, with no decoding and so no encoding class.
+- The byte twin is [`read_bytes`](#byte-content): the same file and the same path failures, with no decoding and so no encoding class.
 
 ```js
 match std::fs::read("./empty.txt") {
@@ -64,34 +64,34 @@ std::fs::append("./log.txt", "second\n")   // ok — it holds "first\nsecond\n"
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `std::fs::readBytes` | `fn(path: string): Result<List<u8>, Error>` | the whole file as raw bytes |
-| `std::fs::writeBytes` | `fn(path: string, bytes: List<u8>): Result<unit, Error>` | create or truncate the file, then write `bytes` |
-| `std::fs::appendBytes` | `fn(path: string, bytes: List<u8>): Result<unit, Error>` | add `bytes` to the end of the file, creating it when absent |
+| `std::fs::read_bytes` | `fn(path: string): Result<List<u8>, Error>` | the whole file as raw bytes |
+| `std::fs::write_bytes` | `fn(path: string, bytes: List<u8>): Result<unit, Error>` | create or truncate the file, then write `bytes` |
+| `std::fs::append_bytes` | `fn(path: string, bytes: List<u8>): Result<unit, Error>` | add `bytes` to the end of the file, creating it when absent |
 
 - The three are the byte twins of `read`, `write`, and `append`: the same path rules and path failures, the same truncate-versus-grow behaviour. The difference is the unit, and that nothing is decoded in either direction, so every byte sequence survives the round trip.
-- `readBytes` yields one element per byte, each in `0 …= 255`; an empty file is `Ok([])`. It has no encoding class of failure: any content is `Ok`. Its `Err` classes are `read`'s other three — the path is absent, names a directory, or cannot be read.
-- `writeBytes` truncates first and creates when absent; `appendBytes` keeps what was there. Neither creates a missing parent, and both are `Err` on a path that names a directory. An empty `bytes` writes nothing, exactly as its text twin does with the empty string.
-- A string's bytes come from [`string.bytes()`](../basics/types-and-data-structures.mdx) — the language has neither a bytes-to-string nor an integer-to-`u8` conversion: byte values come from `string.bytes()`, from `readBytes`, or from literals, and arithmetic on them stays in `u8`. Bytes become text only when a text reader accepts them as valid UTF-8. [`copy`](#copying) moves a whole file without decoding; these three are for content the program inspects or produces itself.
+- `read_bytes` yields one element per byte, each in `0 …= 255`; an empty file is `Ok([])`. It has no encoding class of failure: any content is `Ok`. Its `Err` classes are `read`'s other three — the path is absent, names a directory, or cannot be read.
+- `write_bytes` truncates first and creates when absent; `append_bytes` keeps what was there. Neither creates a missing parent, and both are `Err` on a path that names a directory. An empty `bytes` writes nothing, exactly as its text twin does with the empty string.
+- A string's bytes come from [`string.bytes()`](../basics/types-and-data-structures.mdx) — the language has neither a bytes-to-string nor an integer-to-`u8` conversion: byte values come from `string.bytes()`, from `read_bytes`, or from literals, and arithmetic on them stays in `u8`. Bytes become text only when a text reader accepts them as valid UTF-8. [`copy`](#copying) moves a whole file without decoding; these three are for content the program inspects or produces itself.
 
 ```js
-std::fs::writeBytes("./blob.bin", [0x7F, 0x45, 0x4C, 0x46])  // ok
-std::fs::readBytes("./blob.bin")            // runs: Ok([127, 69, 76, 70])
-std::fs::appendBytes("./blob.bin", [])      // ok — no bytes added
+std::fs::write_bytes("./blob.bin", [0x7F, 0x45, 0x4C, 0x46])  // ok
+std::fs::read_bytes("./blob.bin")            // runs: Ok([127, 69, 76, 70])
+std::fs::append_bytes("./blob.bin", [])      // ok — no bytes added
 ```
 
 ## Creating a File Exclusively
 
-### `std::fs::createNew(path: string, contents: string): Result<unit, Error>`
+### `std::fs::create_new(path: string, contents: string): Result<unit, Error>`
 
 Create a new file containing `contents`, failing if anything already exists at `path`.
 
-- `createNew` is `write` with an existence check folded into the same operation: it succeeds **only** when `path` names nothing yet, and the check and the creation cannot come apart. A preceding [exists](#probing-existence) call offers no such guarantee — another process can create the file in the gap between the two calls.
+- `create_new` is `write` with an existence check folded into the same operation: it succeeds **only** when `path` names nothing yet, and the check and the creation cannot come apart. A preceding [exists](#probing-existence) call offers no such guarantee — another process can create the file in the gap between the two calls.
 - On success the file contains exactly `contents`, encoded as UTF-8 bytes; writing the empty string creates an empty file, which is success.
 - Each of the following is `Err`: the path already names a file (nothing is truncated); the path already names a directory; the parent directory does not exist; the path cannot be written (permissions, I/O error, path syntax the host rejects). The empty path names nothing and is `Err`.
 
 ```js
-std::fs::createNew("./once.txt", "first")   // ok — the file did not exist
-std::fs::createNew("./once.txt", "second")  // Err — it exists now
+std::fs::create_new("./once.txt", "first")   // ok — the file did not exist
+std::fs::create_new("./once.txt", "second")  // Err — it exists now
 // a read of "./once.txt" still yields Ok("first")
 ```
 
@@ -100,23 +100,23 @@ std::fs::createNew("./once.txt", "second")  // Err — it exists now
 | Member | Signature | Meaning |
 |--------|-----------|---------|
 | `std::fs::touch` | `fn(path: string): Result<unit, Error>` | create an empty file when absent; refresh its modification time when present |
-| `std::fs::setTimes` | `fn(path: string, modified: u64): Result<unit, Error>` | set the file's modification time to `modified` |
+| `std::fs::set_times` | `fn(path: string, modified: u64): Result<unit, Error>` | set the file's modification time to `modified` |
 
-- `touch` never writes content: an existing file keeps every byte it held, and only its modification time changes — set to the current wall-clock time, the same reading [`std::time::now`](time.mdx) gives. On a path that exists, `touch` *is* `setTimes` with the current time; what `touch` adds is creating the file when the path is absent.
-- `modified` is milliseconds since the Unix epoch — the same clock and unit as `std::time::now` and the `modified` field of [stat](#inspecting-a-file) — so a stamp read from `stat` can be written straight back. `setTimes` never creates.
+- `touch` never writes content: an existing file keeps every byte it held, and only its modification time changes — set to the current wall-clock time, the same reading [`std::time::now`](time.mdx) gives. On a path that exists, `touch` *is* `set_times` with the current time; what `touch` adds is creating the file when the path is absent.
+- `modified` is milliseconds since the Unix epoch — the same clock and unit as `std::time::now` and the `modified` field of [stat](#inspecting-a-file) — so a stamp read from `stat` can be written straight back. `set_times` never creates.
 - Both kinds `stat` knows are eligible: files and directories. The access time is not part of this module's surface.
-- Each of the following is `Err` for both members: the path is empty; the path is absent with a missing parent (`setTimes`: does not exist, including a broken symlink); the path names neither a file nor a directory; the path cannot be written.
+- Each of the following is `Err` for both members: the path is empty; the path is absent with a missing parent (`set_times`: does not exist, including a broken symlink); the path names neither a file nor a directory; the path cannot be written.
 
 ```js
 std::fs::touch("./stamp.txt")   // ok — created, empty
 std::fs::write("./stamp.txt", "x")
 std::fs::touch("./stamp.txt")   // ok — still holds "x", the stamp is new
-std::fs::setTimes("./stamp.txt", 0)   // ok — stamped at the epoch
+std::fs::set_times("./stamp.txt", 0)   // ok — stamped at the epoch
 ```
 
 ## Setting Permission Bits
 
-### `std::fs::setMode(path: string, mode: number): Result<unit, Error>`
+### `std::fs::set_mode(path: string, mode: number): Result<unit, Error>`
 
 Set the entry's permission bits to `mode`.
 
@@ -124,11 +124,11 @@ Set the entry's permission bits to `mode`.
 - Only the bits change: content, size, and the modification time stay as they were.
 - The entry is found as [stat](#inspecting-a-file) finds it, so a link is followed to what it points at. A host without POSIX permission bits applies what it has and synthesizes `stat.mode` in return; the mapping is the host's affair.
 - Each of the following is `Err`: the path is empty; the path does not exist (including a broken symlink); the path names something `stat` does not know; the call is refused (permissions, I/O error).
-- This is how a file this module wrote becomes runnable: `writeBytes` the image, then `setMode(path, 0o755)`.
+- This is how a file this module wrote becomes runnable: `write_bytes` the image, then `set_mode(path, 0o755)`.
 
 ```js
-std::fs::setMode("./tool", 0o755)          // ok — readable and executable
-std::fs::setMode("./tool", 4096)           // runs: Err — mode outside 0 …= 4095
+std::fs::set_mode("./tool", 0o755)          // ok — readable and executable
+std::fs::set_mode("./tool", 4096)           // runs: Err — mode outside 0 …= 4095
 ```
 
 ## Probing Existence
@@ -170,7 +170,7 @@ What the path is: its kind, its size, its modification time, and its permission 
   - `kind` — `"file"` or `"directory"`. Symlinks are followed, as `exists` follows them, so the answer names what the path resolves to, never `"symlink"`. Anything else a host may keep — a device, a socket, a broken link — is `Err`: this member knows two kinds.
   - `size` — the length of a file in bytes. For a directory the field is the host's own figure and carries no portable meaning.
   - `modified` — the last modification time in milliseconds since the Unix epoch, the same clock and unit as `std::time::now`; a host whose clock reads before the epoch yields `0`.
-  - `mode` — the permission bits, the low 12 bits of the host's POSIX mode, the value [setMode](#setting-permission-bits) writes. A host without POSIX permission bits synthesizes one (host-dependent).
+  - `mode` — the permission bits, the low 12 bits of the host's POSIX mode, the value [set_mode](#setting-permission-bits) writes. A host without POSIX permission bits synthesizes one (host-dependent).
 - Unlike `exists`, an unanswerable question is `Err` here: `stat` is asked for facts, and a probe that cannot be answered has no facts to give.
 - Each of the following is `Err`: the path does not exist (including a broken symlink); the path names neither a file nor a directory; the path cannot be read (permissions, I/O error).
 
@@ -190,8 +190,8 @@ match std::fs::stat("./note.txt") {
 Copy `from`'s content to `to`.
 
 - On success `to` holds exactly the bytes `from` held — a copy, so the original stays untouched. If `to` already exists it is **truncated and replaced**, as `write` replaces it; its parent directory is **not** created.
-- Copying is not atomic: a copy interrupted partway can leave a partial `to`. A program that needs a whole-or-nothing result writes a temporary file in the destination's directory ([tempFileIn](#temporary-files-and-directories)) and [renames](#renaming) it into place: a temporary under the host's temporary directory can sit on another filesystem, where `rename` is `Err`.
-- The copy is a new entry with the host's default permission bits: a copied executable is not executable until [setMode](#setting-permission-bits) says so, while [rename](#renaming) keeps the bits because it is the same entry.
+- Copying is not atomic: a copy interrupted partway can leave a partial `to`. A program that needs a whole-or-nothing result writes a temporary file in the destination's directory ([temp_file_in](#temporary-files-and-directories)) and [renames](#renaming) it into place: a temporary under the host's temporary directory can sit on another filesystem, where `rename` is `Err`.
+- The copy is a new entry with the host's default permission bits: a copied executable is not executable until [set_mode](#setting-permission-bits) says so, while [rename](#renaming) keeps the bits because it is the same entry.
 - `copy` works at the byte level and never decodes: the source need not be valid UTF-8 — this member copies an image as happily as a text file.
 - Each of the following is `Err`: `from` does not exist or names a directory; `from` and `to` name the same path; `to`'s parent is missing, or `to` names an existing directory; either path cannot be read or written.
 
@@ -224,7 +224,7 @@ std::fs::rename("./note.txt", "./note.txt")   // Err — no move
 Delete one file.
 
 - `remove` deletes **one file**. A missing path is `Err`, and a second `remove` of the same path is `Err` as well — success means the file is gone.
-- A directory path is `Err`: `remove` does not remove directories, empty or not; the member that deletes one — and its whole tree — is [removeDir](#removing-directories).
+- A directory path is `Err`: `remove` does not remove directories, empty or not; the member that deletes one — and its whole tree — is [remove_dir](#removing-directories).
 - The path names the entry itself: a symbolic link is removed as a link, and what it points at is left untouched. Permission checks follow the host's filesystem.
 
 ## Creating Directories
@@ -239,17 +239,17 @@ Create a directory and its missing parents.
 
 ## Listing a Directory
 
-### `std::fs::readDir(path: string): Result<List<string>, Error>`
+### `std::fs::read_dir(path: string): Result<List<string>, Error>`
 
 The names of everything in the directory at `path`.
 
-- `readDir` yields one string per entry — files, directories, and whatever else the host keeps in a directory — as the **bare names**, not paths. Joining one back onto `path` with [`std::path::join`](path.mdx) is the caller's step.
+- `read_dir` yields one string per entry — files, directories, and whatever else the host keeps in a directory — as the **bare names**, not paths. Joining one back onto `path` with [`std::path::join`](path.mdx) is the caller's step.
 - The order of the names is the host's order: no sort order is promised, so a program that needs one sorts the list itself.
 - An empty directory yields `Ok([])` — an empty list is content, not absence, mirroring `read`'s `Ok("")`.
 - Each of the following is `Err`: the path does not exist; the path names a file rather than a directory; the directory cannot be read (permissions, I/O error).
 
 ```js
-match std::fs::readDir("./src") {
+match std::fs::read_dir("./src") {
   Result::Ok(names) => print(names.len)   // runs: 2
   Result::Err(e) => print(e.message)
 }
@@ -263,7 +263,7 @@ The starting path and every path beneath it, in one call.
 
 - Each yielded string is the starting path extended downward — `walk("./src")` yields `"./src"`, `"./src/main.x"`, `"./src/lib/util.x"` — so every entry is a path `read` and `copy` accept as they are.
 - The start itself is the first entry, and **a directory's own path always precedes every path beneath it**: a caller can reconstruct the tree in one forward pass. Beyond that guarantee no order is promised.
-- As in `readDir`, the paths are all the walk yields: kind and size come from [stat](#inspecting-a-file) when a caller needs them.
+- As in `read_dir`, the paths are all the walk yields: kind and size come from [stat](#inspecting-a-file) when a caller needs them.
 - A **symbolic link met on the way down** is never descended into: its path appears, but whatever it points at does not enter the walk — that keeps a link cycle from looping forever.
 - An empty directory yields `Ok([path])` — the start and nothing below it.
 - The walk is all-or-nothing: the path does not exist; the path names a file rather than a directory; a directory on the way cannot be read — each is `Err`, and an `Err` yields no partial list. A broken link *below* the start is not a failure.
@@ -277,20 +277,20 @@ match std::fs::walk("./src") {
 
 ## Removing Directories
 
-### `std::fs::removeDir(path: string): Result<unit, Error>`
+### `std::fs::remove_dir(path: string): Result<unit, Error>`
 
 Delete the directory at `path` and everything in it.
 
-- `removeDir` is [mkdir](#creating-directories)'s opposite: `mkdir` brings a whole chain into existence, `removeDir` takes the whole tree away — directories, files, and the nested directories between them. Nothing under `path` survives, and there is no undelete.
-- Success means the path is gone: a second `removeDir` of the same path is `Err`, as a second `remove` is.
-- A path that names a file is `Err`: `removeDir` removes directories; the file member is [remove](#removing-a-file). The empty path names nothing and is `Err`.
+- `remove_dir` is [mkdir](#creating-directories)'s opposite: `mkdir` brings a whole chain into existence, `remove_dir` takes the whole tree away — directories, files, and the nested directories between them. Nothing under `path` survives, and there is no undelete.
+- Success means the path is gone: a second `remove_dir` of the same path is `Err`, as a second `remove` is.
+- A path that names a file is `Err`: `remove_dir` removes directories; the file member is [remove](#removing-a-file). The empty path names nothing and is `Err`.
 - A symbolic link at `path` is not a directory and is `Err`: removal names the entry, not what it points at, and the target is never deleted. Remove the link itself with [remove](#removing-a-file).
 - A link met inside the tree is removed as a link, never descended into, so a link pointing outside the tree cannot widen the removal.
 - Permission checks follow the host's filesystem.
 
 ```js
 std::fs::mkdir("./scratch/tmp")        // ok — the chain exists
-std::fs::removeDir("./scratch")        // ok — everything under it is gone
+std::fs::remove_dir("./scratch")        // ok — everything under it is gone
 std::fs::exists("./scratch")           // runs: false
 ```
 
@@ -298,30 +298,30 @@ std::fs::exists("./scratch")           // runs: false
 
 | Member | Signature | Meaning |
 |--------|-----------|---------|
-| `std::fs::tempFile` | `fn(prefix: string? = null): Result<string, Error>` | create a unique empty file in the host's temporary directory; yield its path |
-| `std::fs::tempDir` | `fn(prefix: string? = null): Result<string, Error>` | create a unique empty directory in the host's temporary directory; yield its path |
-| `std::fs::tempFileIn` | `fn(dir: string, prefix: string? = null): Result<string, Error>` | create a unique empty file in `dir`; yield its path |
-| `std::fs::tempDirIn` | `fn(dir: string, prefix: string? = null): Result<string, Error>` | create a unique empty directory in `dir`; yield its path |
+| `std::fs::temp_file` | `fn(prefix: string? = null): Result<string, Error>` | create a unique empty file in the host's temporary directory; yield its path |
+| `std::fs::temp_dir` | `fn(prefix: string? = null): Result<string, Error>` | create a unique empty directory in the host's temporary directory; yield its path |
+| `std::fs::temp_file_in` | `fn(dir: string, prefix: string? = null): Result<string, Error>` | create a unique empty file in `dir`; yield its path |
+| `std::fs::temp_dir_in` | `fn(dir: string, prefix: string? = null): Result<string, Error>` | create a unique empty directory in `dir`; yield its path |
 
-- The path is the product: `Ok` yields where a brand-new entry already lives. Which directory the host keeps temporaries in is host-dependent for `tempFile`/`tempDir` — the member picks it, never the caller.
-- The name always carries a part no other call predicts, so two calls never yield the same path. The entry is created exclusively — as [createNew](#creating-a-file-exclusively) creates — before the path is yielded.
-- `tempFile` yields a file that already exists and is empty; `tempDir` yields a directory that already exists and is empty (`readDir` on it is `Ok([])`).
+- The path is the product: `Ok` yields where a brand-new entry already lives. Which directory the host keeps temporaries in is host-dependent for `temp_file`/`temp_dir` — the member picks it, never the caller.
+- The name always carries a part no other call predicts, so two calls never yield the same path. The entry is created exclusively — as [create_new](#creating-a-file-exclusively) creates — before the path is yielded.
+- `temp_file` yields a file that already exists and is empty; `temp_dir` yields a directory that already exists and is empty (`read_dir` on it is `Ok([])`).
 - `prefix`, when given, heads the new entry's name; what completes the name is the host's business and no format is promised.
-- Nothing expires or cleans itself up: removal belongs to the caller — [remove](#removing-a-file) for the file, [removeDir](#removing-directories) for the directory.
+- Nothing expires or cleans itself up: removal belongs to the caller — [remove](#removing-a-file) for the file, [remove_dir](#removing-directories) for the directory.
 - `Err` when the host's temporary directory cannot be created in — absent, unwritable, no permission.
 - The `…In` pair carries the same guarantees — unique, exclusively created, empty, never cleaned up — with the directory chosen by the caller instead of the host. `dir` must already exist and be a directory ([mkdir](#creating-directories) makes it); a missing, unwritable, or non-directory `dir` is `Err`.
 - Their reason to exist is the rename story: a temporary made beside its destination shares the destination's filesystem, so [rename](#renaming) into place cannot cross a mount.
 
 ```js
-match std::fs::tempFile("upload_") {
+match std::fs::temp_file("upload_") {
   Result::Ok(path) => print(path)                    // a fresh path under the host's temp directory
   Result::Err(e) => print(e.message)
 }
-match std::fs::tempDir() {
-  Result::Ok(dir) => print(std::fs::readDir(dir))    // runs: Ok([]) — it is empty
+match std::fs::temp_dir() {
+  Result::Ok(dir) => print(std::fs::read_dir(dir))    // runs: Ok([]) — it is empty
   Result::Err(e) => print(e.message)
 }
-match std::fs::tempFileIn("./build", "obj_") {
+match std::fs::temp_file_in("./build", "obj_") {
   Result::Ok(path) => print(path)                    // a fresh path inside ./build
   Result::Err(e) => print(e.message)
 }
@@ -356,12 +356,12 @@ A path string that names one file on one host may name another — or nothing �
 
 | Kind | Members |
 |------|---------|
-| Fallible (`Result`) | `read` `readBytes` `write` `writeBytes` `append` `appendBytes` `createNew` `touch` `setTimes` `setMode` `realpath` `stat` `copy` `rename` `remove` `mkdir` `readDir` `walk` `removeDir` `tempFile` `tempFileIn` `tempDir` `tempDirIn` |
+| Fallible (`Result`) | `read` `read_bytes` `write` `write_bytes` `append` `append_bytes` `create_new` `touch` `set_times` `set_mode` `realpath` `stat` `copy` `rename` `remove` `mkdir` `read_dir` `walk` `remove_dir` `temp_file` `temp_file_in` `temp_dir` `temp_dir_in` |
 | Total | `exists` |
 | Absence (`null`) | none — `read` of an empty file is `Ok("")`, not `null` |
 | Runtime failure | none — no `std::fs` member has a runtime-failure argument domain |
 
-Failures are ordinary `Result::Err` values carrying `Error { message }`. Failure classes say what an `Err` may mean, not what a caller can detect: every `Err` has the same shape, and message text is never a discriminator — a program or test MUST NOT recover a class by matching it. A caller branches only on what a member offers as data: a probe such as [exists](#probing-existence)/[stat](#inspecting-a-file), or a byte twin such as [readBytes](#byte-content).
+Failures are ordinary `Result::Err` values carrying `Error { message }`. Failure classes say what an `Err` may mean, not what a caller can detect: every `Err` has the same shape, and message text is never a discriminator — a program or test MUST NOT recover a class by matching it. A caller branches only on what a member offers as data: a probe such as [exists](#probing-existence)/[stat](#inspecting-a-file), or a byte twin such as [read_bytes](#byte-content).
 
 ## Checked Call Examples
 
@@ -370,24 +370,24 @@ std::fs::read("notes.txt")                // ok
 std::fs::exists("notes.txt")              // ok: an ordinary bool — no Result
 std::fs::write("a.txt", "hi")             // ok
 std::fs::append("a.txt", "hi")            // ok — a.txt now holds "hihi"
-std::fs::createNew("b.txt", "hi")         // ok — "b.txt" did not exist
+std::fs::create_new("b.txt", "hi")         // ok — "b.txt" did not exist
 std::fs::touch("b.txt")                   // ok — content kept, stamp refreshed
-std::fs::setTimes("b.txt", 0)             // ok — stamped at the Unix epoch
+std::fs::set_times("b.txt", 0)             // ok — stamped at the Unix epoch
 std::fs::realpath("./a.txt")              // ok: Result<string, Error> — absolute and link-free
 std::fs::stat("a.txt")                    // ok: Result<{ kind, size, modified, mode }, Error>
 std::fs::copy("a.txt", "c.txt")           // ok
 std::fs::rename("c.txt", "d.txt")         // ok
-std::fs::readDir(".")                     // ok: Result<List<string>, Error>
+std::fs::read_dir(".")                     // ok: Result<List<string>, Error>
 std::fs::walk(".")                        // ok: Result<List<string>, Error> — the start and everything beneath it
-std::fs::removeDir("./scratch")           // ok
-std::fs::tempFile("upload_")              // ok: Result<string, Error>
-std::fs::tempDir()                        // ok: Result<string, Error>
-std::fs::tempFileIn("./build", "obj_")    // ok: Result<string, Error> — in ./build
-std::fs::readBytes("a.txt")               // ok: Result<List<u8>, Error> — no decoding
-std::fs::writeBytes("blob.bin", [0x7F, 0x45, 0x4C, 0x46])  // ok
-std::fs::appendBytes("blob.bin", [])      // ok — no bytes to add
-std::fs::setMode("blob.bin", 0o755)       // ok — executable bits on
-std::fs::setMode("blob.bin", 4096)        // runs: Err — mode outside 0 …= 4095
+std::fs::remove_dir("./scratch")           // ok
+std::fs::temp_file("upload_")              // ok: Result<string, Error>
+std::fs::temp_dir()                        // ok: Result<string, Error>
+std::fs::temp_file_in("./build", "obj_")    // ok: Result<string, Error> — in ./build
+std::fs::read_bytes("a.txt")               // ok: Result<List<u8>, Error> — no decoding
+std::fs::write_bytes("blob.bin", [0x7F, 0x45, 0x4C, 0x46])  // ok
+std::fs::append_bytes("blob.bin", [])      // ok — no bytes to add
+std::fs::set_mode("blob.bin", 0o755)       // ok — executable bits on
+std::fs::set_mode("blob.bin", 4096)        // runs: Err — mode outside 0 …= 4095
 std::fs::read(42)                         // error[E0202]: expected `string`, found `int`
 std::fs::write("a.txt")                   // error[E0207]: expected 2 arguments, found 1
 std::fs::scan(".")                        // error[E0601]: no member `scan`
@@ -396,7 +396,7 @@ Fs::read("a.txt")                         // error[E0607]: `Fs` lives under `std
 
 ## Design Notes
 
-- **One signature each.** A member is not overloaded: the argument count and argument types MUST match the signature, and there are no default or named arguments (except the optional trailing `prefix` of `tempFile`, `tempDir`, `tempFileIn`, and `tempDirIn`).
+- **One signature each.** A member is not overloaded: the argument count and argument types MUST match the signature, and there are no default or named arguments (except the optional trailing `prefix` of `temp_file`, `temp_dir`, `temp_file_in`, and `temp_dir_in`).
 - **Whole-file only.** Version 0.1 has no open file handles and no incremental I/O: every operation reads or writes a whole file in one call.
 - **Host paths.** Every path is a host path string; the module follows the host's conventions and makes no cross-host promises. Portable POSIX path string semantics live in [`std::path`](path.mdx).
 - **Failures as data.** No `std::fs` member has a runtime-failure argument domain; every problem arrives as `Result::Err`, and absence arrives as `Ok("")` or `Ok([])` — never as `null`.

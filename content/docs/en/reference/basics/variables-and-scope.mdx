@@ -104,7 +104,7 @@ if true {
 print(str(read()))           // still 1
 ```
 
-Naming conventions (recommended, not enforced): UpperCamelCase for types and components, lowerCamelCase for functions and variables, `UPPER_SNAKE_CASE` for constants, single letters for type parameters.
+Naming conventions (recommended, not enforced): UpperCamelCase for types and components, snake_case for functions, variables, parameters, fields, and methods, `UPPER_SNAKE_CASE` for constants, single letters for type parameters, and lowerCamelCase for parameters declared as component attributes.
 
 ## Local State `@State`
 
@@ -127,19 +127,19 @@ fn Counter(): View {
 
 ```js
 fn Home(): View {
-  @Store let { user, theme } = useAppStore()
-  @Store let { setTheme } = useAppStore()
+  @Store let { user, theme } = use_app_store()
+  @Store let { set_theme } = use_app_store()
 
   VStack {
     Text(`signed in as ${user?.name ?? "guest"}`)
-    Button("Toggle theme", onClick: fn() { setTheme(Theme::Dark) })
+    Button("Toggle theme", onClick: fn() { set_theme(Theme::Dark) })
   }
 }
 ```
 
 - A `@Store` declaration destructures a shared store; the names inside `{ … }` behave exactly like `@State` bindings.
 - Store values are program-wide: an update re-runs every component that declared `@Store` for that store, while their own `@State` cells are untouched.
-- The initializer is an ordinary expression (`useAppStore()` above is a library function, not a language intrinsic).
+- The initializer is an ordinary expression (`use_app_store()` above is a library function, not a language intrinsic).
 
 ## Environment `@Environment`
 
@@ -177,7 +177,7 @@ fn Counter(): View {
 
 ```js
 Input(value: $name)          // passes a binding, not a copy
-Checkbox(checked: $isActive)
+Checkbox(checked: $is_active)
 ```
 
 - `$name` is legal **only in an argument position of a component invocation** (`E0703` elsewhere), and the name must be an `@State` binding or a `@Store` binding of the enclosing component (`E0711` for a plain function, `E0712` for an ordinary `let`).

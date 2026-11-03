@@ -28,7 +28,7 @@ use std::http::{Request, Response, Server};
 | Type | Shape | Role |
 |------|-------|------|
 | `Server` | methods `addr`, `serve` | a bound, listening server |
-| `Request` | fields `method`, `path`, `query`, `form`, `headers`, `body`, `version`, `remoteAddr`; methods `header`, `queryValue`, `formValue` | one inbound request |
+| `Request` | fields `method`, `path`, `query`, `form`, `headers`, `body`, `version`, `remote_addr`; methods `header`, `query_value`, `form_value` | one inbound request |
 | `Response` | fields `status`, `headers`, `body`; static `text`, `json`; method `header` | one outbound response |
 
 - `Request` and `Response` are plain data: every field is public, and a program constructs one with named fields — `Response(status: 200, headers: [], body: "ok")`. A `Request` built this way can be handed to a handler directly, so handlers are testable without a socket.
@@ -37,7 +37,7 @@ use std::http::{Request, Response, Server};
 
 ## Text Bodies, Not Files
 
-- A body is text in both directions: `Response.body` and `request`'s `body` are strings, and a received body is decoded lossily as UTF-8, exactly as [`std::net`](net.mdx)'s `sockRead` decodes it. Bytes that are not valid text become U+FFFD; they never arrive as an `Err`.
+- A body is text in both directions: `Response.body` and `request`'s `body` are strings, and a received body is decoded lossily as UTF-8, exactly as [`std::net`](net.mdx)'s `sock_read` decodes it. Bytes that are not valid text become U+FFFD; they never arrive as an `Err`.
 - There is therefore **no byte-faithful download or upload** in version 0.1: fetching an image or an archive yields replacement characters, and `request` cannot send one; a binary file is not even readable through [`std::fs::read`](fs.mdx), which refuses non-UTF-8.
 - Text moves, and composes with the filesystem: `fetch` plus [`std::fs::write`](fs.mdx) downloads a text file, [`std::fs::read`](fs.mdx) plus `request` uploads one. The response body cap is **16 MiB**, and the server accepts a request body of at most **16 MiB** ([Client](#client), [Server](#server)).
 - This module is a text HTTP client and server, not a static file server. A file-body surface — byte-faithful bodies, file transfer, streaming — is a roadmap candidate: it needs file handles and incremental I/O in [`std::fs`](fs.mdx) and a byte surface on [`std::net`](net.mdx).
@@ -66,7 +66,7 @@ use std::http::{Request, Response, Server};
 - `headers` are sent in order with duplicates kept. A name or value containing CR, LF, or another control character is `Err`. The client adds `Host` from the URL unless the caller supplied one (compared case-insensitively), always sends `Connection: close` — the call owns the socket for one exchange — and writes `Content-Length` for a non-`null` `body`, `0` for an empty string. A caller's `Connection`, `Content-Length`, or `Transfer-Encoding` is dropped: framing is always the client's.
 - The answer's status line carries `HTTP/1.0` or `HTTP/1.1`; another version is `Err`. Headers are read up to **64 KiB** and the body up to **16 MiB**, both `Err` when exceeded. `Transfer-Encoding: chunked` is decoded and its trailers discarded; any other transfer coding is `Err`. A `Content-Length` bounds the body; without either, the body runs until the connection closes. A status from `100` to `199` is a protocol violation (`Err`); `204` and `304` carry no body.
 - A response to a `HEAD` request carries no body, whatever its framing headers say: the client returns after the headers.
-- The body is decoded **lossily** as UTF-8 exactly as [`std::net`](net.mdx)'s `sockRead` decodes it — the client is a byte stream dressed as a string. `Content-Encoding` is not decoded and no `Accept-Encoding` is sent, so a compressed body arrives as replacement characters.
+- The body is decoded **lossily** as UTF-8 exactly as [`std::net`](net.mdx)'s `sock_read` decodes it — the client is a byte stream dressed as a string. `Content-Encoding` is not decoded and no `Accept-Encoding` is sent, so a compressed body arrives as replacement characters.
 - Redirects are not followed: a `3xx` is returned as-is, `Location` header included.
 - `Err` classes: the URL is malformed or its scheme is not `http`; the connection is refused, unreachable, or times out (the classes of [`std::net`](net.mdx)); the answer violates the protocol; a size cap is exceeded.
 
@@ -91,7 +91,7 @@ use std::http::{Request, Response, Server};
   - a body is read only when `Content-Length` is present and valid: exactly one plain decimal, at most **16 MiB** (larger is `413`; malformed, repeated, or conflicting is `400`). A `Transfer-Encoding` header is answered `501`, because chunked request bodies are not supported. Without `Content-Length` the body is the empty string;
   - when `Content-Type` is `application/x-www-form-urlencoded` (the media type, ignoring case and parameters), `body` is also decoded into `form`: an empty body yields the empty list, otherwise parts split at `&` with empty parts ignored, each part at its first `=` (a part without one has the empty value), `+` becoming a space before `%XX` is decoded. A malformed escape is `400`. Any other media type leaves `form` empty;
   - `path` and `query` are split at the first `?`; without one, or with nothing after it, the query is the empty list. The target must start with `/` (`400` otherwise), and percent escapes are decoded as [URLs](#urls) describes;
-  - `remoteAddr` is the peer's `"ip:port"`.
+  - `remote_addr` is the peer's `"ip:port"`.
 
   The error answers — `400`, `413`, `417`, `431`, `501`, `505` — carry an empty body, the status alone, and close the connection; the handler is not called. The interim `100` is followed by the final response in the usual way.
 - A response is written from the handler's value. A status outside `200 …= 599` is sent as `500`. The handler's headers are written in order except `Content-Length`, `Connection`, and `Transfer-Encoding`, which are dropped; the server then writes `Content-Length` — the body's UTF-8 byte length — and `Connection: close`. Unless the handler supplied a `Date`, the server writes one in IMF-fixdate from the host clock; a host without a clock omits it. The reason phrase is the host's; a client ignores it.
@@ -111,9 +111,9 @@ fn route(req: std::http::Request): std::http::Response {
   } else if req.method == "POST" && req.path == "/echo" {
     std::http::Response.text(req.body, 201)
   } else if req.method == "GET" && req.path == "/greet" {
-    std::http::Response.text("hello, " + (req.queryValue("name") ?? "stranger"))
+    std::http::Response.text("hello, " + (req.query_value("name") ?? "stranger"))
   } else if req.method == "POST" && req.path == "/greet" {
-    std::http::Response.text("hello, " + (req.formValue("name") ?? "stranger"))
+    std::http::Response.text("hello, " + (req.form_value("name") ?? "stranger"))
   } else {
     std::http::Response.text("not found", 404)
   }
@@ -183,8 +183,8 @@ On the server side, a request's decoded query and form are data:
 ```js
 req.path                     // runs: /search
 req.query                    // runs: [{ name: "q", value: "xulo" }, …]
-req.queryValue("q")          // runs: xulo
-req.formValue("name")        // runs: xulo — decoded only for a form body
+req.query_value("q")          // runs: xulo
+req.form_value("name")        // runs: xulo — decoded only for a form body
 req.header("user-agent")     // runs: null when the client sent none
 ```
 
@@ -198,7 +198,7 @@ req.header("user-agent")     // runs: null when the client sent none
 | Kind | Members |
 |------|---------|
 | Fallible (`Result`) | `fetch`, `request`, `listen`, `Server::addr`, `Server::serve`, `Response::json` |
-| Absence (`string?`) | `Request::header`, `Request::queryValue`, `Request::formValue`, `Response::header` — `null` when absent |
+| Absence (`string?`) | `Request::header`, `Request::query_value`, `Request::form_value`, `Response::header` — `null` when absent |
 | Total | `Response::text`; construction and field reads of `Request` and `Response` |
 | Runtime failure | none — a handler's out-of-range status is sent as `500` |
 

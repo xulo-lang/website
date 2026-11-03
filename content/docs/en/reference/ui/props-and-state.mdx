@@ -103,20 +103,20 @@ fn Counter(): View {
 
 ```js
 fn Home(): View {
-  @Store let { user, theme } = useAppStore()
-  @Store let { setTheme } = useAppStore()
+  @Store let { user, theme } = use_app_store()
+  @Store let { set_theme } = use_app_store()
 
   VStack {
     Text(`signed in as ${user?.name ?? "guest"}`)
     if theme == Theme::Dark {
       Text("Dark mode")
     }
-    Button("Toggle theme", onClick: fn() { setTheme(Theme::Dark) })
+    Button("Toggle theme", onClick: fn() { set_theme(Theme::Dark) })
   }
 }
 ```
 
-- The form is a destructuring binding: values (`user`, `theme`) and functions the store exposes (`setTheme`) come from the same declaration.
+- The form is a destructuring binding: values (`user`, `theme`) and functions the store exposes (`set_theme`) come from the same declaration.
 - Store values are shared program-wide, not per instance; state that must be per instance belongs in `@State`.
 - An update through a store's setters re-runs every component that declared `@Store` for that store.
 
@@ -142,7 +142,7 @@ fn Nav(): View {
 fn UserProfile(id: string): View {
   @State let profile: string = ""
 
-  @Effect fn() { fetchProfile(id) }, [id]
+  @Effect fn() { fetch_profile(id) }, [id]
 
   Text(profile)
 }

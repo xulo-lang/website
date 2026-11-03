@@ -35,10 +35,10 @@ The module has exactly three functions and no types of its own. Failures are val
 - **Nesting is bounded.** Both directions share one ceiling of 128 levels; a deeper document or value is `Err`, never a partial result and never a trap.
 - **Lists and tuples are arrays.** A list serializes in order; a tuple serializes as the array of its elements. `parse` reads an array as a `list`, so a tuple's type is not carried by the text.
 - **Maps are objects.** A `Map<string, V>` and an object literal emit their entries as members under the sorted-members rule. Keys of other types are textified on the way out: an `int` by its decimal form, a finite `float` by its JSON number form (`1.0` keys as `1`), a `bool` as `true` or `false`. Two keys that textify to the same string, a non-finite `float` key, and an enum key are `Err`. Textified keys come back as `string` keys from `parse`.
-- **Sets are arrays in a defined order.** `stringify` emits the elements sorted by their compact JSON text in UTF-8 byte order; `parse` reads a `list`, and `Set::fromList` restores the set.
+- **Sets are arrays in a defined order.** `stringify` emits the elements sorted by their compact JSON text in UTF-8 byte order; `parse` reads a `list`, and `Set::from_list` restores the set.
 
 ```js
-std::json::stringify(Set::fromList(["b", "a"]))   // ["a","b"]
+std::json::stringify(Set::from_list(["b", "a"]))   // ["a","b"]
 std::json::stringify(Map<int, string>{ 1: "x" }) // {"1":"x"}
 std::json::stringify((1, "x"))                   // [1,"x"]
 ```
@@ -110,24 +110,24 @@ std::json::valid("")              // false
 A struct value is an ordinary member set for `stringify`: **every field the value carries becomes a member of the JSON object, private fields included.** `pub` is a compile-time name rule, not part of a value, so it cannot hide a field from serialization.
 
 ```js
-struct User { name: string, age: int, passwordHash: string }
+struct User { name: string, age: int, password_hash: string }
 
-let alice = User(name: "Alice", age: 30, passwordHash: "5e88…")
+let alice = User(name: "Alice", age: 30, password_hash: "5e88…")
 std::json::stringify(alice)
-// {"age":30,"name":"Alice","passwordHash":"5e88…"} — every field
+// {"age":30,"name":"Alice","password_hash":"5e88…"} — every field
 ```
 
-To choose the members, hand over an object literal or implement an inherent `toJson` returning the value to serialize:
+To choose the members, hand over an object literal or implement an inherent `to_json` returning the value to serialize:
 
 ```js
 impl User {
-  pub fn toJson(self): any { ({ name: self.name, age: self.age }) }
+  pub fn to_json(self): any { ({ name: self.name, age: self.age }) }
 }
 
-std::json::stringify(alice.toJson())     // the chosen members only
+std::json::stringify(alice.to_json())     // the chosen members only
 ```
 
-`stringify` never calls `toJson` itself: the program calls it. On the way back, `parse` yields the plain object the document describes — never a struct — and the constructor restores the type: `User(name: v.name, age: v.age)`.
+`stringify` never calls `to_json` itself: the program calls it. On the way back, `parse` yields the plain object the document describes — never a struct — and the constructor restores the type: `User(name: v.name, age: v.age)`.
 
 ## Error Handling
 

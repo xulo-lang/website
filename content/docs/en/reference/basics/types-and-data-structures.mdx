@@ -24,7 +24,7 @@ Ptr            // opaque foreign handle (FFI only: no literal, no cast)
 Literals pick their type by form: `42`, `0xff`, `0b1010`, `0o77` are `int`; `3.14` is `float`; `"hi"`, `'hi'`, and `` `hi ${x}` `` are `string`; `true`/`false` are `bool`.
 
 - **No truthiness.** Numbers are not booleans: `if 0 { … }` is an error (`E0201`).
-- **Strings are not indexable.** `s[i]` is an error (`E0215`); a string is inspected through its inherent members: `.len` (the number of Unicode scalar values), `.byteLen` (the UTF-8 byte count), `.codeAt(i)`, `.slice(start, end)`, and `.bytes()` (a `List<u8>`). Only `"..."`/`'...'` and backtick templates interpolate.
+- **Strings are not indexable.** `s[i]` is an error (`E0215`); a string is inspected through its inherent members: `.len` (the number of Unicode scalar values), `.byte_len` (the UTF-8 byte count), `.code_at(i)`, `.slice(start, end)`, and `.bytes()` (a `List<u8>`). Only `"..."`/`'...'` and backtick templates interpolate.
 - **No implicit conversion.** `"count=" + 1` is an error (`E0227`) — write `` `count=${n}` `` or `str(x)`.
 - **`number` is a union**, not a default: `int` and `float` promote to `float` in mixed arithmetic, and a `number` is not assignable to `int` or `float` without a check.
 - **Fixed-bit types keep their own type.** `i8`…`u64`, `f32`, `f64`, `usize`, and `isize` never convert to the user-facing layer or to another width (`E0201`); `usize`/`isize` have the platform's pointer width, which an implementation defines and must document.
@@ -44,14 +44,14 @@ let p = (10, "ten")                    // (int, string)
 - `Array<T, N>` is an inline, fixed-length value type: `N` is a const parameter of type `int` and must be non-negative. A list literal checked against an expected `Array<T, N>` is an **array literal** whose element count must equal `N` (`E0815`); a spread, or an abstract const `N`, cannot be checked (`E0818`). Without an expected Array type, `[1, 2, 3]` stays a `List<int>`.
 - Binding, assignment, argument passing, and return **copy** an Array value. `Array<T, N>` and `List<T>` are unrelated nominal types: there is no conversion in either direction, no `+`, and no string form (`str(a)` is `E0212`). Array has no `.push`/`.pop`/`.splice`/`.resize`/`.clear`; construct one with the context-typed literal or `Array::filled<int, 3>(0)`.
 - `Map<K, V>` is insertion-ordered; keys must be hashable (`string`, `int`, `float`, `bool`, payload-free enums). A brace literal `{ k: v }` is a **map**, not an anonymous struct. A key is read with `m.get(k)`, written with `m.set(k, v)`, tested with `m.has(k)`, and removed with `m.remove(k)` — there is no `m[k]` and no `m.key` entry form.
-- `Set<T>` has no literal form — construct it with `Set::fromList(values)` — and no specified iteration order.
+- `Set<T>` has no literal form — construct it with `Set::from_list(values)` — and no specified iteration order.
 - Tuples have at least two elements, are read with `p.0`, and destructure with `let (a, b) = p`. They cannot be iterated (`E0213`) and have no `match` pattern form.
 - Iteration (`for x in xs`) and subscripts are core syntax. Everything else is an **inherent member** of the type, not a prelude function:
-  - **List**: `.len`, `.push`, `.pop`, `.shift`, `.unshift`, `.splice`, `.resize`, `.truncate`, `.clear`, `.slice`, `.indexOf`, `.lastIndexOf`, `.includes`, `.join`, `.reverse`, `.entries`, `.forEach`, `.map`, `.filter`, `.find`, `.findIndex`, `.some`, `.every`, `.reduce`, `.sort`.
+  - **List**: `.len`, `.push`, `.pop`, `.shift`, `.unshift`, `.splice`, `.resize`, `.truncate`, `.clear`, `.slice`, `.index_of`, `.last_index_of`, `.includes`, `.join`, `.reverse`, `.entries`, `.for_each`, `.map`, `.filter`, `.find`, `.find_index`, `.some`, `.every`, `.reduce`, `.sort`.
   - **Array**: the read, callback, and sort members of List — `.len` is always `N`; `.slice` and `.filter` return `List<T>`, while `.map` returns `Array<U, N>`; `.reverse` and `.sort` mutate.
-  - **Map**: `.size`, `.get`, `.set`, `.has`, `.remove`, `.keys`, `.values`, `.entries`, plus the static `Map::fromEntries(entries)`.
-  - **Set**: `.size`, `.has`, `.insert`, `.remove`, plus the static `Set::fromList(values)`.
-  - **string**: `.len`, `.byteLen`, `.codeAt`, `.slice`, `.bytes()`.
+  - **Map**: `.size`, `.get`, `.set`, `.has`, `.remove`, `.keys`, `.values`, `.entries`, plus the static `Map::from_entries(entries)`.
+  - **Set**: `.size`, `.has`, `.insert`, `.remove`, plus the static `Set::from_list(values)`.
+  - **string**: `.len`, `.byte_len`, `.code_at`, `.slice`, `.bytes()`.
   - Mutating members require a mutable place; a callback member borrows its receiver for the call and cannot mutate it. A member outside the closed set is `E0102`.
 
 ## Optionals, Unions, Intersections

@@ -12,9 +12,9 @@ The normative text is [Async Expressions](/en/docs/spec/expressions/async-expres
 ## `async` functions
 
 ```js
-async fn fetchUser(id: int): User {
+async fn fetch_user(id: int): User {
   let raw = await request(`/users/${id}`)
-  decodeUser(raw)
+  decode_user(raw)
 }
 
 async fn notify() {
@@ -65,14 +65,14 @@ async fn main() {
 
 ```js
 async fn greet(id: int): string {
-  let user = await fetchUser(id)   // suspends here until the task settles
+  let user = await fetch_user(id)   // suspends here until the task settles
   "hello " + user.name
 }
 
 async fn demo(a: Task<int>, b: Task<int>) {
   let r1 = await cache.get("k")    // == await (cache.get("k"))
   let r2 = await a + await b       // == (await a) + (await b)
-  print(await fetchCount())        // await in argument position
+  print(await fetch_count())        // await in argument position
 }
 ```
 
@@ -101,15 +101,15 @@ Awaiting an `async` call immediately after making it runs the work sequentially.
 ```js
 // sequential: each await completes before the next call is made
 async fn sequential(): int {
-  let a = await stepA()
-  let b = await stepB()
+  let a = await step_a()
+  let b = await step_b()
   a + b
 }
 
 // concurrent: both tasks start at their calls, then both are awaited
 async fn concurrent(): int {
-  let ta = stepA()
-  let tb = stepB()
+  let ta = step_a()
+  let tb = step_b()
   await ta + await tb
 }
 ```
@@ -128,9 +128,9 @@ async fn concurrent(): int {
 | `Task::resolve` | `resolve<T>(value: T): Task<T>` | an already-completed task holding `value` |
 
 ```js
-async fn fetchAll(): List<User> {
-  let a = fetchUser(1)
-  let b = fetchUser(2)
+async fn fetch_all(): List<User> {
+  let a = fetch_user(1)
+  let b = fetch_user(2)
   await Task::all([a, b])
 }
 
@@ -198,10 +198,10 @@ Otherwise no further restriction applies:
 
 ```js
 async fn cached(id: int): User {
-  if await isCached(id) {
-    return await readCache(id)
+  if await is_cached(id) {
+    return await read_cache(id)
   }
-  await fetchUser(id)
+  await fetch_user(id)
 }
 ```
 

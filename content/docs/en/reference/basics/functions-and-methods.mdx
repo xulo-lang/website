@@ -72,7 +72,7 @@ let double = fn(x: int): int { x * 2 }
 
 // arrow closures: parameters, optional result, =>, body
 let add = (x: int, y: int) => x + y
-let addTyped: fn(int, int): int = (x, y) => x + y   // types from the expected type
+let add_typed: fn(int, int): int = (x, y) => x + y   // types from the expected type
 let one = x => x * 2                                // single parameter: parens optional
 let nothing = () => print("hi")                     // empty list must be written ()
 let classify = (n: int): string => {                // block body
@@ -87,12 +87,12 @@ let classify = (n: int): string => {                // block body
 - An immediately-invoked closure is parenthesized: `((x: int): int => x + 1)(41)`.
 
 ```js
-fn makeAdder(n: int): fn(int): int {
+fn make_adder(n: int): fn(int): int {
   (v: int) => v + n            // read capture of n
 }
 
 fn main() {
-  let add5 = makeAdder(5)
+  let add5 = make_adder(5)
   print(str(add5(10)))         // 15
   print(apply(x => x * 3, 7))  // expected type supplies x
 }
@@ -113,10 +113,10 @@ fn ok(p: Counter): fn(): int {
 ## Async Functions
 
 ```js
-async fn doubleAsync(n: int): int {
+async fn double_async(n: int): int {
   await Task::resolve(n * 2)
 }
-async fn main() { print(await doubleAsync(21)) }   // 42
+async fn main() { print(await double_async(21)) }   // 42
 ```
 
 - `async fn` declares its **result** type; the function's evaluated type is `fn(…): Task<T>` — not `Promise`.
@@ -159,7 +159,7 @@ fn main() {
 - At the call site the receiver is not written as an argument: `c.increment()` supplies `c`.
 - **Resolution order:** `value.method(…)` resolves first to a **built-in inherent member** of the receiver's type (for `List`, `Array`, `Map`, `Set`, and `string`), then to an inherent method declared in an `impl` block, otherwise to a trait method from an implementation in scope. Exactly one candidate must result — none is `E0102`, more than one is `E0809` and must be disambiguated with explicit dispatch `Trait::method(receiver)`.
 - A receiver that may be `null` uses optional chaining: `receiver?.method()` evaluates to `null` instead of calling.
-- **Static members.** `Map::fromEntries(entries)`, `Set::fromList(values)`, and `Array::filled<T, const N: int>(value: T)` are associated members of the built-in types, reached through `::` like the associated names of an `impl` block. They have no receiver and are never selected by `.`.
+- **Static members.** `Map::from_entries(entries)`, `Set::from_list(values)`, and `Array::filled<T, const N: int>(value: T)` are associated members of the built-in types, reached through `::` like the associated names of an `impl` block. They have no receiver and are never selected by `.`.
 
 ## Trait Methods
 
@@ -177,8 +177,8 @@ Trait methods are signature-only, separated by `;`, and **must** declare a retur
 ```js
 fn first<T>(xs: List<T>): T { xs[0] }
 fn repeat<const N: int>(value: int): int { N * value }
-fn areaOf<T: Area>(shape: T): float { Area::area(shape) }
-fn perimeterOf<T>(shape: T): float where T: Area { shape.perimeter() }
+fn area_of<T: Area>(shape: T): float { Area::area(shape) }
+fn perimeter_of<T>(shape: T): float where T: Area { shape.perimeter() }
 
 fn main() {
   let n = first([1, 2, 3])        // T = int

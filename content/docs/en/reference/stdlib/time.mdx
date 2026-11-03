@@ -32,14 +32,14 @@ use std::time::{now, sleep};
 | Member | Signature | Meaning |
 |--------|-----------|---------|
 | `std::time::now` | `fn(): u64` | milliseconds since the Unix epoch (wall clock) |
-| `std::time::nowNanos` | `fn(): u64` | nanoseconds since the Unix epoch (wall clock) |
+| `std::time::now_nanos` | `fn(): u64` | nanoseconds since the Unix epoch (wall clock) |
 
-- `now` and `nowNanos` read the **wall clock**: the count of milliseconds or nanoseconds that has elapsed since 1970-01-01T00:00:00Z. They are the right choice for timestamps — the time of day a record was written, the stamp in a log line — and the wrong choice for measuring how long something took: a wall clock can be stepped by the host (NTP correction, manual change), so two readings may not order with real elapsed time.
+- `now` and `now_nanos` read the **wall clock**: the count of milliseconds or nanoseconds that has elapsed since 1970-01-01T00:00:00Z. They are the right choice for timestamps — the time of day a record was written, the stamp in a log line — and the wrong choice for measuring how long something took: a wall clock can be stepped by the host (NTP correction, manual change), so two readings may not order with real elapsed time.
 - Both results are unsigned. A host whose clock reads a time *before* the Unix epoch yields `0` — never a negative number and never a failure — so a reading from such a host is indistinguishable from the epoch itself.
 
 ```js
-let stampMs = std::time::now()          // a wall-clock timestamp
-let stampNs = std::time::nowNanos()     // the same reading in nanoseconds
+let stamp_ms = std::time::now()          // a wall-clock timestamp
+let stamp_ns = std::time::now_nanos()     // the same reading in nanoseconds
 ```
 
 ## Monotonic Clock
@@ -47,16 +47,16 @@ let stampNs = std::time::nowNanos()     // the same reading in nanoseconds
 | Member | Signature | Meaning |
 |--------|-----------|---------|
 | `std::time::monotonic` | `fn(): u64` | milliseconds on the monotonic clock |
-| `std::time::monotonicNanos` | `fn(): u64` | nanoseconds on the monotonic clock |
+| `std::time::monotonic_nanos` | `fn(): u64` | nanoseconds on the monotonic clock |
 
-- `monotonic` and `monotonicNanos` read a clock that **never runs backwards** and is unaffected by wall-clock changes: a reading taken after another one is greater than or equal to it, always.
+- `monotonic` and `monotonic_nanos` read a clock that **never runs backwards** and is unaffected by wall-clock changes: a reading taken after another one is greater than or equal to it, always.
 - The origin of the monotonic clock is **arbitrary** — it is fixed once per process at the first reading — so an absolute value carries no meaning. Only the *difference* between two readings is meaningful, which makes these members the right choice for elapsed time, debounce windows, and benchmarks.
 - The elapsed time between two readings is their difference; the unit of the difference is the unit of the members it was taken with.
 
 ```js
-let start = std::time::monotonicNanos()
+let start = std::time::monotonic_nanos()
 // ... work ...
-let end = std::time::monotonicNanos()
+let end = std::time::monotonic_nanos()
 let elapsed = end - start                   // nanoseconds elapsed, never negative
 ```
 
@@ -88,17 +88,17 @@ The calendar members work in **UTC alone** — no host time zone, no DST, no loc
 | `std::time::format` | `fn(ms: u64): string` | the timestamp as ISO 8601 UTC — `2026-10-26T12:34:56.789Z` |
 | `std::time::parse` | `fn(text: string): Result<u64, Error>` | the timestamp an ISO 8601 UTC string denotes |
 | `std::time::parts` | `fn(ms: u64): { year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int }` | the UTC date and time fields of a timestamp |
-| `std::time::fromParts` | `fn(year: int, month: int, day: int, hour: int = 0, minute: int = 0, second: int = 0, millisecond: int = 0): u64` | the timestamp those UTC fields denote |
+| `std::time::from_parts` | `fn(year: int, month: int, day: int, hour: int = 0, minute: int = 0, second: int = 0, millisecond: int = 0): u64` | the timestamp those UTC fields denote |
 | `std::time::weekday` | `fn(ms: u64): int` | the day of the week — `0` Sunday … `6` Saturday |
 
 - `format` emits one fixed layout: four-digit year, two-digit month, day, `T`, hour, minute, second, then **exactly three** fractional digits and `Z` — no templates and no locale. A `ms` above the domain — past `9999-12-31T23:59:59.999Z` — is a runtime failure; every other `u64` renders.
 - `parse` accepts the layout `format` emits, plus two relaxations: `T` or a single space as the date/time separator, and a fraction of 1 to 9 digits (truncated to the millisecond — the output's precision). Field ranges are checked against the calendar (a nonexistent date like `2026-02-30`, a `23:59:60Z` leap second, or an out-of-range hour is rejected), and `Z` is required — an offset such as `+08:00` is not part of this version. Everything else — malformed text, a date before the Unix epoch, a date beyond `9999` — is `Err` of the **built-in** `Error`, never a panic and never an absence. For every `ms` in the domain, `parse(format(ms))` is `Ok(ms)`.
 - `parts` is total for every `u64`, the calendar's domain included: a timestamp `format` refuses still decomposes — the `year` field is an `int`, large enough for any value the clock can return. The fields are UTC: `month` runs `1 …= 12`, and `millisecond` runs `0 …= 999`.
-- `fromParts` inverts `parts`: the fields must name a real instant inside the domain — a month of `1 …= 12`, a day within that month (leap years included), `hour` `0 …= 23`, `minute` and `second` `0 …= 59`, `millisecond` `0 …= 999`, and a date at or after the Unix epoch. Any other field set is a **runtime failure**; the time fields default to `0`, so `fromParts(2026, 10, 26)` is midnight UTC.
+- `from_parts` inverts `parts`: the fields must name a real instant inside the domain — a month of `1 …= 12`, a day within that month (leap years included), `hour` `0 …= 23`, `minute` and `second` `0 …= 59`, `millisecond` `0 …= 999`, and a date at or after the Unix epoch. Any other field set is a **runtime failure**; the time fields default to `0`, so `from_parts(2026, 10, 26)` is midnight UTC.
 - `weekday` is total for every `u64`, domain or not: the epoch itself was a Thursday, so `weekday(0) == 4`.
 
 ```js
-let noon = std::time::fromParts(2026, 10, 26, 12)
+let noon = std::time::from_parts(2026, 10, 26, 12)
 print(std::time::format(noon))              // 2026-10-26T12:00:00.000Z
 match std::time::parse("2026-10-26T12:00:00.000Z") {
   Result::Ok(ms) => print(ms == noon)       // true
@@ -107,7 +107,7 @@ match std::time::parse("2026-10-26T12:00:00.000Z") {
 let f = std::time::parts(noon)
 print(`${f.year}-${f.month}-${f.day}`)      // 2026-10-26
 print(std::time::weekday(noon))             // 1 — a Monday
-std::time::fromParts(2026, 2, 30)           // runtime failure: no such date
+std::time::from_parts(2026, 2, 30)           // runtime failure: no such date
 std::time::format(253402300800000)          // runtime failure: past 9999
 ```
 
@@ -115,22 +115,22 @@ std::time::format(253402300800000)          // runtime failure: past 9999
 
 | Kind | Members |
 |------|---------|
-| Total | `now`, `nowNanos`, `monotonic`, `monotonicNanos`, `sleep`, `parts`, `weekday` |
+| Total | `now`, `now_nanos`, `monotonic`, `monotonic_nanos`, `sleep`, `parts`, `weekday` |
 | Fallible (`Result`) | `parse` — `Result<u64, Error>`, the built-in error |
-| Runtime failure | `format` with `ms` past `9999-12-31T23:59:59.999Z`; `fromParts` with fields outside the calendar or before the Unix epoch |
+| Runtime failure | `format` with `ms` past `9999-12-31T23:59:59.999Z`; `from_parts` with fields outside the calendar or before the Unix epoch |
 
-The readings, `sleep`, `parts`, and `weekday` cannot fail: there is no absence in this module, and `sleep`'s clamping of an oversized delay is a settling guarantee, not a failure. `parse` is the module's only fallible member, and its `Err` carries the **built-in** `Error` — no module error type. `format` and `fromParts` state argument domains that stop the program when exceeded, the same shape as `std::math::toFixed`'s `digits`. The only check-time error that involves these members is discarding `sleep`'s task in statement position (`E0218`), reported before the program runs.
+The readings, `sleep`, `parts`, and `weekday` cannot fail: there is no absence in this module, and `sleep`'s clamping of an oversized delay is a settling guarantee, not a failure. `parse` is the module's only fallible member, and its `Err` carries the **built-in** `Error` — no module error type. `format` and `from_parts` state argument domains that stop the program when exceeded, the same shape as `std::math::to_fixed`'s `digits`. The only check-time error that involves these members is discarding `sleep`'s task in statement position (`E0218`), reported before the program runs.
 
 ## Use Cases
 
 ### Performance Measurement
 
 ```js
-let start = std::time::monotonicNanos()
+let start = std::time::monotonic_nanos()
 for i in 0..<1000000 {
   // execute loop
 }
-let elapsed = std::time::monotonicNanos() - start
+let elapsed = std::time::monotonic_nanos() - start
 print(elapsed / 1000)   // microseconds (u64 division)
 ```
 
@@ -183,7 +183,7 @@ async fn poll(fetch: fn(): Result<int, Error>): Result<int, Error> {
 ## Design Notes
 
 - **`u64`, not `int`.** Every clock returns `u64`; arithmetic stays in `u64` (`std::time::monotonic() - start`), and integer literals adapt to it in a call argument or comparison. A `u64` value does not convert to `float` (`E0201`) — a fixed-bit type is not the user-facing numeric layer.
-- **Two clocks, two jobs.** `std::time::now` / `nowNanos` read the wall clock — timestamps, logs, persistence. `std::time::monotonic` / `monotonicNanos` measure elapsed time — benchmarks, debounce, frame deltas.
+- **Two clocks, two jobs.** `std::time::now` / `now_nanos` read the wall clock — timestamps, logs, persistence. `std::time::monotonic` / `monotonic_nanos` measure elapsed time — benchmarks, debounce, frame deltas.
 - **Sleep is a task.** `std::time::sleep(ms)` is `fn(ms: u64): Task<unit>`; the `await` is part of the call's contract, not an option.
 - **UTC only.** The calendar has no host time zone, no DST, no locale, and no leap seconds.
 - **Qualified or imported.** `std::time` is a library module, not a prelude namespace: use the qualified path or bind it with `use`. A bare `Time` or `time` head is not this module.

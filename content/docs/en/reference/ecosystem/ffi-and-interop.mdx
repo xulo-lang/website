@@ -17,8 +17,8 @@ The boundary carries no string, no buffer, no collection, and no callback — on
 extern "C" {
   fn abs(x: i32): i32
   fn getpid(): i32
-  fn malloc(size: usize): Ptr? as cMalloc
-  fn free(p: Ptr?) as cFree
+  fn malloc(size: usize): Ptr? as c_malloc
+  fn free(p: Ptr?) as c_free
 }
 
 // ok
@@ -105,10 +105,10 @@ extern "C" {
 - **A `Ptr` never converts to or from an integer**, in this version or any later one.
 
 ```js
-fn roundTrip(p: Ptr): Ptr? { p }          // ok: `Ptr` is an ordinary value
+fn round_trip(p: Ptr): Ptr? { p }          // ok: `Ptr` is an ordinary value
 
 extern "C" {
-  fn asInt(p: Ptr): i32                   // ok
+  fn as_int(p: Ptr): i32                   // ok
   // fn bad(p: Ptr<u8>): i32              // error: `Ptr` takes no type arguments (E0230)
   // fn boxed(p: Ptr): i32 { 0 }          // error: an import item has no body
 }
@@ -120,22 +120,22 @@ extern "C" {
 
 ```js
 extern "C" {
-  fn malloc(size: usize): Ptr? as cMalloc
-  fn free(p: Ptr?) as cFree
+  fn malloc(size: usize): Ptr? as c_malloc
+  fn free(p: Ptr?) as c_free
 }
 
 fn store(size: usize) {
-  let p = cMalloc(size)
+  let p = c_malloc(size)
   if p != null {
     // `p` is `Ptr` here
-    cFree(p)                      // ok
+    c_free(p)                      // ok
   } else {
     print("out of memory")
   }
 }
 
-fn mustAllocate(size: usize): Ptr {
-  let p = cMalloc(size) ?? panic("out of memory")   // ok: `p` is `Ptr`
+fn must_allocate(size: usize): Ptr {
+  let p = c_malloc(size) ?? panic("out of memory")   // ok: `p` is `Ptr`
   p
 }
 ```
@@ -144,9 +144,9 @@ fn mustAllocate(size: usize): Ptr {
 
 ```js
 fn attempt(size: usize) {
-  let p = cMalloc(size)
+  let p = c_malloc(size)
   if p == null { return }
-  cFree(p)                        // error: `p` is `Ptr?` here (E0201)
+  c_free(p)                        // error: `p` is `Ptr?` here (E0201)
 }
 ```
 
@@ -154,8 +154,8 @@ fn attempt(size: usize) {
 
 ```js
 fn touch(size: usize): string {
-  match cMalloc(size) {
-    Ptr p => { cFree(p); "freed" }    // ok: `p` is `Ptr` within this arm
+  match c_malloc(size) {
+    Ptr p => { c_free(p); "freed" }    // ok: `p` is `Ptr` within this arm
     null => "allocation failed"
   }
 }
@@ -163,7 +163,7 @@ fn touch(size: usize): string {
 
 ## Calling
 
-An imported symbol is callable in **direct call position** only: `cMalloc(64)` is a call; binding it, storing it, or passing it as a value is `E0903`. The reason is structural — an Xulo value of function type carries no ABI, so a call through it would use Xulo's own convention on a foreign symbol. A function type that carries a foreign ABI does not exist.
+An imported symbol is callable in **direct call position** only: `c_malloc(64)` is a call; binding it, storing it, or passing it as a value is `E0903`. The reason is structural — an Xulo value of function type carries no ABI, so a call through it would use Xulo's own convention on a foreign symbol. A function type that carries a foreign ABI does not exist.
 
 ```js
 fn apply(f: fn(i32): i32, x: i32): i32 { f(x) }
@@ -215,8 +215,8 @@ Positions absent from an extern form's grammar — a body on an import item, `as
 ```js
 extern "C" {
   fn abs(x: i32): i32
-  fn malloc(size: usize): Ptr? as cMalloc
-  fn free(p: Ptr?) as cFree
+  fn malloc(size: usize): Ptr? as c_malloc
+  fn free(p: Ptr?) as c_free
 }
 
 pub extern "C" fn sum(xs: i32, n: i32): i32 {
@@ -229,10 +229,10 @@ pub extern "C" fn sum(xs: i32, n: i32): i32 {
   total
 }
 
-fn withBuffer(size: usize, body: fn(Ptr): i32): i32 {
-  let p = cMalloc(size) ?? panic("out of memory")
+fn with_buffer(size: usize, body: fn(Ptr): i32): i32 {
+  let p = c_malloc(size) ?? panic("out of memory")
   let result = body(p)            // Xulo closure over a `Ptr`: ordinary call
-  cFree(p)
+  c_free(p)
   result
 }
 // ok

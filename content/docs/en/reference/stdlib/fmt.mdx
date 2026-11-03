@@ -92,7 +92,7 @@ struct Money { cents: int }
 
 impl Display for Money {
   fn display(self, format: Format): string {
-    std::math::toFixed(self.cents / 100.0, format.precision ?? 2)
+    std::math::to_fixed(self.cents / 100.0, format.precision ?? 2)
   }
 }
 
@@ -135,7 +135,7 @@ std::fmt::format("%x", [small])                 // "ff"
 | `%e` `%E` | `number`, `f32`, `f64` | scientific — one digit, `.`, `precision` digits, then `e` or `E` and a signed exponent of at least two digits (default 6) |
 | `%g` `%G` | `number`, `f32`, `f64` | the shorter of the `%f` and `%e` forms, `%G` spelling the exponent with `E` |
 
-- Rounding is the `std::math::toFixed` rule — `precision` places, halfway away from zero — and its overflow note applies to `%f` unchanged. An integer operand is converted to the `float` nearest its value — exact within ±2⁵³, ties to even beyond — and an `f32` operand is widened to the `float` it exactly names; the verb then applies to that value.
+- Rounding is the `std::math::to_fixed` rule — `precision` places, halfway away from zero — and its overflow note applies to `%f` unchanged. An integer operand is converted to the `float` nearest its value — exact within ±2⁵³, ties to even beyond — and an `f32` operand is widened to the `float` it exactly names; the verb then applies to that value.
 - A negative zero keeps its sign (`%f` of `-0.0` is `-0.000000`, `%e` `-0.000000e+00`), and the special values ignore precision to render as `NaN`, `Infinity`, and `-Infinity` — the spellings `str` and `std::math` already fix. The flags `+`, ` `, `#`, and `0` change nothing about those three; `width` and `-` still place them.
 - `%g` reads `precision` as **significant digits** (`1 …= 17`): it rounds to that many and then drops trailing zeros from the `%f` form — and the point, when nothing follows it. The form is the `%e` one when the decimal exponent of the leading digit is below `−4` or reaches `precision` — an omitted `precision` counting as `6` for this rule alone — and the `%f` one otherwise. Omitted, `%g` prints the shortest digit string that reads back as the same value: for an `f32` operand the digits of the `f32` row of the Output table — the same digits `%v` prints — and otherwise the digits of the `float` row.
 - `%f` and `%e` give six digits after the point when precision is omitted, the Go and C default.
@@ -188,7 +188,7 @@ print(std::fmt::format("%.3s", [[1, 2, 3]]))   // [1,   — a table rendering is
 | Runtime failure | `format` — every malformed template (a verb outside the table, a repeated flag, a flag the verb does not accept, a decorated `%%`, a `%` with no verb, a `.` with no precision digits, a width or precision whose digits do not fit an `int`) and every mismatched argument list (a directive count disagreeing with `args`, an operand of the wrong kind for its verb — a `float` for `%d`, a `struct` whose type implements neither `Display` nor `Debug` under `%v` or `%s` — a precision outside its verb's domain — `0 …= 15` for `%f`/`%e`/`%E`, `1 …= 17` for `%g` — or a `%c` scalar outside `0 …= 0x10FFFF` or in U+D800 … U+DFFF) |
 | Fallible (`Result`) | none |
 
-A template is the program's own text and the arguments are the program's own values, so every failure here is an argument domain — the class the language leaves as a runtime failure, the shape `std::math::toFixed`'s `digits` already takes. The module never meets the outside world, so there is no failure for a `Result` to carry.
+A template is the program's own text and the arguments are the program's own values, so every failure here is an argument domain — the class the language leaves as a runtime failure, the shape `std::math::to_fixed`'s `digits` already takes. The module never meets the outside world, so there is no failure for a `Result` to carry.
 
 ## Checked Call Examples
 

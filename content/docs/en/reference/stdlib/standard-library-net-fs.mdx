@@ -13,26 +13,26 @@ The language side is fixed by the specification: the **prelude** — the built-i
 
 1. **Zero Contamination & Cross-Platform**: `std/*` guarantees consistent behavior across all targets (native OS, embedded, WebAssembly) without platform-specific logic in the source.
 2. **Separation of language and std**: the prelude and the intrinsics belong to the language and are reserved — a module-scope `fn`, `struct`, `enum`, `trait`, `type`, `let`, or `const` may not bear one of their names (compile-time error `E0106`). `std` modules are named with `use` or `std::` alongside them and never replace them.
-3. **Text and bytes**: every `string` in the library is UTF-8 text, and the streams carry text only — the `std::io` readers and `std::fs::read` require valid UTF-8 and fail otherwise, while `std::net::sockRead` and `std::http` bodies decode lossily, replacing each invalid sequence with U+FFFD. Arbitrary content crosses the **file** boundary through [`std::fs`](fs.mdx)'s byte twins — `readBytes`, `writeBytes`, `appendBytes` — whose unit is `List<u8>` and which never decode. Bytes become text only when a text reader accepts them as valid UTF-8; a byte-level surface for the streams is a roadmap candidate.
+3. **Text and bytes**: every `string` in the library is UTF-8 text, and the streams carry text only — the `std::io` readers and `std::fs::read` require valid UTF-8 and fail otherwise, while `std::net::sock_read` and `std::http` bodies decode lossily, replacing each invalid sequence with U+FFFD. Arbitrary content crosses the **file** boundary through [`std::fs`](fs.mdx)'s byte twins — `read_bytes`, `write_bytes`, `append_bytes` — whose unit is `List<u8>` and which never decode. Bytes become text only when a text reader accepts them as valid UTF-8; a byte-level surface for the streams is a roadmap candidate.
 
 ## Module Inventory
 
 | Module | Contents |
 |--------|----------|
-| `std::math` | constants `PI`, `E`, `TAU`, `INFINITY`, `NAN`; `abs`, `min`, `max`, `sign`, `sqrt`, `cbrt`, `pow`, `hypot`, `clamp`, `floor`, `ceil`, `round`, `trunc`, `toFixed`, the trigonometric, logarithmic, and exponential functions, `random`, `randomInt`, and the wrapping and bit functions |
-| `std::time` | `now`, `nowNanos`, `monotonic`, `monotonicNanos`, `sleep`, `format`, `parse`, `parts`, `fromParts`, `weekday` |
-| `std::io` | `print`, `println`, `eprint`, `eprintln`, `flush`, `readLine`, `read`, `readN`, `stdinIsTTY`, `stdoutIsTTY` |
-| `std::fs` | `read`, `readBytes`, `write`, `writeBytes`, `append`, `appendBytes`, `createNew`, `touch`, `setTimes`, `setMode`, `exists`, `realpath`, `stat`, `copy`, `rename`, `remove`, `mkdir`, `readDir`, `walk`, `removeDir`, `tempFile`, `tempFileIn`, `tempDir`, `tempDirIn` |
-| `std::path` | `isAbsolute`, `join`, `dirname`, `basename`, `split`, `ext`, `stem`, `withExt`, `normalize`, `relative` |
-| `std::os` | `getenv`, `setenv`, `unsetenv`, `cwd`, `chdir`, `tmpDir`, `homeDir`, `pid`, `platform`, `arch`, `hostName`, `userName`, `execPath`, `cpuCount` |
-| `std::net` | `tcpListen`, `tcpAccept`, `tcpConnect`, `sockRead`, `sockWrite`, `sockShutdown`, `sockShutdownWrite`, `sockClose`, `sockLocalAddr`, `sockPeerAddr` |
+| `std::math` | constants `PI`, `E`, `TAU`, `INFINITY`, `NAN`; `abs`, `min`, `max`, `sign`, `sqrt`, `cbrt`, `pow`, `hypot`, `clamp`, `floor`, `ceil`, `round`, `trunc`, `to_fixed`, the trigonometric, logarithmic, and exponential functions, `random`, `random_int`, and the wrapping and bit functions |
+| `std::time` | `now`, `now_nanos`, `monotonic`, `monotonic_nanos`, `sleep`, `format`, `parse`, `parts`, `from_parts`, `weekday` |
+| `std::io` | `print`, `println`, `eprint`, `eprintln`, `flush`, `read_line`, `read`, `read_n`, `stdin_is_tty`, `stdout_is_tty` |
+| `std::fs` | `read`, `read_bytes`, `write`, `write_bytes`, `append`, `append_bytes`, `create_new`, `touch`, `set_times`, `set_mode`, `exists`, `realpath`, `stat`, `copy`, `rename`, `remove`, `mkdir`, `read_dir`, `walk`, `remove_dir`, `temp_file`, `temp_file_in`, `temp_dir`, `temp_dir_in` |
+| `std::path` | `is_absolute`, `join`, `dirname`, `basename`, `split`, `ext`, `stem`, `with_ext`, `normalize`, `relative` |
+| `std::os` | `getenv`, `setenv`, `unsetenv`, `cwd`, `chdir`, `tmp_dir`, `home_dir`, `pid`, `platform`, `arch`, `host_name`, `user_name`, `exec_path`, `cpu_count` |
+| `std::net` | `tcp_listen`, `tcp_accept`, `tcp_connect`, `sock_read`, `sock_write`, `sock_shutdown`, `sock_shutdown_write`, `sock_close`, `sock_local_addr`, `sock_peer_addr` |
 | `std::http` | `fetch`, `request`, `listen`; types `Request`, `Response`, `Server` |
 | `std::process` | `exit`, `args`, `run`, `exec`, `launch`; types `Command`, `Child` |
 | `std::json` | `parse`, `stringify`, `valid` |
 | `std::regex` | types `RegExp`, `RegexError`, `RegexMatch` |
 | `std::fmt` | `format` — formatted text from a template and values: verbs, flags, width, and precision |
 
-The module set is closed: an unknown module under `std` is `E0607`, and an unknown member is `E0601`. Every member follows lowerCamelCase, the network members (`tcpListen`, `sockRead`) included.
+The module set is closed: an unknown module under `std` is `E0607`, and an unknown member is `E0601`. Every member follows snake_case, the network members (`tcp_listen`, `sock_read`) included.
 
 ## Reaching the Library
 
@@ -95,7 +95,7 @@ Standard-library code follows the language model — there is no `throw` and no 
 
 - A fallible call returns `Result<T, Error>`: `Result<string, Error>`, `Result<Response, Error>`, `Result<unit, Error>`. Propagate with `?` or inspect with `match`.
 - The one exception is `std::regex::RegExp::compile`, whose failure payload is the module's own `RegexError` — read with `e.message` exactly like `Error`.
-- Failure classes say what an `Err` may mean, not what a caller can detect: every `Err` has the same shape, and message text is never a discriminator — a program or test MUST NOT recover a class by matching it. Branch only on what a member offers as data: a field such as a `code`, an absence (`Ok(null)`), a probe such as `exists`/`stat`, or a byte twin such as `readBytes`.
+- Failure classes say what an `Err` may mean, not what a caller can detect: every `Err` has the same shape, and message text is never a discriminator — a program or test MUST NOT recover a class by matching it. Branch only on what a member offers as data: a field such as a `code`, an absence (`Ok(null)`), a probe such as `exists`/`stat`, or a byte twin such as `read_bytes`.
 - Absence is not failure: an optional (`T?`) is read with `??`, `?.`, or a null test. `std::json::parse` returns the JSON `null` inside `Ok`, never as a stand-in for failure.
 - `panic` is reserved for broken invariants; no library outcome should stop the program.
 
@@ -106,7 +106,7 @@ See [Error Handling](/en/docs/reference/stdlib/error-handling/) and the specific
 | Category | Language built-ins (no `use`) | Standard library (`use` or `std::`) |
 | --- | --- | --- |
 | **Collections** | `List<T>`, `Array<T, N>`, `Map<K, V>`, `Set<T>` with inherent members (`.push`, `.get`, `.slice`, …) | — in version 0.1 |
-| **Output & assertion** | `print`, `println`, `str`, `assert` | `std::io::{eprint, eprintln, flush, readLine, read, readN}` |
+| **Output & assertion** | `print`, `println`, `str`, `assert` | `std::io::{eprint, eprintln, flush, read_line, read, read_n}` |
 | **Concurrency** | `spawn`, `lock`, `shared`, `Task::all` / `Task::race` / `Task::resolve` / `Task::timeout` | `std::time::sleep` |
 | **I/O** | — | `std::fs`, `std::path`, `std::net`, `std::http`, `std::io` |
 | **Data** | — | `std::json`, `std::regex`, `std::fmt` |
@@ -120,13 +120,13 @@ The built-in collections and `string` expose **inherent members** — they are p
 
 | Type | Members |
 | --- | --- |
-| `List<T>` | `.len`, `.push`, `.pop`, `.shift`, `.unshift`, `.splice`, `.resize`, `.truncate`, `.clear`, `.slice`, `.indexOf`, `.lastIndexOf`, `.includes`, `.join`, `.reverse`, `.entries`, `.forEach`, `.map`, `.filter`, `.find`, `.findIndex`, `.some`, `.every`, `.reduce`, `.sort` |
+| `List<T>` | `.len`, `.push`, `.pop`, `.shift`, `.unshift`, `.splice`, `.resize`, `.truncate`, `.clear`, `.slice`, `.index_of`, `.last_index_of`, `.includes`, `.join`, `.reverse`, `.entries`, `.for_each`, `.map`, `.filter`, `.find`, `.find_index`, `.some`, `.every`, `.reduce`, `.sort` |
 | `Array<T, N>` | the read, callback, and sort members of `List`; `.len` is always `N`; `.slice`/`.filter` return `List<T>`, `.map` returns `Array<U, N>`; no growth or shrink members |
-| `Map<K, V>` | `.size`, `.get`, `.set`, `.has`, `.remove`, `.keys`, `.values`, `.entries`; static `Map::fromEntries` |
-| `Set<T>` | `.size`, `.has`, `.insert`, `.remove`; static `Set::fromList` |
-| `string` | `.len`, `.byteLen`, `.codeAt`, `.slice`, `.bytes()` |
+| `Map<K, V>` | `.size`, `.get`, `.set`, `.has`, `.remove`, `.keys`, `.values`, `.entries`; static `Map::from_entries` |
+| `Set<T>` | `.size`, `.has`, `.insert`, `.remove`; static `Set::from_list` |
+| `string` | `.len`, `.byte_len`, `.code_at`, `.slice`, `.bytes()` |
 
-Iteration, subscripts, and `+` on lists are core syntax, not members. A map key is read with `m.get(k)` — absence is `null`, not a failure — and there is no `m[k]` or `m.key` entry form. A mutating member requires a mutable place. Strings are inspected through their members: `s[i]` is a compile-time error (`E0215`), and `s.codeAt(i)` / `s.slice(start, end)` index by Unicode scalar value; an out-of-range index or bounds is a runtime failure.
+Iteration, subscripts, and `+` on lists are core syntax, not members. A map key is read with `m.get(k)` — absence is `null`, not a failure — and there is no `m[k]` or `m.key` entry form. A mutating member requires a mutable place. Strings are inspected through their members: `s[i]` is a compile-time error (`E0215`), and `s.code_at(i)` / `s.slice(start, end)` index by Unicode scalar value; an out-of-range index or bounds is a runtime failure.
 
 The built-in side is specified by the language and is in scope from a module's first line; every `std/*` module — JSON included — is named by an explicit `use` or a `std::` path.
 
