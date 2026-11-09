@@ -70,6 +70,8 @@ project/
 - A type-only binding may be used in type positions and as the base of an enum-variant path (`Status::Active`), but never where a value is expected (`E0606`) — a restriction that propagates through any `pub use` chain.
 - Two bindings for one local name are `E0104` — including glob overlap and a manifest path name colliding with a local `mod` name or alias. `_` cannot be a use entry or an alias.
 - An unused `use` entry — or a glob none of whose contributions is used — is `W0102`. A binding re-exported by `pub use` counts as used.
+- A plain `use` also imports a **macro** when the path names one; `use type` imports no macro, and a path that resolves only to a macro is a valid `use`, not `E0601`. A macro import is used when the macro appears in a macro position (`#[derive(T)]`, `#[name(…)]`, `name!(…)`) or is re-exported; an unused one warns (`W0102`).
+- Macro names form a separate namespace: a macro may share a spelling with a value or type in the same module. Two bindings for one macro name — `use` × `use`, `use` × definition, or glob overlap — are `E0104`; two macro definitions with one name in one module are `E1010`.
 
 ## Paths: `::` and `.`
 
@@ -110,6 +112,7 @@ pub use { add, PI };          // names already in this interface
 | Declaration | Exported name | What clients receive |
 |-------------|---------------|----------------------|
 | `pub fn f(…)` | `f` | a function of the declared signature |
+| `pub fn f(…)` with `#[macro]`, `#[macro_attr]`, or `#[macro_derive(Target)]` | the macro name — the function identifier, or `Target` — in addition to `f` | the macro, invocable as `#[derive(Target)]`, `#[name(…)]`, or `name!(…)` |
 | `pub struct S { … }` | `S` | the type, its constructor, its `pub` members |
 | `pub enum E { … }` | `E` | the type and its variants `E::V` |
 | `pub trait T { … }` | `T` | the trait, to be implemented locally |

@@ -59,7 +59,7 @@ async fn main() {
 
 - The operand MUST have type `Task<T>`; `await expr` then has type `T`. Awaiting anything else is a compile-time error (`E0502`).
 - The operand is evaluated exactly once, before the suspension it causes.
-- `await` is legal only inside the body of an `async` function, an `async` closure, or a `#Test` function marked `async`; elsewhere it is a compile-time error (`E0501`).
+- `await` is legal only inside the body of an `async` function, an `async` closure, or a `#[test]` function marked `async`; elsewhere it is a compile-time error (`E0501`).
 - `await` is a prefix operator at the unary level of the precedence table: it binds tighter than any binary operator and looser than postfix operators such as calls, indexing, and member access.
 - Inside an `async` body `await` is an ordinary expression and may appear anywhere an expression may appear — including argument position, conditions, initializers, and `for` iterables — with one exception: the body of a `lock` expression contains no suspension point, and `await` inside it is a compile-time error (`E0410`; see [Shared state and `lock`](/en/docs/reference/architecture/memory-and-concurrency-model/#shared-state-and-lock)).
 

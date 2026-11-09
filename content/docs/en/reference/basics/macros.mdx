@@ -1,0 +1,246 @@
+---
+title: Macros
+description: Procedural macros defined with `#[macro]`, `#[macro_attr]`, and `#[macro_derive(Target)]` in XULO.
+---
+
+## Overview
+
+XULO has **procedural macros**, not a declarative macro language: a macro implementation is an ordinary checked function that runs at compile time in a sandbox and returns a structured AST fragment. There is no `macro_rules!`-style pattern/template language and no token-substitution syntax.
+
+A macro is defined by one of three built-in attributes on a module-level `fn`:
+
+| Attribute | Macro name | Invocation | Signature |
+|-----------|------------|------------|-----------|
+| `#[macro]` | the function identifier | `name!(…)` | `ast::FunctionInput` → `ast::FunctionOutput` |
+| `#[macro_attr]` | the function identifier | `#[name(…)]` | `ast::AttributeInput` → `ast::AttributeOutput` |
+| `#[macro_derive(Target)]` | `Target` | `#[derive(Target)]` | `ast::DeriveInput` → `ast::DeriveOutput` |
+
+```js
+#[macro]
+fn sql(input: ast::FunctionInput): Result<ast::FunctionOutput, ast::MacroFailure> { … }
+
+#[macro_attr]
+fn with_banner(input: ast::AttributeInput): Result<ast::AttributeOutput, ast::MacroFailure> { … }
+
+#[macro_derive(Serialize)]
+fn derive_serialize(input: ast::DeriveInput): Result<ast::DeriveOutput, ast::MacroFailure> { … }
+```
+
+**Rules:**
+
+- The macro name is the function identifier for `#[macro]` and `#[macro_attr]`, and the `Target` argument for `#[macro_derive]`. The derive implementation function's identifier is independent.
+- A macro name is fully qualified by its module: `m1::w` and `m2::w` are different macros, and a short name requires `use`.
+- `pub` on the implementation function exports the macro **and** the function value; without `pub`, both are module-private. For `#[macro]` and `#[macro_attr]` the two exports share one spelling; for `#[macro_derive]` the value keeps its identifier and the macro is named by `Target`.
+- A macro name must be a legal identifier and must not be a keyword or reserved word. It must not be a built-in attribute name (`derive`, `test`, `macro`, `macro_attr`, `macro_derive`), and a derive macro must not use a reserved derive target (`Debug`, `Display`, `ToString`).
+- Two macros with one name in one module are `E1010` — including two macros of different kinds, because the macro namespace is one namespace. For `#[macro]` and `#[macro_attr]`, a duplicate function identifier is the ordinary duplicate-declaration error at the function level.
+- The macro-name convention is **recommended**, not enforced: snake_case for attribute and function macros, UpperCamelCase for derive targets. `#[macro_attr] fn Route` defines the attribute macro `Route`, invoked as `#[Route(…)]`.
+- `#[macro]` and `#[macro_attr]` take no positional arguments. `#[macro_derive]` takes exactly one positional identifier, its target. All three accept the optional named keys `max_steps`, `max_memory`, and `max_depth`, whose values are non-negative integer literals; any other argument is `E1010`.
+- An attribute macro **replaces** the decorated declaration — its `ast::AttributeOutput.item` is required and must be a declaration of the same host kind — and may add items beside it. It cannot delete the declaration.
+- Every implementation is checked in a **definition pre-pass** before it can run. It may not depend on an item produced by another macro in the same compilation, and its body contains no user macro invocation; it uses `ast::call_*` instead. `ast::quote!` is allowed.
+- The removed `#[macro(kind = …)]` form is a malformed `#[macro]` definition (`E1010`); its note names the matching new attribute.
+
+## Invoking a macro
+
+**Derive.** `#[derive(T₁, …, Tₙ)]` on a `struct` or `enum` processes its targets left to right. `Debug` uses the built-in structural derive; `Display` and `ToString` are `E0111`; any other name resolves in the macro namespace as a derive macro. A missing name is `E1005`; a macro of another kind is `E1006`. The generated items are inserted after the declaration.
+
+**Attribute.** `#[name(…)]` on any of the eight hosts resolves `name` in the built-in registry first, then in the macro namespace as an attribute macro. A missing name is the ordinary `E0108`; a macro of another kind is `E1006`. A user attribute macro receives its positional values in `args` and its `name = value` entries in `named_args`; a bare identifier argument is that identifier's spelling, not a value lookup.
+
+**Function.** A function macro is invoked as a path followed by `!` and a parenthesized expression list:
+
+```js
+let table = sql!("SELECT * FROM users WHERE id = id")
+let formatted = m::json!(value)
+let empty = build!()
+```
+
+- The path names a macro in the macro namespace, not a value or a function. A missing macro is `E1005`; a macro of another kind is `E1006`.
+- There are no named arguments, no `$` binding arguments, and no explicit type-argument list: the macro receives its input record, not a parameter list.
+- The arguments are **not evaluated**. A literal argument becomes an `ast::Value` scalar (string, `int`, `float`, or `bool`); every other expression becomes an `ast::AstNode`.
+- Before the macro runs, every name mentioned by an argument must resolve in the pre-expansion scope. A name that resolves only after expansion — including one generated by another macro — is `E1009`.
+- The expanded expression replaces the macro call before type checking, so its type is the ordinary type of the generated expression. An expansion that is not an expression is `E1006`.
+- A macro call written inside another macro argument is expanded before the outer call, in source order.
+
+A macro name is not a value: `let f = sql` is `E0101`. The implementation function's own identifier is an ordinary value when it is `pub` and imported.
+
+**Expansion order.** Macros expand before global name resolution and type checking. Derive targets expand left to right and complete before any attribute macro on the same declaration; attribute macros expand top to bottom; function macro calls expand in expression order. Expansion repeats for generated calls, up to 100 rounds (`E1004`). Every generated node carries the span of the invocation that produced it unless a hole supplied a node with its own span.
+
+## Macros and names
+
+- Macro names form a **separate namespace**. A macro may share a spelling with a value or type in the same module; the two namespaces do not collide.
+- A module-level definition attribute is registered before any expansion, so its macro name is visible throughout the file, whatever order it appears in. There are no local macro bindings.
+- A macro name resolves only at a macro position (`#[derive(T)]`, `#[name(…)]`, `name!(…)`). In a value position it is `E0101`.
+- A plain `use` imports a macro when the path names one; `use type` restricts value/type bindings and imports no macro. A path that resolves only to a macro is a valid `use`, not `E0601`. A macro imported by `use` is used when it appears in any macro position or is re-exported:
+
+```js
+use serde::Serialize;          // the trait, plus the derive macro if exported
+use routing::route;            // the attribute macro
+use sql::query as q;           // aliases the function macro `query` to `q`
+```
+
+- **Collisions.** Two `use` bindings of one macro name are `E0104`, even if one also imports a value or type of that spelling; a `use` binding against a module-level macro definition is `E0104`; a glob overlapping an existing macro binding is `E0104`. Two definitions with one macro name in one module are `E1010`, not shadowing.
+- **Visibility.** A macro expands only if its definition is visible at the invocation site. A private macro is not exported: a `use` of it is `E0602`, and a qualified function-macro path `m::route!(…)` that reaches it is `E0602`; naming a private derive or attribute macro is `E1005` or `E0108`. A `pub use` of a macro re-exports the macro name under the ordinary re-export rule.
+- An unused macro import warns once, exactly as an unused value import does (`W0102`).
+
+## Compile-time execution
+
+A macro implementation evaluates with the ordinary semantics of XULO functions, in a sandbox:
+
+| Resource | Compile-time access |
+|----------|---------------------|
+| Filesystem, network, environment variables, processes | forbidden |
+| Concurrency (`spawn`, `Task`, `lock`) | forbidden |
+| Wall-clock time, randomness | forbidden |
+| Compile-time context (types, functions, variables, fields, spans) | allowed, read-only |
+| AST construction and `ast::quote!` | allowed |
+| `ast::compile_date()` | allowed |
+
+A macro that reaches a forbidden resource fails with `E1007`. Execution is deterministic: for a fixed implementation, input record, context observations, effective quota, and compile date, one expansion produces the same output, diagnostics, and quota usage. Macro calls are synchronous — there is no async, spawn, or concurrent macro execution.
+
+A **trap** stops the expansion and reports `E1012`: an out-of-range list index, division or remainder by zero, and an explicit `panic`. A trap does not unwind into user code. Outside compile-time execution the same function is an ordinary function: a runtime call or a `#[test]` runs it without the sandbox and without the macro quota.
+
+## Quota
+
+A macro runs with a budget that bounds execution steps, memory, and call depth so that a buggy or malicious macro fails the build instead of hanging it:
+
+```js
+struct GlobalQuota {
+  max_steps: int = 1000000;    // abstract execution steps
+  max_memory: int = 16000000;  // bytes
+  max_depth: int = 100;        // active function and macro calls
+}
+```
+
+- The global default above is finite; a package may override any field through its build configuration, and a macro definition attribute may set any of the three as a named argument:
+
+```js
+#[macro_derive(Model, max_steps = 5000000)]
+fn derive_model(input: ast::DeriveInput): Result<…> { … }
+```
+
+- The effective quota of one field is the first value present in the order **macro, package, global default**.
+- A **top-level expansion** owns the budget: one invocation site and everything it causes through `ast::call_*`. Nested macros draw from the same counters and call depth; a nested macro's own quota does not reset the parent's budget.
+- Exceeding a limit is `E1001`, whose diagnostic reports the used and limit values and the quota source.
+
+## Context and AST
+
+A macro reads the surrounding program through six read-only operations. The context is the **pre-expansion** environment: a lookup sees what was written before any macro expanded.
+
+| Source API | Result |
+|------------|--------|
+| `ast::lookup_type(name: string): ast::TypeInfo?` | the type's info, or `null` |
+| `ast::lookup_function(name: string): string?` | the function's signature in source form, or `null` |
+| `ast::lookup_variable(name: string): string?` | the variable's type in source form, or `null` |
+| `ast::fields_of(name: string): List<ast::FieldInfo>` | the fields of a struct or enum, or an empty list |
+| `ast::current_span(): ast::Span` | the macro invocation's span |
+| `ast::span_of(node: ast::AstNode): ast::Span` | the node's own span |
+
+The context operations never mutate a declaration, type, function, or module; they return copies or read-only views. A lookup that does not resolve returns `null`; the author decides whether that is an error and returns an `ast::MacroFailure` (`E1008`).
+
+Two node helpers are part of the same surface:
+
+```js
+fn ast::node(kind: string, fields: Map<string, ast::Value>): ast::AstNode
+fn ast::field(node: ast::AstNode, name: string): ast::Value?
+```
+
+A macro can invoke another macro during compile-time execution with `ast::call_derive`, `ast::call_attribute`, or `ast::call_function`. Each takes a fully qualified macro name and either the matching input record or an `ast::Value` target node, and returns the matching output record using the same macro-call protocol, budget, and call chain (`E1001`, `E1003`; a kind mismatch is `E1006`, a failed conversion `E1002`). At runtime — when the same function is called as an ordinary function — these entry points have no macro registry and trap.
+
+### `ast::quote!`
+
+`ast::quote! { … }` builds a `List<ast::AstNode>` from source. `${…}` is a hole:
+
+```js
+#[macro_derive(Serialize)]
+fn derive_serialize(
+  input: ast::DeriveInput
+): Result<ast::DeriveOutput, ast::MacroFailure> {
+  let name = input.target.name
+  return Result::Ok(ast::DeriveOutput {
+    items: ast::quote! {
+      impl Serialize for ${name} {
+        fn serialize(self): Json { Json { entries: [] } }
+      }
+    }
+  })
+}
+```
+
+A hole value is inserted by this table:
+
+| Value | Inserted as |
+|-------|-------------|
+| `string` | the string's characters, lexed as source — usually a name or a type |
+| `int`, `float` | a numeric literal |
+| `bool` | `true` or `false` |
+| `ast::AstNode` | the node's own tokens |
+| `List<ast::AstNode>` | the concatenation of the nodes' tokens |
+
+A hole whose value cannot be inserted in its position, or whose substituted text does not parse, is `E1011`. `ast::quote!` is the only brace-delimited macro form; a user function macro is called with parentheses only.
+
+### Values and records
+
+The public value model is `ast::Value`:
+
+```js
+enum ast::Value {
+  Unit, Bool(bool), Int(int), Float(float), String(string),
+  List(List<ast::Value>), Map(Map<string, ast::Value>),
+  AstNode(ast::AstNode),
+}
+```
+
+An `ast::AstNode` is opaque beyond `kind` and `span`; its structure is read through `ast::field`/`ast::fields_of` and written through `ast::quote!` or `ast::node`. `ast::Span` and `ast::MacroFailure` are ordinary built-in records. The input and output records are:
+
+- `ast::DeriveInput { target: ast::TypeInfo }` → `ast::DeriveOutput { items }`
+- `ast::AttributeInput { args, named_args, target: ast::DeclarationInfo }` → `ast::AttributeOutput { item, extras }`
+- `ast::FunctionInput { args, target: ast::ExpressionInfo }` → `ast::FunctionOutput { expr }`
+
+`ast::AttributeOutput.item` is required: an attribute macro replaces or returns the decorated declaration and never deletes it.
+
+## Errors
+
+| Code | Trigger |
+|------|---------|
+| `E1001` | a macro exceeds its step, memory, or call-depth quota |
+| `E1002` | an `ast::Value` input to an `ast::call_*` entry point cannot be converted |
+| `E1003` | the compile-time call chain already includes the macro |
+| `E1004` | expansion exceeds 100 rounds |
+| `E1005` | a derive target, function macro name, or `ast::call_*` name resolves to no macro |
+| `E1006` | wrong macro kind, or an input/output shape that does not match the declaration |
+| `E1007` | a macro uses a resource the sandbox forbids |
+| `E1008` | the macro returns `Result::Err(ast::MacroFailure { … })` |
+| `E1009` | a name in a function macro argument is not in the pre-expansion scope |
+| `E1010` | a malformed, duplicated, or otherwise invalid macro definition |
+| `E1011` | a quote body does not parse after substitution, or a hole cannot be inserted |
+| `E1012` | macro execution traps: index out of range, division by zero, or `panic` |
+
+## Example
+
+```js
+trait Serialize {
+  fn serialize(self): Json
+}
+
+#[macro_derive(Serialize)]
+pub fn derive_serialize(
+  input: ast::DeriveInput
+): Result<ast::DeriveOutput, ast::MacroFailure> {
+  let name = input.target.name
+  return Result::Ok(ast::DeriveOutput {
+    items: ast::quote! {
+      impl Serialize for ${name} {
+        fn serialize(self): Json { Json { entries: [] } }
+      }
+    }
+  })
+}
+
+#[derive(Serialize)]
+struct User { name: string, age: int }
+```
+
+`#[derive(Serialize)]` invokes the derive macro `Serialize`, whose expansion is the written `impl Serialize for User`; it is then checked and dispatched exactly like a hand-written impl.
+
+## Further reading
+
+The definitions are specified in the [traits spec](/en/docs/spec/types/traits/), invocation in the [calls spec](/en/docs/spec/expressions/calls/), and execution, context, sandbox, quota, errors, and caching in the [built-ins spec](/en/docs/spec/builtins/execution/). Testing a macro is covered under [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/).

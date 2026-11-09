@@ -246,23 +246,32 @@ Every `Display` impl also provides the derived action `value.to_string()` — `d
 
 ## Attributes
 
-`#` is the declaration-attribute marker. The form is `#Name`, or `#Name(Arg, …)` where the arguments are identifiers only; the attribute list is written outermost, before `pub` and `async`. An attribute on its own line, directly above the declaration, is **RECOMMENDED**; a shared line — `#Derive(Debug) struct User { … }` — is equally well-formed.
+An attribute is written `#[name]` or `#[name(args)]` directly before a declaration, outermost — before `pub` and `async`. An attribute on its own line, directly above the declaration, is **RECOMMENDED**; a shared line — `#[derive(Debug)] struct User { … }` — is equally well-formed.
 
-- The registry is **closed**, and every attribute written in source is interpreted by the checker: there are no inert attributes and no macros. An unregistered name is `E0108` (`` attribute `Inline` is not defined ``).
-- Attributes go on exactly five item forms — `fn`, `struct`, `enum`, `trait`, and `impl` — plus the test form `#Test` (see [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/)), and on nothing else: not on `type` aliases, `let`, `const`, trait method signatures, or components.
-- A registered attribute is valid only on the declarations its registry entry allows (`E0109`), and its arguments must fit the shape that entry states (`E0110`).
+- Arguments are values — an identifier, a string, an integer, a float, or a boolean — optionally written `name = value`. A bare identifier in a built-in attribute is a name (`#[derive(Debug)]`); in a user attribute macro it is the identifier's spelling, not a value lookup.
+- The **built-in registry** is `derive`, `test`, `macro`, `macro_attr`, and `macro_derive`; any other name resolves to an attribute macro in scope. An unknown name is `E0108` (`` attribute `inline` is not defined ``).
+- Attribute names occupy their own namespace and bind nothing: `#[derive]` takes no name away from values, types, or modules, and a macro name may equal a value or type name in the same module.
+- A built-in attribute is valid only on the hosts its rule allows (`E0109`), and its arguments must fit the shape that rule states (`E0110`). A **user attribute macro** is instead invocation-valid on all eight hosts — `fn`, `struct`, `enum`, `trait`, `impl`, `type`, `let`, and `const`; a host it does not support is an author-returned `E1008`, and an output item of another host kind is `E1006`.
+- There are no inert attributes: every attribute written in source is interpreted by a built-in rule or by a macro.
 
-Exactly two attributes are registered.
+| Attribute | `fn` | `struct` | `enum` | `trait` | `impl` | `type` | `let` | `const` |
+|-----------|------|----------|--------|---------|--------|--------|-------|---------|
+| `#[derive]` | — | yes | yes | — | — | — | — | — |
+| `#[test]` | yes | — | — | — | — | — | — | — |
+| `#[macro]`, `#[macro_attr]`, `#[macro_derive]` | yes | — | — | — | — | — | — | — |
+| user attribute macro | yes | yes | yes | yes | yes | yes | yes | yes |
 
-### `#Derive`
+`#[derive]` and `#[test]` are invocation attributes. `#[macro]`, `#[macro_attr]`, and `#[macro_derive]` are definition attributes, written on a module-level `fn` (see [Macros](/en/docs/reference/basics/macros/)).
 
-`#Derive(Debug)`, on a `struct` or an `enum` only, generates the structural `impl Debug`: a struct renders as `S(f1: …, f2: …)` — the fields in declaration order, a fieldless struct as `S()` — and an enum variant as `E::V` or `E::V(p, …)`, with payload slots positional even when the variant names them. The generated `debug` takes the `Format` parameter like every `Debug` method and forwards it to the `debug` calls it makes on user-declared fields; the structural form itself is fixed.
+### `#[derive]`
+
+`#[derive(Debug)]`, on a `struct` or an `enum` only, generates the structural `impl Debug`: a struct renders as `S(f1: …, f2: …)` — the fields in declaration order, a fieldless struct as `S()` — and an enum variant as `E::V` or `E::V(p, …)`, with payload slots positional even when the variant names them. The generated `debug` takes the `Format` parameter like every `Debug` method and forwards it to the `debug` calls it makes on user-declared fields; the structural form itself is fixed.
 
 ```js
-#Derive(Debug)
+#[derive(Debug)]
 struct User { name: string, age: int }
 
-#Derive(Debug)
+#[derive(Debug)]
 enum Shape { Circle(float), Rect(float, float) }
 
 let s = User(name: "Alice", age: 30)
@@ -271,13 +280,14 @@ print(Shape::Circle(2.5))         // Shape::Circle(2.5)
 ```
 
 - A field or payload is rendered by its type: a `struct` renders through its `debug` — without a `Debug` impl the derive fails at that type with `E0801` (`` `User` does not implement `Debug` ``), a struct never renders directly; an `enum` renders through its `debug` when it implements one and otherwise by the output table's enum row; any other type renders directly by the output table's rules. A value typed `unknown` in a field or any structural position is `E0212`. The rules recurse through structural positions — a container's elements, an optional's `T`, a tuple's elements, a `Result`'s slots, an enum's payloads — so `List<User>`, `User?`, `(User, int)`, and `Result<User, string>` each need `User`'s `Debug`.
-- The expansion is an ordinary impl: a hand-written `impl Debug` for the same type, or a second `#Derive(Debug)`, is the conflicting-impl error `E0805`.
-- `#Derive` on a type that declares generic parameters is `E0112` — no bound means "is not a struct, or implements `Debug`", so the expansion cannot be written for an open parameter; a generic type keeps its hand-written impl.
-- Derive targets are a closed registry: the only registered target is `Debug`; `Display` and `ToString` are reserved, unregistered names — written as targets they are `E0111`. `Display` is never a derive target: the user-visible string form is an author's decision.
+- The expansion is an ordinary impl: a hand-written `impl Debug` for the same type, or a second `#[derive(Debug)]`, is the conflicting-impl error `E0805`.
+- `#[derive(Debug)]` on a type that declares generic parameters is `E0112` — no bound means "is not a struct, or implements `Debug`", so the expansion cannot be written for an open parameter; a generic type keeps its hand-written impl. A user derive macro is not subject to this restriction.
+- The derive-target registry is the built-in target `Debug` plus every user derive macro in scope. `Display` and `ToString` are reserved and unregistered — written as targets they are `E0111` — and a name that is neither built in nor a derive macro in scope is `E1005`. `Display` is never a derive target: the user-visible string form is an author's decision.
+- A `#[derive(Serialize)]` invokes the user derive macro `Serialize`, which receives an `ast::DeriveInput` and returns `ast::DeriveOutput`; its items are inserted after the declaration and checked as ordinary items.
 
-### `#Test`
+### `#[test]`
 
-`#Test` marks a function as a test — `#Test [( "…" )] [async] fn name() { … }`, no other attributes and no other shape. Its form, checking, and pass/fail criterion are on the [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/) page.
+`#[test]` marks a function as a test — `#[test] [async] fn name() { … }`, with no arguments and no other shape. Its form, checking, pass/fail criterion, and the layers of macro testing are on the [Testing & Debugging](/en/docs/reference/ecosystem/testing-and-debugging/) page.
 
 ## Example
 
