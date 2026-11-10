@@ -1,16 +1,67 @@
 ---
 title: Comparisons
-description: Compare XULO with other technologies.
+description: Compare XULO with TypeScript, Rust, and JSX.
 ---
 
-## XULO vs JSX
+XULO is a full, statically typed programming language. One `.xulo` file carries types, functions, error handling, concurrency, and UI components; the UI is a layer of the language, not a separate template syntax.
+
+## XULO at a glance
+
+```js
+struct User {
+    name: string
+    age: int
+}
+
+fn parseUser(input: string): Result<User, Error> {
+    let v = std::json::parse(input)?
+    Result::Ok(User(name: v.name, age: v.age))
+}
+
+fn Profile(user: User): View {
+    Card {
+        Text(user.name)
+        Text(str(user.age))
+    }
+}
+```
+
+`parseUser` is ordinary typed logic with explicit failure values. `Profile` is a component because it returns `View`; its body uses the same language, not a template layer.
+
+## XULO vs TypeScript
+
+| Aspect | XULO | TypeScript |
+|--------|------|------------|
+| Scope | One language for logic and UI | JavaScript with types; UI through JSX and a framework |
+| Type checking | Static, checked before execution | Static, erased at runtime |
+| Error handling | Failures are `Result` values; no exceptions | Exceptions and rejected promises |
+| Memory | Ownership and borrowing with automatic reclamation | Garbage collected |
+| Concurrency | Structured tasks with scoped cancellation | Promises and the event loop |
+| UI | Components are typed functions that return `View` | JSX compiled by a framework or toolchain |
+
+## XULO vs Rust
+
+| Aspect | XULO | Rust |
+|--------|------|------|
+| Focus | UI-first application language | Systems programming |
+| Ownership | Explicit move and copy, borrowing, no lifetime annotations | Ownership and borrowing with lifetime annotations |
+| Error handling | `Result` values with `?` propagation | `Result` values with `?` propagation |
+| Memory | Automatic reclamation | RAII and `Drop` |
+| Concurrency | Structured tasks with scoped cancellation | Threads plus async runtimes |
+| UI | Components are part of the language | No built-in UI; external crates |
+| Macros | Procedural macros that run as sandboxed functions | Declarative and procedural macros |
+
+## UI layer: XULO vs JSX
+
+JSX is a syntax extension for describing UI inside JavaScript. XULO is a language in which UI is one layer among types, functions, errors, and concurrency; its component syntax uses blocks instead of tags.
 
 | Aspect | XULO | JSX |
 |--------|------|-----|
-| Syntax | `{ }` blocks, no closing tags | `<Tag />`, closing tags required |
-| Token Count | ~40% fewer | More verbose |
-| Readability | Clean, intent-focused | Implementation-focused |
-| AI-Friendly | Yes | Moderate |
+| Scope | Full language | UI syntax extension |
+| Structure | Block-based components, no closing tags | Tags and closing tags required |
+| Type checking | Checked by the language | Depends on TypeScript and tooling |
+| Logic and UI | Same syntax | JavaScript or TypeScript plus JSX |
+| Error handling | `Result` values | Exceptions and rejected promises |
 
 ### Example
 
@@ -38,52 +89,4 @@ Card {
     <Button variant="primary">Click me</Button>
   </CardBody>
 </Card>
-```
-
-## XULO vs JSON
-
-| Aspect | XULO | JSON |
-|--------|------|------|
-| Readability | High, lots of noise | Low, lots of brackets |
-| Token Count | ~60% fewer | Verbose |
-| Purpose | UI layout description | Data interchange |
-
-### Example
-
-**XULO:**
-```js
-Screen(title: "Login") {
-  VStack(spacing: 4) {
-    Field(label: "Email") {
-      Input(placeholder: "you@example.com")
-    }
-    Button("Sign in", variant: "primary")
-  }
-}
-```
-
-**JSON:**
-```json
-{
-  "type": "Screen",
-  "props": { "title": "Login" },
-  "children": [{
-    "type": "VStack",
-    "props": { "spacing": 4 },
-    "children": [
-      {
-        "type": "Field",
-        "props": { "label": "Email" },
-        "children": [{
-          "type": "Input",
-          "props": { "placeholder": "you@example.com" }
-        }]
-      },
-      {
-        "type": "Button",
-        "props": { "text": "Sign in", "variant": "primary" }
-      }
-    ]
-  }]
-}
 ```

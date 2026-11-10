@@ -1,16 +1,67 @@
 ---
 title: 对比
-description: 将 XULO 与其他技术进行比较。
+description: 将 XULO 与 TypeScript、Rust 和 JSX 进行比较。
 ---
 
-## XULO vs JSX
+XULO 是一门完整的静态类型编程语言。一个 `.xulo` 文件同时包含类型、函数、错误处理、并发和 UI 组件；UI 是语言的一层，而不是单独的模板语法。
+
+## XULO 一览
+
+```js
+struct User {
+    name: string
+    age: int
+}
+
+fn parseUser(input: string): Result<User, Error> {
+    let v = std::json::parse(input)?
+    Result::Ok(User(name: v.name, age: v.age))
+}
+
+fn Profile(user: User): View {
+    Card {
+        Text(user.name)
+        Text(str(user.age))
+    }
+}
+```
+
+`parseUser` 是普通的类型化逻辑，失败以显式值返回。`Profile` 因为返回 `View` 而成为组件；它的函数体使用同一套语言，而不是模板层。
+
+## XULO vs TypeScript
+
+| 方面 | XULO | TypeScript |
+|------|------|------------|
+| 范围 | 同一门语言承载逻辑和 UI | JavaScript 加类型；UI 依赖 JSX 和框架 |
+| 类型检查 | 静态检查，运行前完成 | 静态检查，运行时擦除 |
+| 错误处理 | 失败是 `Result` 值；没有异常 | 异常和 rejected promise |
+| 内存 | 所有权与借用，加自动回收 | 垃圾回收 |
+| 并发 | 结构化任务，作用域内取消 | Promise 和事件循环 |
+| UI | 组件是返回 `View` 的类型化函数 | JSX 由框架或工具链编译 |
+
+## XULO vs Rust
+
+| 方面 | XULO | Rust |
+|------|------|------|
+| 定位 | UI 优先的应用语言 | 系统编程 |
+| 所有权 | 显式 move 和 copy、借用，无生命周期标注 | 所有权与借用，需要生命周期标注 |
+| 错误处理 | `Result` 值，用 `?` 传播 | `Result` 值，用 `?` 传播 |
+| 内存 | 自动回收 | RAII 和 `Drop` |
+| 并发 | 结构化任务，作用域内取消 | 线程加异步运行时 |
+| UI | 组件是语言的一部分 | 无内置 UI；依赖外部 crate |
+| 宏 | 以沙箱函数运行的 procedural macro | 声明式宏和 procedural macro |
+
+## UI 层：XULO vs JSX
+
+JSX 是在 JavaScript 里描述 UI 的语法扩展。XULO 则是一门语言，UI 只是类型、函数、错误和并发之外的一层；组件语法使用代码块，而不是标签。
 
 | 方面 | XULO | JSX |
 |------|------|-----|
-| 语法 | `{ }` 块，无闭合标签 | `<Tag />`，需要闭合标签 |
-| 令牌数 | 减少约 40% | 更冗长 |
-| 可读性 | 简洁，聚焦意图 | 聚焦实现 |
-| AI 友好 | 是 | 一般 |
+| 范围 | 完整语言 | UI 语法扩展 |
+| 结构 | 块状组件，无闭合标签 | 需要标签和闭合标签 |
+| 类型检查 | 由语言检查 | 取决于 TypeScript 和工具链 |
+| 逻辑与 UI | 同一套语法 | JavaScript 或 TypeScript 加 JSX |
+| 错误处理 | `Result` 值 | 异常和 rejected promise |
 
 ### 示例
 
@@ -38,52 +89,4 @@ Card {
     <Button variant="primary">点击我</Button>
   </CardBody>
 </Card>
-```
-
-## XULO vs JSON
-
-| 方面 | XULO | JSON |
-|------|------|------|
-| 可读性 | 高，噪音少 | 低，括号多 |
-| 令牌数 | 减少约 60% | 冗长 |
-| 用途 | UI 布局描述 | 数据交换 |
-
-### 示例
-
-**XULO:**
-```js
-Screen(title: "登录") {
-  VStack(spacing: 4) {
-    Field(label: "邮箱") {
-      Input(placeholder: "you@example.com")
-    }
-    Button("登录", variant: "primary")
-  }
-}
-```
-
-**JSON:**
-```json
-{
-  "type": "Screen",
-  "props": { "title": "登录" },
-  "children": [{
-    "type": "VStack",
-    "props": { "spacing": 4 },
-    "children": [
-      {
-        "type": "Field",
-        "props": { "label": "邮箱" },
-        "children": [{
-          "type": "Input",
-          "props": { "placeholder": "you@example.com" }
-        }]
-      },
-      {
-        "type": "Button",
-        "props": { "text": "登录", "variant": "primary" }
-      }
-    ]
-  }]
-}
 ```
