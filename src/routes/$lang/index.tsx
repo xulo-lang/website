@@ -2,7 +2,16 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
 import { XuloCodeBlock } from '@/components/xulo-code-block';
-import { Sparkles, Layout, ShieldCheck, Zap, ArrowRight, ChevronRight } from 'lucide-react';
+import {
+  Sparkles,
+  Layout,
+  ShieldCheck,
+  ArrowRight,
+  ChevronRight,
+  BookOpen,
+  Workflow,
+  Feather,
+} from 'lucide-react';
 import { useState } from 'react';
 
 export const Route = createFileRoute('/$lang/')({
@@ -13,8 +22,8 @@ const FEATURES_ZH = [
   {
     id: 'struct-impl',
     title: 'struct + impl',
-    badge: 'OOP & 封装',
-    desc: '支持数据结构与方法实现，显式 pub 可见性控制，消除过度隐式继承。',
+    badge: '结构与方法',
+    desc: '数据结构与方法实现分离，显式 pub 可见性控制；没有隐式继承。',
     fileName: 'user.xulo',
     code: `pub struct User {
     pub name: string
@@ -58,16 +67,24 @@ pub fn check_access(role: Role): bool {
     id: 'json-async',
     title: 'JSON & async/await',
     badge: 'Result & Task',
-    desc: 'JSON 来自 std 的 json 包并返回 Result。async fn 产生 Task<T>，await 解包，失败用 ? 向上传播。',
+    desc: 'JSON 来自标准库 std::json 模块并返回 Result。async fn 的值是 Task<T>，用 await 解包，失败用 ? 向上传播。',
     fileName: 'api.xulo',
-    code: `use json as JSON;
-use net::fetch;
+    code: `use std::json as JSON;
+use std::http::fetch;
 
-pub async fn fetch_profile(id: string): Result<User, JSONError> {
-    let resp = await fetch("/api/users/" + id)
-    // 解析失败会经由 ? 提前返回整个 Result::Err
-    let user = JSON::parse(resp.body)?
-    Result::Ok(user)
+async fn fetch_profile(id: string): Result<User, Error> {
+    // std::http::fetch 是同步 HTTP 调用，返回 Result<Response, Error>
+    let resp = fetch("/api/users/" + id)?
+    let v = JSON::parse(resp.body)?
+    Result::Ok(User(name: v.name, age: v.age))
+}
+
+async fn main() {
+    // fetch_profile 的值是 Task<Result<User, Error>>
+    match await fetch_profile("42") {
+        Result::Ok(user) => print(user.name)
+        Result::Err(e) => print(e.message)
+    }
 }`,
   },
   {
@@ -95,8 +112,8 @@ const FEATURES_EN = [
   {
     id: 'struct-impl',
     title: 'struct + impl',
-    badge: 'OOP & Encapsulation',
-    desc: 'Data structures with method implementations, explicit pub visibility, and no implicit inheritance.',
+    badge: 'Structs & Methods',
+    desc: 'Data structures and method implementations kept separate, with explicit pub visibility and no implicit inheritance.',
     fileName: 'user.xulo',
     code: `pub struct User {
     pub name: string
@@ -140,16 +157,24 @@ pub fn check_access(role: Role): bool {
     id: 'json-async',
     title: 'JSON & async/await',
     badge: 'Result & Task',
-    desc: 'JSON comes from the std json package and returns a Result. async fn produces a Task<T> you await — failures travel up with ?.',
+    desc: 'JSON is the std::json module and returns a Result. An async fn is a Task<T> you await — failures travel up with ?.',
     fileName: 'api.xulo',
-    code: `use json as JSON;
-use net::fetch;
+    code: `use std::json as JSON;
+use std::http::fetch;
 
-pub async fn fetch_profile(id: string): Result<User, JSONError> {
-    let resp = await fetch("/api/users/" + id)
-    // A parse failure early-returns the whole Result::Err via ?
-    let user = JSON::parse(resp.body)?
-    Result::Ok(user)
+async fn fetch_profile(id: string): Result<User, Error> {
+    // std::http::fetch is synchronous and returns Result<Response, Error>
+    let resp = fetch("/api/users/" + id)?
+    let v = JSON::parse(resp.body)?
+    Result::Ok(User(name: v.name, age: v.age))
+}
+
+async fn main() {
+    // fetch_profile is a Task<Result<User, Error>>
+    match await fetch_profile("42") {
+        Result::Ok(user) => print(user.name)
+        Result::Err(e) => print(e.message)
+    }
 }`,
   },
   {
@@ -178,49 +203,81 @@ function Home() {
   const isZh = lang === 'zh';
   const [activeTab, setActiveTab] = useState(0);
 
-  const features = isZh
+  const whyCards = isZh
     ? [
         {
           icon: Layout,
-          title: '声明式 UI',
-          description: '用简洁的组件语法描述 UI 结构和意图——无闭合标签，无尖括号。',
+          title: 'UI 即语言',
+          description:
+            '界面和逻辑使用同一套语言。组件就是普通函数，结构、类型和状态都由语言本身检查，没有模板层，也没有标签语法。',
         },
         {
-          icon: Zap,
-          title: '简洁语法',
-          description: 'use 声明式导入，:: 走声明路径（包、模块、变体、命名空间），. 只访问值成员——零歧义语法设计，零摩擦。',
+          icon: BookOpen,
+          title: '可读性',
+          description:
+            '声明和取值规则清晰，条件必须明确，没有隐式查找或字符串导入——读代码时不需要猜。',
         },
         {
           icon: ShieldCheck,
-          title: '类型安全与 Result 错误模型',
-          description: '静态类型、类型推断、pub 可见性；失败以 Result 承载，用 match 检查或用 ? 传播。',
+          title: '错误即值',
+          description:
+            '失败是普通值，不用异常控制流。错误可以显式检查或继续传递，读代码时能看清失败会去哪里。',
         },
         {
           icon: Sparkles,
-          title: 'AI 友好核心',
-          description: '足够结构化和可预测，让 LLM 无瑕疵生成；足够直觉，让人喜爱。',
+          title: '零语法歧义',
+          description:
+            '语法规则严格且可预测，减少模型生成代码时的猜测空间，让 AI 编码代理更稳定。',
+        },
+        {
+          icon: Workflow,
+          title: '结构化并发',
+          description:
+            '并发任务归当前代码块管理。块退出前会等待或取消子任务，清理按顺序执行，不会留下失控的后台工作。',
+        },
+        {
+          icon: Feather,
+          title: '低认知负担',
+          description:
+            '不用手写生命周期标注，宏也只是普通函数。所有权和借用由编译器检查，学习负担更小。',
         },
       ]
     : [
         {
           icon: Layout,
-          title: 'Declarative UI',
-          description: 'Describe UI structure and intent with a clean component syntax — no closing tags, no angle brackets.',
+          title: 'UI as a Language Feature',
+          description:
+            'Interface and logic share one language. Components are ordinary functions, and structure, types, and state are checked by the language itself — no template layer and no tag syntax.',
         },
         {
-          icon: Zap,
-          title: 'Clean Syntax',
-          description: '`use` declarations instead of string imports — `::` walks declaration paths (packages, modules, variants, namespaces), `.` reaches into values — and zero-ambiguity syntax designed for zero friction.',
+          icon: BookOpen,
+          title: 'Readability',
+          description:
+            'Declarations and value access follow clear rules, conditions must be explicit, and there are no hidden lookups or string imports — no guessing while reading code.',
         },
         {
           icon: ShieldCheck,
-          title: 'Type-Safe & Result Errors',
-          description: 'Static typing with type inference, `pub` visibility, and failures carried as `Result` values propagated with `?`.',
+          title: 'Errors as Values',
+          description:
+            'Failures are ordinary values instead of exception control flow. Errors can be checked or passed along explicitly, so you can see where failure goes.',
         },
         {
           icon: Sparkles,
-          title: 'AI-Friendly Core',
-          description: 'Structured and predictable enough for LLMs to generate flawlessly; intuitive enough for humans to love.',
+          title: 'Zero Syntactic Ambiguity',
+          description:
+            'Strict, predictable syntax leaves less room for guesswork when models generate code, making AI coding agents more reliable.',
+        },
+        {
+          icon: Workflow,
+          title: 'Structured Concurrency',
+          description:
+            'Concurrent tasks belong to the block that starts them. Before a block exits it waits for or cancels its children and runs cleanup in order, so no work is left running loose.',
+        },
+        {
+          icon: Feather,
+          title: 'Low Cognitive Load',
+          description:
+            'No lifetime annotations to write, and macros are just ordinary functions. Ownership and borrowing are compiler-checked, so there is less to learn.',
         },
       ];
 
@@ -236,7 +293,7 @@ function Home() {
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-gray-300 mb-8 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span>XULO v0.1.0 Alpha is Live</span>
+            <span>{isZh ? 'XULO v0.1.0 规范草案' : 'XULO v0.1.0 Spec Draft'}</span>
             <span className="text-white/30">|</span>
             <span className="text-purple-300">{isZh ? '为人类与 AI 设计' : 'Designed for Humans & AIs'}</span>
           </div>
@@ -272,11 +329,20 @@ function Home() {
           </div>
         </section>
 
-        {/* Features Grid */}
-        <section className="max-w-6xl mx-auto py-12 px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {features.map((feature, idx) => {
-              const Icon = feature.icon;
+        {/* Why XULO */}
+        <section className="max-w-6xl mx-auto py-16 px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-fd-foreground mb-3">
+              {isZh ? '为什么选择 XULO？' : 'Why XULO?'}
+            </h2>
+            <p className="text-fd-muted-foreground text-sm">
+              {isZh ? '连接高层级 DX 与底层级执行。' : 'Bridging high-level DX with low-level execution.'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {whyCards.map((card, idx) => {
+              const Icon = card.icon;
               return (
                 <div
                   key={idx}
@@ -285,8 +351,8 @@ function Home() {
                   <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:border-purple-400/50 transition-all">
                     <Icon className="w-5 h-5 text-gray-300 group-hover:text-purple-400 transition-colors" />
                   </div>
-                  <h3 className="text-lg font-bold text-fd-foreground mb-2">{feature.title}</h3>
-                  <p className="text-sm text-fd-muted-foreground leading-relaxed">{feature.description}</p>
+                  <h3 className="text-lg font-bold text-fd-foreground mb-2">{card.title}</h3>
+                  <p className="text-sm text-fd-muted-foreground leading-relaxed">{card.description}</p>
                 </div>
               );
             })}
@@ -299,10 +365,6 @@ function Home() {
             {/* Left: Tab Buttons */}
             <div className="lg:col-span-5 flex flex-col justify-center gap-6 lg:sticky lg:top-24">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 mb-3">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Interactive Spec Showcase</span>
-                </div>
                 <h2 className="text-3xl font-extrabold text-fd-foreground mb-2 tracking-tight">
                   {isZh ? '语言特性' : 'Language Features'}
                 </h2>
@@ -313,12 +375,22 @@ function Home() {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div
+                className="flex flex-col gap-3"
+                role="tablist"
+                aria-orientation="vertical"
+                aria-label={isZh ? '语言特性' : 'Language features'}
+              >
                 {showcaseFeatures.map((feature, idx) => {
                   const isActive = activeTab === idx;
                   return (
                     <button
                       key={feature.id}
+                      type="button"
+                      role="tab"
+                      id={`feature-tab-${feature.id}`}
+                      aria-selected={isActive}
+                      aria-controls={`feature-panel-${feature.id}`}
                       onClick={() => setActiveTab(idx)}
                       className={`text-left p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
                         isActive
@@ -355,7 +427,7 @@ function Home() {
 
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'reference/getting-started/overview' }}
+                params={{ lang, _splat: 'spec' }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-fd-foreground text-sm font-medium hover:bg-white/20 transition-all w-fit"
               >
                 {isZh ? '阅读完整规范' : 'Read Full Specification'}
@@ -364,7 +436,12 @@ function Home() {
             </div>
 
             {/* Right: Dynamic IDE Code Block with Fumadocs DynamicCodeBlock */}
-            <div className="lg:col-span-7 flex flex-col rounded-2xl bg-[#0B0B0D] border border-white/10 shadow-2xl overflow-hidden transition-all duration-300">
+            <div
+              className="lg:col-span-7 flex flex-col rounded-2xl bg-[#0B0B0D] border border-white/10 shadow-2xl overflow-hidden transition-all duration-300"
+              role="tabpanel"
+              id={`feature-panel-${currentFeature.id}`}
+              aria-labelledby={`feature-tab-${currentFeature.id}`}
+            >
               {/* IDE Header */}
               <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-b border-white/10">
                 <div className="flex items-center gap-2">
@@ -387,61 +464,9 @@ function Home() {
 
               {/* IDE Footer */}
               <div className="px-6 py-2.5 bg-white/[0.02] border-t border-white/5 text-[11px] text-gray-500 font-mono flex items-center justify-between">
-                <span>Language: XULO v0.1</span>
+                <span>{isZh ? '语言：XULO v0.1.0' : 'Language: XULO v0.1.0'}</span>
                 <span>{isZh ? '静态类型 • 规范驱动' : 'Statically Typed • Spec-Driven'}</span>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Why XULO */}
-        <section className="max-w-6xl mx-auto py-16 px-6 border-t border-white/10">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-extrabold text-fd-foreground mb-3">
-              {isZh ? '为什么选择 XULO？' : 'Why XULO?'}
-            </h2>
-            <p className="text-fd-muted-foreground text-sm">
-              {isZh ? '连接高层级 DX 与底层级执行。' : 'Bridging high-level DX with low-level execution.'}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
-              <div className="text-purple-400 font-mono text-sm mb-2">VS TypeScript</div>
-              <h3 className="text-lg font-bold text-fd-foreground mb-3">
-                {isZh ? '安全默认值' : 'Safe Defaults'}
-              </h3>
-              <p className="text-xs text-fd-muted-foreground leading-relaxed">
-                {isZh
-                  ? '`let` 默认不可变、`match` 必须穷尽、无隐式类型转换——危险的选择都需要显式声明。'
-                  : '`let` bindings are immutable by default, every `match` must be exhaustive, and nothing is coerced silently — the risky choices are the ones you opt into.'}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
-              <div className="text-pink-400 font-mono text-sm mb-2">VS Rust</div>
-              <h3 className="text-lg font-bold text-fd-foreground mb-3">
-                {isZh ? '低认知负担' : 'Low Cognitive Load'}
-              </h3>
-              <p className="text-xs text-fd-muted-foreground leading-relaxed">
-                {isZh
-                  ? '无需学习生命周期标注或宏。错误是普通的 Result 值，访问规则简单：`::` 走声明，`.` 取值。'
-                  : 'No lifetime annotations and no macros to learn. Errors are ordinary `Result` values, with a simple access split: `::` for declarations, `.` for values.'}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
-              <div className="text-cyan-400 font-mono text-sm mb-2">
-                {isZh ? '为 AI 工作流' : 'For AI Workflows'}
-              </div>
-              <h3 className="text-lg font-bold text-fd-foreground mb-3">
-                {isZh ? '零语法歧义' : 'Zero Syntactic Ambiguity'}
-              </h3>
-              <p className="text-xs text-fd-muted-foreground leading-relaxed">
-                {isZh
-                  ? '严格的语法规则最小化 LLM 代码生成时的幻觉率，使 XULO 成为 AI 编码代理的首选。'
-                  : 'Strict syntax rules minimize hallucination rates during LLM code generation, making XULO the premier choice for AI coding agents.'}
-              </p>
             </div>
           </div>
         </section>
@@ -450,11 +475,6 @@ function Home() {
         <section className="max-w-5xl mx-auto my-20 px-6">
           <div className="relative flex flex-col items-center justify-center p-12 md:p-16 rounded-3xl bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/10 text-center overflow-hidden">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-cyan-500/20 blur-2xl pointer-events-none" />
-
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-purple-300 mb-6">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{isZh ? '准备好迎接下一代了吗？' : 'Ready for the next generation?'}</span>
-            </div>
 
             <h2 className="text-3xl md:text-5xl font-extrabold text-fd-foreground tracking-tight mb-4">
               {isZh ? '立即用 XULO 构建。' : 'Build faster with XULO today.'}
@@ -477,7 +497,7 @@ function Home() {
               </Link>
               <Link
                 to="/$lang/docs/$"
-                params={{ lang, _splat: 'reference/getting-started/overview' }}
+                params={{ lang, _splat: 'spec' }}
                 className="px-8 py-3.5 rounded-xl bg-white/5 border border-white/10 text-fd-foreground font-medium hover:bg-white/10 transition-all"
               >
                 {isZh ? '阅读语言规范' : 'Read Language Spec'}
